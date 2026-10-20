@@ -1,0 +1,7 @@
+// Shared id checks. Every route param or action argument that names a row is a uuid;
+// checking first turns a garbage id into a clean "not found" instead of a Postgres 22P02.
+export const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export function isUuid(s: unknown): s is string {
+  return typeof s === "string" && UUID_RE.test(s);
+}
