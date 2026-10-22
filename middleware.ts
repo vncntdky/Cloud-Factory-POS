@@ -46,6 +46,13 @@ export async function middleware(request: NextRequest) {
   const onLogin = path.startsWith("/login") || path.startsWith("/signup");
   // The email-confirmation link arrives signed out and signs the new account in.
   const publicRoute = onLogin || path.startsWith("/auth/confirm");
+  // When the link isn't on Supabase's Redirect URLs list, it lands on the Site URL as /?code=…
+  // instead of /auth/confirm. Send it on, so the sign-in still completes.
+  if (!user && !publicRoute && request.nextUrl.searchParams.has("code")) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/auth/confirm";
+    return NextResponse.redirect(url);
+  }
   if (!user && !publicRoute) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
