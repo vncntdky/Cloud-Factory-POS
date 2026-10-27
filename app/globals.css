@@ -2292,8 +2292,13 @@ a.attention-row:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 .cart-line__name { font-weight: 600; overflow-wrap: anywhere; }
 .cart-line .qty { grid-area: qty; justify-self: start; }
 .cart-line__total { grid-area: total; align-self: start; font-weight: 700; font-variant-numeric: tabular-nums; }
+/* With product photos: a thumbnail down the left of each line. */
+.cart-line--photo { grid-template-columns: 48px minmax(0, 1fr) auto; grid-template-areas: "thumb main total" "thumb qty qty"; }
+.cart-line__thumb { grid-area: thumb; align-self: start; width: 48px; height: 48px; }
 @media (min-width: 480px) {
   .sheet .cart-line { grid-template-columns: minmax(0, 1fr) auto 88px; grid-template-areas: "main qty total"; }
+  .sheet .cart-line--photo { grid-template-columns: 48px minmax(0, 1fr) auto 88px; grid-template-areas: "thumb main qty total"; }
+  .sheet .cart-line--photo .cart-line__thumb { align-self: center; }
   .sheet .cart-line__total { align-self: center; text-align: right; }
 }
 

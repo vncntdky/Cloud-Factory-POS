@@ -6,7 +6,7 @@ Register and per-piece inventory for the vape shop. Same stack as Matcha Bee: a 
 
 | Screen | What it's for |
 |---|---|
-| **Sell** (`/`) | Tap a product (with its photo) or scan its barcode. A USB/Bluetooth scanner works anywhere on the page, no need to tap the search box. Change quantities, then **Charge**: buyer's name (optional), discount, Cash / GCash / Maya / Card / Bank transfer or **Not paid yet**, cash received with quick amounts and change due, and the **age check**. Prints a receipt. |
+| **Sell** (`/`) | Tap a product (with its photo) to add it, tap it again to take it out, or scan its barcode (each scan adds one). A USB/Bluetooth scanner works anywhere on the page, no need to tap the search box. Change quantities with − / + in the cart (photos show there too), then **Charge**: buyer's name (optional), discount, Cash / GCash / Maya / Card / Bank transfer or **Not paid yet**, cash received with quick amounts and change due, and the **age check**. Prints a receipt. |
 | **Sales** (`/sales`) | Daily close: money in by method (what the cash drawer should hold), sales not paid yet, money collected on earlier unpaid sales, discounts, voids, top sellers, every sale. Owners and managers: any day or range, gross profit, CSV export. |
 | **Sale** (`/sales/[id]`) | The receipt (prints on 58/80 mm thermal paper or A4), with the buyer, payments and balance due. **Collect** on an unpaid sale. Owners and managers can **void** a sale with a reason; the pieces go back into stock. |
 | **Collectibles** (`/collectibles`) | Who owes the shop: every "Not paid yet" sale, grouped by buyer, oldest first, with the total owed. **Collect** records money received, in full or part, by any method. Every staff member sees it. |

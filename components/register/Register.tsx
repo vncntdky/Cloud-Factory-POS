@@ -1,6 +1,7 @@
 "use client";
 
-// The register: tap or scan products into the cart, then Charge opens the checkout sheet
+// The register: tap or scan products into the cart (tapping a product already in the cart takes it
+// out; quantities change with − / + in the cart; each scan adds one), then Charge opens the checkout sheet
 // (buyer, discount, payment or "Not paid yet", age check). Prices shown here are for the cashier;
 // the database prices the sale again when it's completed.
 import Link from "next/link";
@@ -146,6 +147,23 @@ export function Register({ products, categories, minAge, discountLimitCents, all
       return;
     }
     setLines((ls) => ls.map((l) => (l.id === id ? { ...l, qty } : l)));
+  }
+
+  /** Tapping a tile: not in the cart → add 1; already in the cart → take it out (Undo puts it back). */
+  function toggle(p: RegisterProduct) {
+    const q = qtyOf(p.id);
+    if (q === 0) {
+      add(p);
+      return;
+    }
+    setLines((ls) => ls.filter((l) => l.id !== p.id));
+    toast({
+      text: `Removed ${productLabel(p)}`,
+      icon: "trash",
+      duration: 3000,
+      actionLabel: "Undo",
+      onAction: () => setLines((ls) => (ls.some((l) => l.id === p.id) ? ls : [...ls, { id: p.id, qty: q }])),
+    });
   }
 
   function clearCart() {
@@ -294,7 +312,12 @@ export function Register({ products, categories, minAge, discountLimitCents, all
   const cartList = (
     <ul className="cart-lines" role="list">
       {cart.map((l) => (
-        <li key={l.id} className="cart-line">
+        <li key={l.id} className={`cart-line${showPhotos ? " cart-line--photo" : ""}`}>
+          {showPhotos && (
+            <span className="thumb cart-line__thumb" aria-hidden="true">
+              {l.product.photo_path ? <img src={photoUrl(l.product.photo_path)!} alt="" decoding="async" /> : <Icon name="image" />}
+            </span>
+          )}
           <div className="cart-line__main">
             <span className="cart-line__name">{productLabel(l.product)}</span>
             <span className="t-sm muted">
@@ -393,16 +416,18 @@ export function Register({ products, categories, minAge, discountLimitCents, all
               const q = qtyOf(p.id);
               const out = p.on_hand <= 0;
               const low = !out && p.on_hand <= 3;
-              const soldOut = !allowNegative && q >= p.on_hand;
+              // A tile in the cart stays tappable (to take it out); change its quantity in the cart.
+              const soldOut = !allowNegative && q === 0 && out;
               return (
                 <button
                   key={p.id}
                   type="button"
                   className="product-tile"
                   data-qty={q || undefined}
+                  aria-pressed={q > 0}
                   aria-disabled={soldOut || undefined}
-                  aria-label={`${productLabel(p)}, ${pesos(p.price_cents)}, ${out ? "out of stock" : `${p.on_hand} in stock`}${q ? `, ${q} in cart` : ""}`}
-                  onClick={() => add(p)}
+                  aria-label={`${productLabel(p)}, ${pesos(p.price_cents)}, ${out ? "out of stock" : `${p.on_hand} in stock`}${q ? `, ${q} in cart, tap to remove` : ""}`}
+                  onClick={() => toggle(p)}
                 >
                   {showPhotos && (
                     <span className="product-tile__media" aria-hidden="true">
@@ -444,7 +469,7 @@ export function Register({ products, categories, minAge, discountLimitCents, all
         </div>
         <div className="card__body">
           {cart.length === 0 ? (
-            <p className="t-sm muted">Tap or scan a product to start a sale.</p>
+            <p className="t-sm muted">Tap or scan a product to start a sale. Tap it again to take it out.</p>
           ) : (
             cartList
           )}
