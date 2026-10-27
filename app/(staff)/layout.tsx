@@ -7,16 +7,22 @@ import { Ring } from "@/components/EmptyState";
 import { AppFrame, PhoneNav, ShellKeys, SideNav, type ShellCounts } from "@/components/Nav";
 import { Toaster } from "@/components/Toaster";
 import { displayName, requireStaff, type ServerSupabase } from "@/lib/auth";
+import { buyerKey } from "@/lib/format";
 import { can } from "@/lib/permissions";
 
 async function loadShell(supabase: ServerSupabase): Promise<{ counts: ShellCounts; shopName: string }> {
-  const [products, settings] = await Promise.all([
+  const [products, settings, owed] = await Promise.all([
     supabase.from("products").select("on_hand, reorder_at").eq("active", true),
     supabase.from("settings").select("business_name").maybeSingle(),
+    supabase.rpc("collectibles"),
   ]);
   const rows = (products.data ?? []) as { on_hand: number; reorder_at: number }[];
+  const owedRows = (owed.data ?? []) as { customer_name: string | null }[];
   return {
-    counts: { reorder: products.error ? null : rows.filter((r) => r.on_hand <= r.reorder_at).length },
+    counts: {
+      reorder: products.error ? null : rows.filter((r) => r.on_hand <= r.reorder_at).length,
+      owed: owed.error ? null : new Set(owedRows.map((r) => buyerKey(r.customer_name))).size,
+    },
     shopName: (settings.data as { business_name?: string } | null)?.business_name ?? "Vape POS",
   };
 }

@@ -25,16 +25,28 @@ export type ShellUser = {
 export type ShellCounts = {
   /** Active products at or under their reorder level. */
   reorder: number | null;
+  /** Buyers with money still owed (Collectibles). */
+  owed: number | null;
 };
 
-type NavItem = { href: string; label: string; icon: IconName; count?: number | null };
+type NavItem = {
+  href: string;
+  label: string;
+  /** Tab bar label (phone), when the full label is too long. */
+  short?: string;
+  icon: IconName;
+  count?: number | null;
+  /** Screen-reader text after the count: ", 3 low on stock". */
+  countText?: string;
+};
 
 function navItems(counts: ShellCounts, user: ShellUser): NavItem[] {
   return [
     { href: "/", label: "Sell", icon: "cart" },
     { href: "/sales", label: "Sales", icon: "receipt" },
-    { href: "/inventory", label: "Inventory", icon: "box", count: counts.reorder },
-    { href: "/settings", label: user.owner ? "Settings & staff" : "Settings", icon: "settings" },
+    { href: "/inventory", label: "Inventory", icon: "box", count: counts.reorder, countText: "low on stock" },
+    { href: "/collectibles", label: "Collectibles", short: "Owed", icon: "wallet", count: counts.owed, countText: "owe money" },
+    { href: "/settings", label: user.owner ? "Settings & staff" : "Settings", short: "Settings", icon: "settings" },
   ];
 }
 
@@ -90,7 +102,9 @@ export function SideNav({
                     <span className="count-badge sidenav__count count-badge--attention" aria-hidden="true">
                       {count}
                     </span>
-                    <span className="sr-only">, {count} low on stock</span>
+                    <span className="sr-only">
+                      , {count} {item.countText}
+                    </span>
                   </>
                 )}
               </Link>
@@ -130,8 +144,12 @@ export function PhoneNav({ user, counts }: { user: ShellUser; counts: ShellCount
               <Icon name={item.icon} />
               {count > 0 && <span className="attention-dot" aria-hidden="true" />}
             </span>
-            {item.label === "Settings & staff" ? "Settings" : item.label}
-            {count > 0 && <span className="sr-only">, {count} low on stock</span>}
+            {item.short ?? item.label}
+            {count > 0 && (
+              <span className="sr-only">
+                , {count} {item.countText}
+              </span>
+            )}
           </Link>
         );
       })}

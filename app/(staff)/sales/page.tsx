@@ -9,7 +9,7 @@ import { Topbar } from "@/components/Topbar";
 import { fetchAll, parseSalesRange } from "@/components/sales/data";
 import { requireActiveStaff } from "@/lib/auth";
 import { friendlyError } from "@/lib/db-errors";
-import { PAYMENT_METHODS, PAYMENT_METHOD_LABELS, paymentMethodLabel, percent, pesos, saleNo } from "@/lib/format";
+import { PAYMENT_METHODS, PAYMENT_METHOD_LABELS, paymentMethodLabel, percent, pesos, saleNo, type PaymentMethod } from "@/lib/format";
 import { can } from "@/lib/permissions";
 import { addDays, formatManilaDate, formatManilaTime, manilaMonthStart, manilaToday } from "@/lib/time";
 
@@ -22,7 +22,10 @@ type Summary = {
   discount_cents: number;
   net_cents: number;
   pieces: number;
+  /** Sales by how they were settled; "unpaid" = Not paid yet. */
   by_method: Record<string, { count: number; cents: number }>;
+  /** Money received in the range for earlier unpaid sales. */
+  collected?: Record<string, { count: number; cents: number }>;
   cogs_cents: number | null;
   uncosted_lines: number | null;
   top: { name: string; qty: number; cents: number }[];
@@ -36,6 +39,8 @@ type SaleRow = {
   total_cents: number;
   payment_method: string;
   created_at: string;
+  customer_name: string | null;
+  balance_cents: number;
   sale_items: { quantity: number; name: string }[];
 };
 
@@ -58,7 +63,7 @@ export default async function SalesPage({ searchParams }: { searchParams: Promis
     fetchAll<SaleRow>((a, b) =>
       supabase
         .from("sales")
-        .select("id, sale_number, business_date, status, total_cents, payment_method, created_at, sale_items(quantity, name)")
+        .select("id, sale_number, business_date, status, total_cents, payment_method, created_at, customer_name, balance_cents, sale_items(quantity, name)")
         .gte("business_date", from)
         .lte("business_date", to)
         .order("business_date", { ascending: false })
@@ -71,7 +76,21 @@ export default async function SalesPage({ searchParams }: { searchParams: Promis
   const sales = salesRes.rows;
   const profit = s && s.cogs_cents !== null ? s.net_cents - s.cogs_cents : null;
   const methods = PAYMENT_METHODS.filter((m) => s?.by_method?.[m]);
+  const unpaid = s?.by_method?.unpaid;
+  const collected = PAYMENT_METHODS.filter((m) => s?.collected?.[m]);
+  const collectedTotal = collected.reduce((n, m) => n + s!.collected![m].cents, 0);
+  const cashIn = (s?.by_method?.cash?.cents ?? 0) + (s?.collected?.cash?.cents ?? 0);
   const exportHref = `/sales/export?from=${from}&to=${to}`;
+  const methodLine = (m: PaymentMethod, v: { count: number; cents: number }) => (
+    <div key={m} style={{ display: "contents" }}>
+      <dt>
+        {PAYMENT_METHOD_LABELS[m]} · {v.count}
+      </dt>
+      <dd>
+        <Money cents={v.cents} decimals={2} />
+      </dd>
+    </div>
+  );
 
   return (
     <>
@@ -201,30 +220,48 @@ export default async function SalesPage({ searchParams }: { searchParams: Promis
                     Money in by method
                   </h2>
                 </div>
-                <div className="card__body">
-                  {methods.length === 0 ? (
+                <div className="card__body stack stack-4">
+                  {methods.length === 0 && !unpaid && collected.length === 0 ? (
                     <p className="t-sm muted">No sales yet.</p>
                   ) : (
-                    <dl className="dl">
-                      {methods.map((m) => (
-                        <div key={m} style={{ display: "contents" }}>
-                          <dt>
-                            {PAYMENT_METHOD_LABELS[m]} · {s!.by_method[m].count}
-                          </dt>
-                          <dd>
-                            <Money cents={s!.by_method[m].cents} decimals={2} />
+                    <>
+                      {(methods.length > 0 || unpaid) && (
+                        <dl className="dl">
+                          {methods.map((m) => methodLine(m, s!.by_method[m]))}
+                          {unpaid && (
+                            <>
+                              <dt>Not paid yet · {unpaid.count}</dt>
+                              <dd>
+                                <Money cents={unpaid.cents} decimals={2} owed />
+                              </dd>
+                            </>
+                          )}
+                          <dt className="dl__total">Total sales</dt>
+                          <dd className="dl__total">
+                            <Money cents={s?.net_cents ?? 0} decimals={2} />
                           </dd>
+                        </dl>
+                      )}
+                      {collected.length > 0 && (
+                        <div className="stack stack-2">
+                          <h3 className="eyebrow">Collected on earlier unpaid sales</h3>
+                          <dl className="dl">
+                            {collected.map((m) => methodLine(m, s!.collected![m]))}
+                            <dt className="dl__total">Collected</dt>
+                            <dd className="dl__total">
+                              <Money cents={collectedTotal} decimals={2} />
+                            </dd>
+                          </dl>
                         </div>
-                      ))}
-                      <dt className="dl__total">Total</dt>
-                      <dd className="dl__total">
-                        <Money cents={s?.net_cents ?? 0} decimals={2} />
-                      </dd>
-                    </dl>
+                      )}
+                    </>
                   )}
-                  {(s?.by_method?.cash?.cents ?? 0) > 0 && (
-                    <p className="t-sm muted" style={{ marginTop: "var(--space-3)" }}>
-                      The cash drawer should have {pesos(s!.by_method.cash.cents, 2)} more than the opening float.
+                  {cashIn > 0 && (
+                    <p className="t-sm muted">The cash drawer should have {pesos(cashIn, 2)} more than the opening float.</p>
+                  )}
+                  {unpaid && (
+                    <p className="t-sm muted">
+                      {pesos(unpaid.cents, 2)} wasn&apos;t paid at the counter. <Link href="/collectibles">See Collectibles</Link>
                     </p>
                   )}
                 </div>
@@ -275,6 +312,7 @@ export default async function SalesPage({ searchParams }: { searchParams: Promis
                     {sales.map((sale) => {
                       const pcs = sale.sale_items.reduce((n, i) => n + i.quantity, 0);
                       const voided = sale.status === "voided";
+                      const owes = !voided && sale.balance_cents > 0;
                       return (
                         <li key={sale.id}>
                           <Link className="list-row" href={`/sales/${sale.id}`}>
@@ -291,8 +329,10 @@ export default async function SalesPage({ searchParams }: { searchParams: Promis
                                     Voided
                                   </span>
                                 )}
+                                {owes && <span className="chip chip--money">Owes {pesos(sale.balance_cents)}</span>}
                               </span>
                               <span className="list-row__meta truncate">
+                                {sale.customer_name && `${sale.customer_name} · `}
                                 {paymentMethodLabel(sale.payment_method)} · {pcs} pcs ·{" "}
                                 {sale.sale_items.map((i) => (i.quantity > 1 ? `${i.quantity}× ${i.name}` : i.name)).join(", ")}
                               </span>

@@ -18,6 +18,8 @@ type Row = {
   reference: string | null;
   discount_cents: number;
   total_cents: number;
+  customer_name: string | null;
+  balance_cents: number;
   sale_items: { name: string; quantity: number; unit_price_cents: number; line_total_cents: number }[];
 };
 
@@ -34,6 +36,8 @@ const HEADER = [
   "sale total (₱)",
   "payment",
   "reference",
+  "buyer",
+  "still owed (₱)",
 ];
 
 /** Quote when needed; neutralise text that a spreadsheet would run as a formula. */
@@ -71,7 +75,7 @@ export async function GET(request: NextRequest) {
     supabase
       .from("sales")
       .select(
-        "id, sale_number, business_date, status, created_at, payment_method, reference, discount_cents, total_cents, sale_items(name, quantity, unit_price_cents, line_total_cents)",
+        "id, sale_number, business_date, status, created_at, payment_method, reference, discount_cents, total_cents, customer_name, balance_cents, sale_items(name, quantity, unit_price_cents, line_total_cents)",
       )
       .gte("business_date", from)
       .lte("business_date", to)
@@ -98,6 +102,8 @@ export async function GET(request: NextRequest) {
           pesoNumber(r.total_cents),
           cell(paymentMethodLabel(r.payment_method)),
           cell(r.reference ?? ""),
+          cell(r.customer_name ?? ""),
+          pesoNumber(r.balance_cents),
         ].join(","),
       );
     }

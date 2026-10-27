@@ -3,6 +3,7 @@
 // Products and stock: add / edit products and change stock (count, restock, waste). Owners and
 // managers only; the database enforces the same (save_product and adjust_stock check the role,
 // and on_hand only changes through those functions or a sale, so every change is in the stock log).
+// Product photos are the exception: any active staff member can add or change them.
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireActiveStaff } from "@/lib/auth";
@@ -10,6 +11,7 @@ import { friendlyError, type DbError } from "@/lib/db-errors";
 import { toCents } from "@/lib/format";
 import { UUID_RE } from "@/lib/ids";
 import { can } from "@/lib/permissions";
+import { PHOTO_BUCKET } from "@/lib/photos";
 
 export type ProductFormState = { error: string; field?: string } | null;
 
@@ -95,6 +97,36 @@ export async function saveProduct(id: string | null, _prev: ProductFormState, fd
   const newId = data as string;
   refresh(newId);
   redirect(id === null && fd.get("again") === "1" ? `/inventory/new?added=${newId}` : `/inventory/${newId}?saved=1`);
+}
+
+export type PhotoResult = { ok: true } | { ok: false; error: string };
+
+/**
+ * Attach a photo the browser just uploaded to Storage (path = "<id>/<file>"), or remove the photo
+ * (path = null). Any active staff member. The previous photo's file is deleted.
+ */
+export async function setProductPhoto(id: string, path: string | null): Promise<PhotoResult> {
+  if (!UUID_RE.test(id)) return { ok: false, error: "Product not found." };
+  if (path !== null && !new RegExp(`^${id}/[A-Za-z0-9._-]{1,100}$`).test(path)) {
+    return { ok: false, error: "That photo belongs to a different product." };
+  }
+  let staff;
+  try {
+    staff = await requireActiveStaff();
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Sign in again." };
+  }
+
+  const { data: before } = await staff.supabase.from("products").select("photo_path").eq("id", id).maybeSingle();
+  const old = (before as { photo_path: string | null } | null)?.photo_path ?? null;
+
+  const { error } = await staff.supabase.rpc("set_product_photo", { p_product: id, p_path: path });
+  if (error) return { ok: false, error: friendlyError(error as DbError) };
+
+  // The old file is no longer used. If removing it fails, it just stays in the bucket.
+  if (old && old !== path) await staff.supabase.storage.from(PHOTO_BUCKET).remove([old]);
+  refresh(id);
+  return { ok: true };
 }
 
 /** Count (what's on the shelf now), restock (pieces received) or waste (pieces lost or damaged). */

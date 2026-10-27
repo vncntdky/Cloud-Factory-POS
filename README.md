@@ -6,10 +6,11 @@ Register and per-piece inventory for the vape shop. Same stack as Matcha Bee: a 
 
 | Screen | What it's for |
 |---|---|
-| **Sell** (`/`) | Tap a product or scan its barcode. A USB/Bluetooth scanner works anywhere on the page, no need to tap the search box. Change quantities, then **Charge**: discount, Cash / GCash / Maya / Card / Bank transfer, cash received with quick amounts and change due, and the **age check**. Prints a receipt. |
-| **Sales** (`/sales`) | Daily close: money in by method (what the cash drawer should hold), discounts, voids, top sellers, every sale. Owners and managers: any day or range, gross profit, CSV export. |
-| **Sale** (`/sales/[id]`) | The receipt (prints on 58/80 mm thermal paper or A4). Owners and managers can **void** a sale with a reason; the pieces go back into stock. |
-| **Inventory** (`/inventory`) | Every product with pieces on the shelf, low-stock and out-of-stock filters, stock value at cost. Tap a product to **restock** (with the new cost per piece), **count**, or record **damaged / lost** pieces. Every change is in its stock history. |
+| **Sell** (`/`) | Tap a product (with its photo) or scan its barcode. A USB/Bluetooth scanner works anywhere on the page, no need to tap the search box. Change quantities, then **Charge**: buyer's name (optional), discount, Cash / GCash / Maya / Card / Bank transfer or **Not paid yet**, cash received with quick amounts and change due, and the **age check**. Prints a receipt. |
+| **Sales** (`/sales`) | Daily close: money in by method (what the cash drawer should hold), sales not paid yet, money collected on earlier unpaid sales, discounts, voids, top sellers, every sale. Owners and managers: any day or range, gross profit, CSV export. |
+| **Sale** (`/sales/[id]`) | The receipt (prints on 58/80 mm thermal paper or A4), with the buyer, payments and balance due. **Collect** on an unpaid sale. Owners and managers can **void** a sale with a reason; the pieces go back into stock. |
+| **Collectibles** (`/collectibles`) | Who owes the shop: every "Not paid yet" sale, grouped by buyer, oldest first, with the total owed. **Collect** records money received, in full or part, by any method. Every staff member sees it. |
+| **Inventory** (`/inventory`) | Every product with its photo and pieces on the shelf, low-stock and out-of-stock filters, stock value at cost. Tap a product to **upload or replace its photo** (any staff), **restock** (with the new cost per piece), **count**, or record **damaged / lost** pieces. Every change is in its stock history. |
 | **Add product** | Brand, product, flavour / variant, barcode, category, price, cost, low-stock alert, pieces on the shelf now. **Add and enter another** keeps the brand, price and cost, so entering ten flavours of one pod is quick. |
 | **Settings** | Shop name, address and message on receipts, minimum age (default 18, per RA 11900), staff discount limit, and **Staff** (turn on sign-ups, change roles, remove access). |
 
@@ -27,12 +28,15 @@ Register and per-piece inventory for the vape shop. Same stack as Matcha Bee: a 
 - Staff discounts are capped at the limit in Settings (default ₱50); owners and managers can give any discount.
 - Cash received must cover the total. Change is calculated for you.
 - A sale is never charged twice, even if the Charge button is tapped twice on a slow connection.
+- **Not paid yet** needs the buyer's name. The pieces leave stock at once; the total waits in Collectibles until it's collected. A payment can't be more than what's still owed, and counts in Sales on the day it's received. Voiding an unpaid sale clears what's owed.
 
 ### Who can do what
 
 | | Owner | Manager | Staff |
 |---|---|---|---|
 | Sell, see stock levels | ✓ | ✓ | ✓ |
+| Sell as Not paid yet, see Collectibles, collect | ✓ | ✓ | ✓ |
+| Upload / replace product photos | ✓ | ✓ | ✓ |
 | Discount | any | any | up to the limit in Settings |
 | Sales | all days, profit, CSV | all days, profit, CSV | today only, no profit |
 | Void a sale | ✓ | ✓ | |
@@ -75,7 +79,7 @@ npm install
 npm run dev                  # http://localhost:3000
 ```
 
-Database tests (56 checks: roles, checkout rules, stock, voids, reports) run on any local Postgres:
+Database tests (67 checks: roles, checkout rules, stock, voids, reports, unpaid sales and collecting) run on any local Postgres:
 
 ```bash
 PGHOST=… PGPORT=… PGUSER=postgres supabase/tests/run.sh

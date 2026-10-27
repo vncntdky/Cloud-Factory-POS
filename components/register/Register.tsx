@@ -1,8 +1,8 @@
 "use client";
 
 // The register: tap or scan products into the cart, then Charge opens the checkout sheet
-// (discount, payment, age check). Prices shown here are for the cashier; the database prices
-// the sale again when it's completed.
+// (buyer, discount, payment or "Not paid yet", age check). Prices shown here are for the cashier;
+// the database prices the sale again when it's completed.
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useDeferredValue, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
@@ -12,15 +12,16 @@ import { Icon } from "@/components/Icon";
 import { Money } from "@/components/Money";
 import { toast } from "@/components/Toaster";
 import {
-  PAYMENT_METHODS,
   PAYMENT_METHOD_LABELS,
+  SALE_METHODS,
   centsToInput,
   pesos,
   pesos2,
   productLabel,
   toCents,
-  type PaymentMethod,
+  type SaleMethod,
 } from "@/lib/format";
+import { photoUrl } from "@/lib/photos";
 
 export type RegisterProduct = {
   id: string;
@@ -31,6 +32,7 @@ export type RegisterProduct = {
   price_cents: number;
   on_hand: number;
   category_id: string | null;
+  photo_path: string | null;
 };
 
 export type RegisterProps = {
@@ -41,10 +43,19 @@ export type RegisterProps = {
   discountLimitCents: number | null;
   allowNegative: boolean;
   canEditProducts: boolean;
+  /** Buyers who still owe, suggested in the buyer field. */
+  buyerNames: string[];
 };
 
 type Line = { id: string; qty: number };
-type Done = { id: string; saleNumber: number; totalCents: number; changeCents: number | null; method: PaymentMethod };
+type Done = {
+  id: string;
+  saleNumber: number;
+  totalCents: number;
+  changeCents: number | null;
+  method: SaleMethod;
+  buyer: string;
+};
 
 const CART_KEY = "vp-cart";
 
@@ -62,7 +73,7 @@ function cashSuggestions(total: number) {
   return [...out].sort((a, b) => a - b).slice(0, 4);
 }
 
-export function Register({ products, categories, minAge, discountLimitCents, allowNegative, canEditProducts }: RegisterProps) {
+export function Register({ products, categories, minAge, discountLimitCents, allowNegative, canEditProducts, buyerNames }: RegisterProps) {
   const router = useRouter();
   const byId = useMemo(() => new Map(products.map((p) => [p.id, p])), [products]);
   const byBarcode = useMemo(
@@ -76,8 +87,9 @@ export function Register({ products, categories, minAge, discountLimitCents, all
   const [lines, setLines] = useState<Line[]>([]);
   const [clientRef, setClientRef] = useState<string>("");
 
+  const [buyer, setBuyer] = useState("");
   const [discount, setDiscount] = useState("");
-  const [method, setMethod] = useState<PaymentMethod>("cash");
+  const [method, setMethod] = useState<SaleMethod>("cash");
   const [tendered, setTendered] = useState("");
   const [reference, setReference] = useState("");
   const [ageOk, setAgeOk] = useState(false);
@@ -138,6 +150,7 @@ export function Register({ products, categories, minAge, discountLimitCents, all
 
   function clearCart() {
     setLines([]);
+    setBuyer("");
     setDiscount("");
     setTendered("");
     setReference("");
@@ -216,6 +229,10 @@ export function Register({ products, categories, minAge, discountLimitCents, all
   const tenderedCents = method === "cash" ? (tendered.trim() === "" ? total : toCents(tendered)) : null;
   const cashShort = method === "cash" && (tenderedCents === null || tenderedCents < total);
   const change = method === "cash" && tenderedCents !== null ? tenderedCents - total : null;
+  const unpaid = method === "unpaid";
+  const buyerName = buyer.trim().replace(/\s+/g, " ");
+  // Tiles get a photo area once any product has a photo, so the grid stays even.
+  const showPhotos = useMemo(() => products.some((p) => p.photo_path), [products]);
 
   const blockedReason =
     cart.length === 0
@@ -226,9 +243,11 @@ export function Register({ products, categories, minAge, discountLimitCents, all
           ? `Discounts over ${pesos(discountLimitCents)} need an owner or manager`
           : cashShort
             ? "Cash received is less than the total"
-            : !ageOk
-              ? `Confirm the customer is ${minAge}+`
-              : null;
+            : unpaid && !buyerName
+              ? "Add the buyer's name for a sale that isn't paid yet"
+              : !ageOk
+                ? `Confirm the customer is ${minAge}+`
+                : null;
 
   function openCheckout() {
     if (cart.length === 0) return;
@@ -248,6 +267,7 @@ export function Register({ products, categories, minAge, discountLimitCents, all
       tenderedCents: method === "cash" ? tenderedCents : null,
       reference,
       ageVerified: ageOk,
+      customerName: buyerName,
     }).catch(() => ({ ok: false as const, error: "Couldn't reach the server. Check your connection and try again." }));
     setBusy(false);
     if (!res.ok) {
@@ -255,7 +275,14 @@ export function Register({ products, categories, minAge, discountLimitCents, all
       return;
     }
     sheetRef.current?.close();
-    setDone({ id: res.id, saleNumber: res.saleNumber, totalCents: res.totalCents, changeCents: res.changeCents, method });
+    setDone({
+      id: res.id,
+      saleNumber: res.saleNumber,
+      totalCents: res.totalCents,
+      changeCents: res.changeCents,
+      method,
+      buyer: buyerName,
+    });
     clearCart();
     router.refresh();
   }
@@ -377,6 +404,11 @@ export function Register({ products, categories, minAge, discountLimitCents, all
                   aria-label={`${productLabel(p)}, ${pesos(p.price_cents)}, ${out ? "out of stock" : `${p.on_hand} in stock`}${q ? `, ${q} in cart` : ""}`}
                   onClick={() => add(p)}
                 >
+                  {showPhotos && (
+                    <span className="product-tile__media" aria-hidden="true">
+                      {p.photo_path ? <img src={photoUrl(p.photo_path)!} alt="" loading="lazy" decoding="async" /> : <Icon name="image" />}
+                    </span>
+                  )}
                   <span className="product-tile__text">
                     {p.brand && <span className="product-tile__brand">{p.brand}</span>}
                     <span className="item-name">{p.name}</span>
@@ -477,6 +509,36 @@ export function Register({ products, categories, minAge, discountLimitCents, all
           {cart.length === 0 ? <p className="muted">The cart is empty.</p> : cartList}
 
           <div className="field">
+            <label className="field__label" htmlFor="co-buyer">
+              Buyer {!unpaid && <span className="optional">(optional)</span>}
+            </label>
+            <input
+              id="co-buyer"
+              className="input"
+              autoComplete="off"
+              autoCapitalize="words"
+              enterKeyHint="done"
+              maxLength={80}
+              placeholder="Name"
+              list={buyerNames.length > 0 ? "co-buyer-names" : undefined}
+              value={buyer}
+              onChange={(e) => setBuyer(e.target.value)}
+              aria-invalid={(unpaid && !buyerName && buyer !== "") || undefined}
+              aria-describedby="co-buyer-hint"
+            />
+            {buyerNames.length > 0 && (
+              <datalist id="co-buyer-names">
+                {buyerNames.map((n) => (
+                  <option key={n} value={n} />
+                ))}
+              </datalist>
+            )}
+            <p className="field__hint" id="co-buyer-hint">
+              {unpaid ? "Needed so you know who to collect from." : "Shows on the receipt and in Sales."}
+            </p>
+          </div>
+
+          <div className="field">
             <label className="field__label" htmlFor="co-discount">
               Discount <span className="optional">(optional)</span>
             </label>
@@ -513,7 +575,7 @@ export function Register({ products, categories, minAge, discountLimitCents, all
           <fieldset className="fieldset">
             <legend className="eyebrow">Payment</legend>
             <div className="choice-group" role="radiogroup" aria-label="Payment method">
-              {PAYMENT_METHODS.map((m) => (
+              {SALE_METHODS.map((m) => (
                 <button
                   key={m}
                   type="button"
@@ -566,6 +628,16 @@ export function Register({ products, categories, minAge, discountLimitCents, all
                   </>
                 )}
               </p>
+            </div>
+          ) : unpaid ? (
+            <div className="notice notice--info" role="status">
+              <Icon name="wallet" />
+              <div>
+                <p className="notice__title">
+                  {buyerName || "The buyer"} owes {pesos2(total)}.
+                </p>
+                <p>The pieces leave stock now. The sale waits in Collectibles until it&apos;s paid.</p>
+              </div>
             </div>
           ) : (
             <div className="field">
@@ -627,7 +699,7 @@ export function Register({ products, categories, minAge, discountLimitCents, all
             aria-describedby={blockedReason ? "co-blocked" : undefined}
             onClick={charge}
           >
-            {busy ? "Charging…" : `Charge ${pesos2(total)}`}
+            {busy ? (unpaid ? "Saving…" : "Charging…") : unpaid ? `Save · owes ${pesos2(total)}` : `Charge ${pesos2(total)}`}
           </button>
           {blockedReason && (
             <p className="field__hint checkout-foot__why" id="co-blocked">
@@ -663,6 +735,14 @@ export function Register({ products, categories, minAge, discountLimitCents, all
                   </span>
                   <span className="t-sm muted">Total {pesos2(done.totalCents)} · Cash</span>
                 </>
+              ) : done.method === "unpaid" ? (
+                <>
+                  <span className="eyebrow">Not paid yet</span>
+                  <span className="num-hero">
+                    <Money cents={done.totalCents} decimals={2} />
+                  </span>
+                  <span className="t-sm muted">{done.buyer} owes this. It&apos;s in Collectibles.</span>
+                </>
               ) : (
                 <>
                   <span className="eyebrow">{PAYMENT_METHOD_LABELS[done.method]}</span>
@@ -671,6 +751,7 @@ export function Register({ products, categories, minAge, discountLimitCents, all
                   </span>
                 </>
               )}
+              {done.buyer && done.method !== "unpaid" && <span className="t-sm muted">Buyer: {done.buyer}</span>}
             </div>
             <footer className="sheet__foot">
               <Link className="btn btn--secondary" href={`/sales/${done.id}?print=1`}>

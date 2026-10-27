@@ -1,5 +1,5 @@
-// One product: what's on the shelf, change stock, edit details, stock history.
-// Staff see the stock level only; owners and managers edit and see the history and cost.
+// One product: what's on the shelf, its photo, change stock, edit details, stock history.
+// Staff see the stock level and can change the photo; owners and managers edit and see the history and cost.
 import { notFound } from "next/navigation";
 import { Icon } from "@/components/Icon";
 import { Kpi, KpiGrid } from "@/components/Kpi";
@@ -7,6 +7,7 @@ import { Main } from "@/components/Main";
 import { Money } from "@/components/Money";
 import { Topbar } from "@/components/Topbar";
 import { ProductForm, StockForm } from "@/components/inventory/ProductForms";
+import { ProductPhoto } from "@/components/inventory/ProductPhoto";
 import { requireActiveStaff } from "@/lib/auth";
 import { centsToInput, productLabel, saleNo } from "@/lib/format";
 import { isUuid } from "@/lib/ids";
@@ -26,6 +27,7 @@ type Product = {
   reorder_at: number;
   active: boolean;
   category_id: string | null;
+  photo_path: string | null;
 };
 
 type Movement = {
@@ -71,7 +73,7 @@ export default async function ProductPage({
   const [productRes, categoriesRes, costRes, movesRes] = await Promise.all([
     supabase
       .from("products")
-      .select("id, brand, name, variant, barcode, price_cents, on_hand, reorder_at, active, category_id")
+      .select("id, brand, name, variant, barcode, price_cents, on_hand, reorder_at, active, category_id, photo_path")
       .eq("id", id)
       .maybeSingle(),
     supabase.from("categories").select("id, name").order("sort_order").order("name"),
@@ -140,6 +142,8 @@ export default async function ProductPage({
               />
             )}
           </KpiGrid>
+
+          <ProductPhoto id={p.id} path={p.photo_path} label={productLabel(p)} />
 
           {p.barcode && (
             <p className="t-sm muted">

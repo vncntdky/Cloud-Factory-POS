@@ -11,6 +11,7 @@ import { requireActiveStaff } from "@/lib/auth";
 import { friendlyError } from "@/lib/db-errors";
 import { productLabel } from "@/lib/format";
 import { can } from "@/lib/permissions";
+import { photoUrl } from "@/lib/photos";
 
 export const dynamic = "force-dynamic";
 
@@ -25,6 +26,7 @@ type Row = {
   reorder_at: number;
   active: boolean;
   category_id: string | null;
+  photo_path: string | null;
 };
 
 const FILTERS = [
@@ -69,7 +71,7 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
   const [productsRes, categoriesRes, costsRes, valueRes] = await Promise.all([
     supabase
       .from("products")
-      .select("id, brand, name, variant, barcode, price_cents, on_hand, reorder_at, active, category_id")
+      .select("id, brand, name, variant, barcode, price_cents, on_hand, reorder_at, active, category_id, photo_path")
       .order("brand", { nullsFirst: true })
       .order("name")
       .order("variant", { nullsFirst: true }),
@@ -89,6 +91,8 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
   );
   const count = (f: Filter) => all.filter((p) => matches(p, f)).length;
   const lowCount = count("low");
+  // Thumbnails once any product has a photo; until then the list stays text-only.
+  const thumbs = all.some((p) => p.photo_path);
 
   // Group by category, in the categories' order; products without one go last.
   const groups = [...categories, { id: "", name: "No category" }]
@@ -206,9 +210,15 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
                     <ul className="list" role="list">
                       {g.items.map((p) => {
                         const cost = costs.get(p.id);
+                        const src = photoUrl(p.photo_path);
                         return (
                           <li key={p.id}>
                             <Link className="list-row" href={`/inventory/${p.id}`}>
+                              {thumbs && (
+                                <span className="list-row__lead thumb" aria-hidden="true">
+                                  {src ? <img src={src} alt="" loading="lazy" decoding="async" /> : <Icon name="image" />}
+                                </span>
+                              )}
                               <span className="list-row__main">
                                 <span className="list-row__title">
                                   <span>{productLabel(p)}</span>

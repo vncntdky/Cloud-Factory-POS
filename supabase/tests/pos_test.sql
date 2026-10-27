@@ -175,6 +175,29 @@ select pg_temp.expect_error('inactive product refused', format($$select public.c
 select pg_temp.check('saving without cost_cents keeps the cost',
   (select cost_cents = 21000 from public.product_costs c join public.products p on p.id = c.product_id where p.variant = 'Mint'));
 
+-- ───────── Not paid yet and Collectibles (cashier) ─────────
+set request.jwt.claim.sub = '22222222-2222-2222-2222-222222222222';
+select pg_temp.expect_error('unpaid needs the buyer''s name', format($$select public.complete_sale('{"client_ref": "%s", "payment_method": "unpaid", "age_verified": true, "items": [{"product_id": "%s", "quantity": 1}]}')$$,
+  gen_random_uuid(), (select id from public.products where variant = 'Mango')), 'buyer''s name');
+select public.complete_sale(format('{"client_ref": "aaaaaaaa-0000-0000-0000-000000000005", "payment_method": "unpaid", "customer_name": "  Juan  ", "reference": "x", "age_verified": true, "items": [{"product_id": "%s", "quantity": 2}]}',
+  (select id from public.products where variant = 'Mango'))::jsonb) as owed \gset
+select pg_temp.check('unpaid sale owes its total, name trimmed',
+  (:'owed'::jsonb ->> 'balance_cents')::int = 70000
+  and (select customer_name = 'Juan' and balance_cents = 70000 and reference is null from public.sales where id = (:'owed'::jsonb ->> 'id')::uuid));
+select pg_temp.check('unpaid sale takes the stock', (select on_hand = 16 from public.products where variant = 'Mango'));
+select pg_temp.check('collectibles lists it for staff',
+  (select count(*) = 1 from jsonb_array_elements(public.collectibles()) e where (e ->> 'balance_cents')::int = 70000));
+select pg_temp.expect_error('cannot collect more than owed', format($$select public.record_payment('%s', 70001, 'cash')$$, :'owed'::jsonb ->> 'id'), 'more than');
+select pg_temp.expect_error('payment needs a real method', format($$select public.record_payment('%s', 100, 'unpaid')$$, :'owed'::jsonb ->> 'id'), 'how the buyer paid');
+select public.record_payment((:'owed'::jsonb ->> 'id')::uuid, 20000, 'cash');
+select pg_temp.check('part payment lowers the balance', (select balance_cents = 50000 from public.sales where id = (:'owed'::jsonb ->> 'id')::uuid));
+select public.sales_summary(public.manila_today(), public.manila_today()) as sum_owed \gset
+select pg_temp.check('summary shows unpaid and collected',
+  (:'sum_owed'::jsonb -> 'by_method' -> 'unpaid' ->> 'cents')::int = 70000 and (:'sum_owed'::jsonb -> 'collected' -> 'cash' ->> 'cents')::int = 20000);
+select public.record_payment((:'owed'::jsonb ->> 'id')::uuid, 50000, 'gcash', 'GC9');
+select pg_temp.check('paid in full leaves collectibles', (select public.collectibles() = '[]'::jsonb));
+select pg_temp.expect_error('nothing left to collect', format($$select public.record_payment('%s', 100, 'cash')$$, :'owed'::jsonb ->> 'id'), 'paid in full');
+
 reset role;
 select case when ok then 'ok   ' else 'FAIL ' end || name as result from results;
 select count(*) filter (where not ok) as failures, count(*) as checks from results;

@@ -85,20 +85,32 @@ export function initials(name: string | null | undefined) {
 
 // ───────── Label maps ─────────
 
+/** Ways money comes in. */
 export type PaymentMethod = "cash" | "gcash" | "maya" | "card" | "bank_transfer";
+
+/** How a sale was settled at the counter: paid by a method, or "unpaid" (owed, collected later). */
+export type SaleMethod = PaymentMethod | "unpaid";
 
 export const PAYMENT_METHODS: PaymentMethod[] = ["cash", "gcash", "maya", "card", "bank_transfer"];
 
-export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
+export const SALE_METHODS: SaleMethod[] = [...PAYMENT_METHODS, "unpaid"];
+
+export const PAYMENT_METHOD_LABELS: Record<SaleMethod, string> = {
   cash: "Cash",
   gcash: "GCash",
   maya: "Maya",
   card: "Card",
   bank_transfer: "Bank transfer",
+  unpaid: "Not paid yet",
 };
 
 export function paymentMethodLabel(m: string | null | undefined) {
-  return m ? PAYMENT_METHOD_LABELS[m as PaymentMethod] ?? m : "";
+  return m ? PAYMENT_METHOD_LABELS[m as SaleMethod] ?? m : "";
+}
+
+/** Buyer names group case- and space-insensitively: "Juan  Dela Cruz" = "juan dela cruz". */
+export function buyerKey(name: string | null | undefined) {
+  return (name ?? "").trim().replace(/\s+/g, " ").toLowerCase();
 }
 
 /** "Relx Infinity Pod · Mint": how a product reads on the register, receipts and lists. */

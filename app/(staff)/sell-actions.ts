@@ -3,24 +3,27 @@
 // The register's one write: complete a sale through public.complete_sale, which prices the cart
 // from the database, checks stock, the age check and the staff discount limit, takes the stock
 // off and returns the sale number. The register only sends product ids and quantities.
+// "Not paid yet" (unpaid) needs the buyer's name; the total then shows in Collectibles.
 import { revalidatePath } from "next/cache";
 import { requireActiveStaff } from "@/lib/auth";
 import { friendlyError } from "@/lib/db-errors";
-import { PAYMENT_METHODS, type PaymentMethod } from "@/lib/format";
+import { SALE_METHODS, type SaleMethod } from "@/lib/format";
 import { isUuid } from "@/lib/ids";
 
 export type SaleInput = {
   clientRef: string;
   items: { productId: string; quantity: number }[];
   discountCents: number;
-  method: PaymentMethod;
+  method: SaleMethod;
   tenderedCents: number | null;
   reference: string;
   ageVerified: boolean;
+  /** Optional, except for unpaid sales. */
+  customerName: string;
 };
 
 export type SaleResult =
-  | { ok: true; id: string; saleNumber: number; totalCents: number; changeCents: number | null }
+  | { ok: true; id: string; saleNumber: number; totalCents: number; changeCents: number | null; balanceCents: number }
   | { ok: false; error: string };
 
 export async function completeSale(input: SaleInput): Promise<SaleResult> {
@@ -32,13 +35,16 @@ export async function completeSale(input: SaleInput): Promise<SaleResult> {
       return { ok: false, error: "Each quantity must be between 1 and 1,000." };
     }
   }
-  if (!PAYMENT_METHODS.includes(input.method)) return { ok: false, error: "Pick how the customer paid." };
+  if (!SALE_METHODS.includes(input.method)) return { ok: false, error: "Pick how the customer paid." };
   if (!Number.isInteger(input.discountCents) || input.discountCents < 0) {
     return { ok: false, error: "The discount can't be negative." };
   }
   if (input.tenderedCents !== null && (!Number.isInteger(input.tenderedCents) || input.tenderedCents < 0)) {
     return { ok: false, error: "Enter the cash received." };
   }
+  const buyer = typeof input.customerName === "string" ? input.customerName.trim().replace(/\s+/g, " ") : "";
+  if (buyer.length > 80) return { ok: false, error: "Keep the buyer's name to 80 characters." };
+  if (input.method === "unpaid" && !buyer) return { ok: false, error: "Add the buyer's name so you know who to collect from." };
   if (!input.ageVerified) return { ok: false, error: "Check the customer's ID first." };
 
   let staff;
@@ -55,14 +61,22 @@ export async function completeSale(input: SaleInput): Promise<SaleResult> {
       discount_cents: input.discountCents,
       payment_method: input.method,
       tendered_cents: input.method === "cash" ? input.tenderedCents : null,
-      reference: input.method === "cash" ? "" : input.reference.trim().slice(0, 60),
+      reference: input.method === "cash" || input.method === "unpaid" ? "" : input.reference.trim().slice(0, 60),
       age_verified: input.ageVerified,
+      customer_name: buyer,
     },
   });
   if (error) return { ok: false, error: friendlyError(error) };
 
-  const r = data as { id: string; sale_number: number; total_cents: number; change_cents: number | null };
-  // Stock counts on the register, the low-stock badge and today's sales all change.
+  const r = data as { id: string; sale_number: number; total_cents: number; change_cents: number | null; balance_cents?: number };
+  // Stock counts on the register, the low-stock badge, today's sales and Collectibles all change.
   revalidatePath("/", "layout");
-  return { ok: true, id: r.id, saleNumber: r.sale_number, totalCents: r.total_cents, changeCents: r.change_cents };
+  return {
+    ok: true,
+    id: r.id,
+    saleNumber: r.sale_number,
+    totalCents: r.total_cents,
+    changeCents: r.change_cents,
+    balanceCents: r.balance_cents ?? 0,
+  };
 }

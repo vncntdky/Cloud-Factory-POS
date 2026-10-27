@@ -4,12 +4,13 @@ import { Icon } from "@/components/Icon";
 import { Main } from "@/components/Main";
 import { Money } from "@/components/Money";
 import { Topbar } from "@/components/Topbar";
+import { CollectPayment } from "@/components/collectibles/CollectPayment";
 import { PrintButton, VoidSale } from "@/components/sales/SaleTools";
 import { requireActiveStaff } from "@/lib/auth";
 import { paymentMethodLabel, pesos2, saleNo } from "@/lib/format";
 import { isUuid } from "@/lib/ids";
 import { can } from "@/lib/permissions";
-import { formatManila } from "@/lib/time";
+import { formatManila, formatManilaDate } from "@/lib/time";
 
 export const dynamic = "force-dynamic";
 
@@ -28,9 +29,12 @@ type Sale = {
   created_at: string;
   voided_at: string | null;
   void_reason: string | null;
+  customer_name: string | null;
+  balance_cents: number;
   cashier: { full_name: string } | null;
   voider: { full_name: string } | null;
   sale_items: { id: string; name: string; unit_price_cents: number; quantity: number; line_total_cents: number }[];
+  sale_payments: { id: string; amount_cents: number; payment_method: string; reference: string | null; created_at: string }[];
 };
 
 export default async function SalePage({
@@ -47,7 +51,7 @@ export default async function SalePage({
     supabase
       .from("sales")
       .select(
-        "id, sale_number, business_date, status, subtotal_cents, discount_cents, total_cents, payment_method, tendered_cents, change_cents, reference, created_at, voided_at, void_reason, cashier:profiles!sales_created_by_fkey(full_name), voider:profiles!sales_voided_by_fkey(full_name), sale_items(id, name, unit_price_cents, quantity, line_total_cents)",
+        "id, sale_number, business_date, status, subtotal_cents, discount_cents, total_cents, payment_method, tendered_cents, change_cents, reference, created_at, voided_at, void_reason, customer_name, balance_cents, cashier:profiles!sales_created_by_fkey(full_name), voider:profiles!sales_voided_by_fkey(full_name), sale_items(id, name, unit_price_cents, quantity, line_total_cents), sale_payments(id, amount_cents, payment_method, reference, created_at)",
       )
       .eq("id", id)
       .maybeSingle(),
@@ -61,6 +65,9 @@ export default async function SalePage({
   const voided = sale.status === "voided";
   const label = `Sale ${saleNo(sale.sale_number)}`;
   const pieces = sale.sale_items.reduce((n, i) => n + i.quantity, 0);
+  const unpaid = sale.payment_method === "unpaid";
+  const payments = [...(sale.sale_payments ?? [])].sort((a, b) => a.created_at.localeCompare(b.created_at));
+  const owes = !voided && sale.balance_cents > 0;
 
   return (
     <>
@@ -88,6 +95,7 @@ export default async function SalePage({
                 {label} · {formatManila(sale.created_at)}
               </p>
               {sale.cashier?.full_name && <p className="receipt__line">Cashier: {sale.cashier.full_name}</p>}
+              {sale.customer_name && <p className="receipt__line">Buyer: {sale.customer_name}</p>}
               {voided && <p className="receipt__void">VOIDED</p>}
             </header>
             <table className="receipt__items">
@@ -132,6 +140,21 @@ export default async function SalePage({
               </dd>
               <dt>{paymentMethodLabel(sale.payment_method)}</dt>
               <dd>{pesos2(sale.tendered_cents ?? sale.total_cents)}</dd>
+              {payments.map((p) => (
+                <div key={p.id} style={{ display: "contents" }}>
+                  <dt>
+                    Paid {formatManilaDate(p.created_at, { weekday: false })} · {paymentMethodLabel(p.payment_method)}
+                    {p.reference && ` · ${p.reference}`}
+                  </dt>
+                  <dd>−{pesos2(p.amount_cents)}</dd>
+                </div>
+              ))}
+              {unpaid && !voided && (
+                <>
+                  <dt className="dl__total">{owes ? "Balance due" : "Paid in full"}</dt>
+                  <dd className="dl__total">{pesos2(sale.balance_cents)}</dd>
+                </>
+              )}
               {sale.change_cents !== null && (
                 <>
                   <dt>Change</dt>
@@ -150,6 +173,15 @@ export default async function SalePage({
           </article>
 
           <div className="btn-row no-print">
+            {owes && (
+              <CollectPayment
+                saleId={sale.id}
+                buyer={sale.customer_name ?? "the buyer"}
+                label={`${label} · ${formatManilaDate(sale.business_date)}`}
+                balanceCents={sale.balance_cents}
+                size="md"
+              />
+            )}
             <PrintButton autoPrint={sp.print === "1"} />
             {!voided && can(profile, "voidSales") && <VoidSale id={sale.id} label={label} />}
           </div>
