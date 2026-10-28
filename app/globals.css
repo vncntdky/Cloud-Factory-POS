@@ -1485,6 +1485,7 @@ a.kpi--due::after { background: var(--mint-ink); }
 .thumb--lg { width: 112px; height: 112px; border-radius: var(--radius-lg); }
 .thumb--lg svg { width: 32px; height: 32px; }
 .photo-card { display: flex; flex-direction: row; align-items: center; gap: var(--space-4); padding: var(--space-4); }
+.photo-pick { display: flex; align-items: center; gap: var(--space-4); }
 .list-row__time { width: 52px; font-size: 14px; color: var(--ink-muted); font-variant-numeric: tabular-nums; }
 .list-row__main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .list-row__title { font-weight: 600; font-size: 16px; line-height: 22px; display: flex; align-items: center; gap: 6px; min-width: 0; }

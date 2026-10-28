@@ -2,9 +2,10 @@
 
 // A product's photo with Upload / Replace / Remove. Any active staff member. The browser shrinks
 // the picture (max 800 px, JPEG), uploads it straight to Storage, then setProductPhoto attaches it
-// and deletes the previous file.
+// and deletes the previous file. PhotoPicker is the Add product version: the product doesn't
+// exist yet, so the shrunk photo goes with the form and saveProduct uploads it.
 import { useRouter } from "next/navigation";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { setProductPhoto } from "@/app/(staff)/inventory/actions";
 import { Icon } from "@/components/Icon";
 import { toast } from "@/components/Toaster";
@@ -14,7 +15,7 @@ import { PHOTO_BUCKET, photoUrl } from "@/lib/photos";
 const MAX_SIDE = 800;
 
 /** Resize to at most MAX_SIDE px on the long side and re-encode as JPEG (phone photos are 3–10 MB). */
-async function shrink(file: File): Promise<Blob> {
+export async function shrinkPhoto(file: File): Promise<Blob> {
   const url = URL.createObjectURL(file);
   try {
     const img = new Image();
@@ -57,7 +58,7 @@ export function ProductPhoto({ id, path, label }: { id: string; path: string | n
     try {
       let blob: Blob;
       try {
-        blob = await shrink(file);
+        blob = await shrinkPhoto(file);
       } catch {
         setError("Couldn't read that picture. Try a JPEG or PNG.");
         return;
@@ -148,5 +149,91 @@ export function ProductPhoto({ id, path, label }: { id: string; path: string | n
         )}
       </div>
     </section>
+  );
+}
+
+/** Optional photo on Add product: shrunk here, sent with the form, uploaded once the product is added. */
+export function PhotoPicker({ onChange }: { onChange: (photo: Blob | null) => void }) {
+  const input = useRef<HTMLInputElement>(null);
+  const [preview, setPreview] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Free the previous preview when it's replaced, and the last one when the form goes away.
+  useEffect(
+    () => () => {
+      if (preview) URL.revokeObjectURL(preview);
+    },
+    [preview],
+  );
+
+  async function onFile(file: File | undefined) {
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      setError("Pick a photo (JPEG, PNG or WebP).");
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      const blob = await shrinkPhoto(file);
+      setPreview(URL.createObjectURL(blob));
+      onChange(blob);
+    } catch {
+      setError("Couldn't read that picture. Try a JPEG or PNG.");
+    } finally {
+      setBusy(false);
+      if (input.current) input.current.value = "";
+    }
+  }
+
+  function remove() {
+    setPreview(null);
+    setError(null);
+    onChange(null);
+  }
+
+  return (
+    <div className="field span-all">
+      <span className="field__label" id="p-photo-l">
+        Photo <span className="optional">(optional)</span>
+      </span>
+      <div className="photo-pick">
+        <span className="thumb thumb--lg">
+          {preview ? <img src={preview} alt="Photo for this product" /> : <Icon name="image" />}
+        </span>
+        <div className="stack stack-2 grow">
+          <div className="btn-row">
+            <button
+              type="button"
+              className="btn btn--secondary btn--sm"
+              disabled={busy}
+              aria-busy={busy || undefined}
+              aria-describedby="p-photo-h"
+              onClick={() => input.current?.click()}
+            >
+              <Icon name="upload" />
+              {preview ? "Change photo" : "Upload photo"}
+            </button>
+            {preview && (
+              <button type="button" className="btn btn--ghost btn--sm" disabled={busy} onClick={remove}>
+                <Icon name="trash" />
+                Remove
+              </button>
+            )}
+          </div>
+          <p className="field__hint" id="p-photo-h">
+            Take one with the camera or pick one from your photos. It uploads when you add the product.
+          </p>
+        </div>
+      </div>
+      <input ref={input} type="file" accept="image/*" hidden aria-labelledby="p-photo-l" onChange={(e) => onFile(e.target.files?.[0])} />
+      {error && (
+        <p className="field__error" role="alert">
+          <Icon name="alert" />
+          {error}
+        </p>
+      )}
+    </div>
   );
 }

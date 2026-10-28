@@ -11,10 +11,10 @@ import { can } from "@/lib/permissions";
 
 export const dynamic = "force-dynamic";
 
-export default async function NewProductPage({ searchParams }: { searchParams: Promise<{ added?: string }> }) {
+export default async function NewProductPage({ searchParams }: { searchParams: Promise<{ added?: string; photo?: string }> }) {
   const { supabase, profile } = await requireActiveStaff();
   if (!can(profile, "editProducts")) return <NotAllowed title="Add product" what="Adding products" />;
-  const { added } = await searchParams;
+  const { added, photo } = await searchParams;
 
   const [categories, last, lastCost] = await Promise.all([
     supabase.from("categories").select("id, name").eq("active", true).order("sort_order").order("name"),
@@ -45,6 +45,15 @@ export default async function NewProductPage({ searchParams }: { searchParams: P
               <div>
                 <p className="notice__title">Added {productLabel(prev)}.</p>
                 <p>The next one starts with the same brand, product, category, price and cost. Change the flavour and barcode.</p>
+              </div>
+            </div>
+          )}
+          {prev && photo === "failed" && (
+            <div className="notice notice--danger" role="alert">
+              <Icon name="alert" />
+              <div>
+                <p className="notice__title">Its photo didn&apos;t upload.</p>
+                <p>Open {productLabel(prev)} in Inventory and tap Upload photo to try again.</p>
               </div>
             </div>
           )}

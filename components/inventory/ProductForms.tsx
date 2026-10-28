@@ -1,9 +1,10 @@
 "use client";
 
 // Product editor and stock change form (owners and managers).
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { adjustStock, saveProduct, type ProductFormState } from "@/app/(staff)/inventory/actions";
 import { Icon } from "@/components/Icon";
+import { PhotoPicker } from "@/components/inventory/ProductPhoto";
 import { useFormAction } from "@/lib/use-form-action";
 
 export type ProductValues = {
@@ -37,7 +38,11 @@ export function ProductForm({
   initial: ProductValues;
   categories: { id: string; name: string }[];
 }) {
-  const [state, onSubmit, pending] = useFormAction(saveProduct.bind(null, id), null);
+  // New products only; an existing product's photo is changed on its page (ProductPhoto).
+  const photo = useRef<Blob | null>(null);
+  const [state, onSubmit, pending] = useFormAction(saveProduct.bind(null, id), null, (fd) => {
+    if (photo.current) fd.set("photo", photo.current, "photo.jpg");
+  });
   const [category, setCategory] = useState(initial.category_id || (categories.length === 0 ? "__new" : ""));
   const bad = (f: string) => (state?.field === f ? true : undefined);
 
@@ -49,6 +54,7 @@ export function ProductForm({
         </h2>
       </div>
       <div className="form-grid form-grid--2">
+        {id === null && <PhotoPicker onChange={(b) => (photo.current = b)} />}
         <div className="field">
           <label className="field__label" htmlFor="p-brand">
             Brand <span className="optional">(optional)</span>

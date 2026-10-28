@@ -6,7 +6,7 @@
 // Product photos are the exception: any active staff member can add or change them.
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { requireActiveStaff } from "@/lib/auth";
+import { requireActiveStaff, type ServerSupabase } from "@/lib/auth";
 import { friendlyError, type DbError } from "@/lib/db-errors";
 import { toCents } from "@/lib/format";
 import { UUID_RE } from "@/lib/ids";
@@ -71,6 +71,12 @@ export async function saveProduct(id: string | null, _prev: ProductFormState, fd
   if (opening === "invalid") return { error: "Opening stock must be a whole number of pieces.", field: "opening_qty" };
   if (category === "__new" && !newCategory) return { error: "Name the new category.", field: "new_category" };
   if (category && category !== "__new" && !UUID_RE.test(category)) return { error: "Pick a category.", field: "category_id" };
+  // Add product can bring a photo, shrunk to a small JPEG in the browser (PhotoPicker).
+  const rawPhoto = id === null ? fd.get("photo") : null;
+  const photo = rawPhoto instanceof File && rawPhoto.size > 0 ? rawPhoto : null;
+  if (photo && (photo.type !== "image/jpeg" || photo.size > 2 * 1024 * 1024)) {
+    return { error: "That photo couldn't be used. Pick it again, or add the product without one.", field: "photo" };
+  }
 
   const p: Record<string, unknown> = {
     brand: str(fd, "brand", 60),
@@ -95,8 +101,25 @@ export async function saveProduct(id: string | null, _prev: ProductFormState, fd
     return { error: friendlyError(error as DbError) };
   }
   const newId = data as string;
+  // The product is saved either way; if its photo doesn't make it, the next page says so.
+  const photoFailed = photo !== null && !(await attachNewPhoto(staff.supabase, newId, photo));
+  const flag = photoFailed ? "&photo=failed" : "";
   refresh(newId);
-  redirect(id === null && fd.get("again") === "1" ? `/inventory/new?added=${newId}` : `/inventory/${newId}?saved=1`);
+  redirect(id === null && fd.get("again") === "1" ? `/inventory/new?added=${newId}${flag}` : `/inventory/${newId}?saved=1${flag}`);
+}
+
+/** Upload the photo chosen on Add product (already shrunk in the browser) and attach it. */
+async function attachNewPhoto(supabase: ServerSupabase, id: string, photo: File) {
+  const path = `${id}/${Date.now()}.jpg`;
+  const photos = supabase.storage.from(PHOTO_BUCKET);
+  const up = await photos.upload(path, photo, { contentType: "image/jpeg", cacheControl: "31536000", upsert: false });
+  if (up.error) return false;
+  const { error } = await supabase.rpc("set_product_photo", { p_product: id, p_path: path });
+  if (error) {
+    await photos.remove([path]);
+    return false;
+  }
+  return true;
 }
 
 export type PhotoResult = { ok: true } | { ok: false; error: string };

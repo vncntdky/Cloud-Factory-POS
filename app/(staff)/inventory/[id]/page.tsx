@@ -62,7 +62,7 @@ export default async function ProductPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ saved?: string; stock?: string }>;
+  searchParams: Promise<{ saved?: string; stock?: string; photo?: string }>;
 }) {
   const { id } = await params;
   if (!isUuid(id)) notFound();
@@ -106,6 +106,15 @@ export default async function ProductPage({
               <Icon name="check" />
               <div>
                 <p className="notice__title">{notice}</p>
+              </div>
+            </div>
+          )}
+          {sp.photo === "failed" && !p.photo_path && (
+            <div className="notice notice--danger" role="alert">
+              <Icon name="alert" />
+              <div>
+                <p className="notice__title">The photo didn&apos;t upload.</p>
+                <p>Tap Upload photo below to try again.</p>
               </div>
             </div>
           )}
