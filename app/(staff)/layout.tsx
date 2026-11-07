@@ -65,7 +65,7 @@ export default async function StaffLayout({ children }: { children: ReactNode })
 
   const [{ counts, shopName }, cookieStore] = await Promise.all([loadShell(supabase), cookies()]);
   const theme = cookieStore.get("vp-theme")?.value ?? null;
-  const shellUser = { name, role: profile.role, owner: can(profile, "manageStaff") };
+  const shellUser = { name, role: profile.role, owner: can(profile, "manageStaff"), manager: can(profile, "editStock") };
 
   return (
     <>

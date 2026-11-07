@@ -1,0 +1,127 @@
+// Data for the Restock tab, shared by its pages and actions. Owners and managers only (the
+// database functions return nothing to anyone else).
+import type { ServerSupabase } from "@/lib/auth";
+import { DEFAULT_PLAN, PACE_DAYS, planProduct, type Pace, type ProductPlan, type RestockPlan } from "@/lib/restock";
+
+export type RestockProduct = {
+  id: string;
+  brand: string | null;
+  name: string;
+  variant: string | null;
+  on_hand: number;
+  reorder_at: number;
+  category_id: string | null;
+  photo_path: string | null;
+  cost_cents: number | null;
+  plan: ProductPlan;
+  lastSoldAt: string | null;
+};
+
+export async function loadReorderPlan(supabase: ServerSupabase) {
+  const [products, pace, settings, costs] = await Promise.all([
+    supabase
+      .from("products")
+      .select("id, brand, name, variant, on_hand, reorder_at, category_id, photo_path")
+      .eq("active", true)
+      .order("brand", { nullsFirst: true })
+      .order("name")
+      .order("variant", { nullsFirst: true }),
+    supabase.rpc("sales_pace", { p_days: PACE_DAYS }),
+    supabase.from("settings").select("restock_lead_days, restock_buffer_days, restock_cover_days").maybeSingle(),
+    supabase.from("product_costs").select("product_id, cost_cents"),
+  ]);
+  const s = settings.data as { restock_lead_days: number; restock_buffer_days: number; restock_cover_days: number } | null;
+  const plan: RestockPlan = s
+    ? { lead: s.restock_lead_days, buffer: s.restock_buffer_days, cover: s.restock_cover_days }
+    : DEFAULT_PLAN;
+  const paceBy = new Map(
+    ((pace.data ?? []) as { product_id: string; sold: number; days: number; last_sold_at: string | null }[]).map((r) => [
+      r.product_id,
+      { sold: r.sold, days: Number(r.days), lastSoldAt: r.last_sold_at } satisfies Pace,
+    ]),
+  );
+  const costBy = new Map(
+    ((costs.data ?? []) as { product_id: string; cost_cents: number }[]).map((c) => [c.product_id, c.cost_cents]),
+  );
+  type Row = Omit<RestockProduct, "plan" | "lastSoldAt" | "cost_cents">;
+  const rows: RestockProduct[] = ((products.data ?? []) as Row[]).map((p) => ({
+    ...p,
+    cost_cents: costBy.get(p.id) ?? null,
+    plan: planProduct(p.on_hand, paceBy.get(p.id), plan),
+    lastSoldAt: paceBy.get(p.id)?.lastSoldAt ?? null,
+  }));
+  return { products: rows, plan, error: products.error ?? pace.error ?? null };
+}
+
+export type BatchRow = {
+  batch_id: string | null;
+  product_id: string;
+  received: number;
+  sold: number;
+  sales_cents: number;
+  cost_cents: number;
+  uncosted: number;
+  first_in: string;
+  first_sold_at: string | null;
+  last_sold_at: string | null;
+};
+
+export type Batch = {
+  id: string | null;
+  batch_no: number | null;
+  supplier: string | null;
+  received_on: string | null;
+  note: string | null;
+  created_at: string | null;
+};
+
+export type BatchTotals = {
+  received: number;
+  sold: number;
+  sales: number;
+  /** Gross profit, when every sold piece has a cost; null otherwise. */
+  profit: number | null;
+  firstIn: string;
+  lastSoldAt: string | null;
+};
+
+export function totals(rows: BatchRow[]): BatchTotals {
+  const received = rows.reduce((n, r) => n + r.received, 0);
+  const sold = rows.reduce((n, r) => n + r.sold, 0);
+  const sales = rows.reduce((n, r) => n + Number(r.sales_cents), 0);
+  const cost = rows.reduce((n, r) => n + Number(r.cost_cents), 0);
+  const uncosted = rows.reduce((n, r) => n + r.uncosted, 0);
+  const firstIn = rows.map((r) => r.first_in).sort()[0] ?? "";
+  const lastSoldAt =
+    rows
+      .map((r) => r.last_sold_at)
+      .filter((d): d is string => !!d)
+      .sort()
+      .at(-1) ?? null;
+  return { received, sold, sales, profit: uncosted > 0 ? null : sales - cost, firstIn, lastSoldAt };
+}
+
+/** Every batch (newest first) with its rows; stock received outside a batch is the last entry (id null). */
+export async function loadBatches(supabase: ServerSupabase) {
+  const [batches, rows] = await Promise.all([
+    supabase
+      .from("stock_batches")
+      .select("id, batch_no, supplier, received_on, note, created_at")
+      .order("batch_no", { ascending: false }),
+    supabase.rpc("batch_sales"),
+  ]);
+  const all = (rows.data ?? []) as BatchRow[];
+  const list = ((batches.data ?? []) as Batch[]).map((b) => ({ batch: b, rows: all.filter((r) => r.batch_id === b.id) }));
+  const loose = all.filter((r) => r.batch_id === null);
+  if (loose.length > 0) {
+    list.push({
+      batch: { id: null, batch_no: null, supplier: null, received_on: null, note: null, created_at: null },
+      rows: loose,
+    });
+  }
+  return { list, error: batches.error ?? rows.error ?? null };
+}
+
+export function batchTitle(b: Batch) {
+  return b.batch_no === null ? "Stock before batches" : `Batch ${b.batch_no}`;
+}

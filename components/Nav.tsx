@@ -20,6 +20,8 @@ export type ShellUser = {
   role: string;
   /** Owner: settings and staff. */
   owner: boolean;
+  /** Owner or manager: Restock. */
+  manager: boolean;
 };
 
 export type ShellCounts = {
@@ -45,6 +47,7 @@ function navItems(counts: ShellCounts, user: ShellUser): NavItem[] {
     { href: "/", label: "Sell", icon: "cart" },
     { href: "/sales", label: "Sales", icon: "receipt" },
     { href: "/inventory", label: "Inventory", icon: "box", count: counts.reorder, countText: "low on stock" },
+    ...(user.manager ? [{ href: "/restock", label: "Restock", icon: "truck" as const }] : []),
     { href: "/collectibles", label: "Collectibles", short: "Owed", icon: "wallet", count: counts.owed, countText: "owe money" },
     { href: "/settings", label: user.owner ? "Settings & staff" : "Settings", short: "Settings", icon: "settings" },
   ];

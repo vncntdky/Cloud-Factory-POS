@@ -1,0 +1,182 @@
+// One batch: how its pieces have sold, product by product (first in, first out). id "before" is the
+// stock that came in before batches were recorded. Owners and managers.
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import { Icon } from "@/components/Icon";
+import { Kpi, KpiGrid } from "@/components/Kpi";
+import { Main } from "@/components/Main";
+import { Money } from "@/components/Money";
+import { NotAllowed } from "@/components/NotAllowed";
+import { Topbar } from "@/components/Topbar";
+import { requireActiveStaff } from "@/lib/auth";
+import { friendlyError } from "@/lib/db-errors";
+import { productLabel } from "@/lib/format";
+import { isUuid } from "@/lib/ids";
+import { can } from "@/lib/permissions";
+import { paceLabel } from "@/lib/restock";
+import { formatManilaDate } from "@/lib/time";
+import { batchTitle, loadBatches, totals, type BatchRow } from "../../data";
+
+export const dynamic = "force-dynamic";
+
+const DAY_MS = 86_400_000;
+
+/** Days between two timestamps, at least 1. */
+function spanDays(from: string, to: string | Date) {
+  return Math.max(1, (new Date(to).getTime() - new Date(from).getTime()) / DAY_MS);
+}
+
+function soldLine(r: BatchRow) {
+  if (r.sold === 0) return "Not sold yet";
+  if (r.sold >= r.received && r.last_sold_at) {
+    const d = Math.round(spanDays(r.first_in, r.last_sold_at));
+    return `Sold out ${formatManilaDate(r.last_sold_at)}, in ${d} day${d === 1 ? "" : "s"}`;
+  }
+  return `${paceLabel(r.sold / spanDays(r.first_in, new Date()))} since it arrived`;
+}
+
+export default async function BatchPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ received?: string }>;
+}) {
+  const { id } = await params;
+  if (id !== "before" && !isUuid(id)) notFound();
+  const { supabase, profile } = await requireActiveStaff();
+  if (!can(profile, "editStock")) return <NotAllowed title="Batch" what="Batches" />;
+  const sp = await searchParams;
+
+  const [{ list, error }, products] = await Promise.all([
+    loadBatches(supabase),
+    supabase.from("products").select("id, brand, name, variant, on_hand"),
+  ]);
+  const entry = list.find((b) => (b.batch.id ?? "before") === id);
+  if (!error && !entry) notFound();
+  const names = new Map(
+    ((products.data ?? []) as { id: string; brand: string | null; name: string; variant: string | null }[]).map((p) => [p.id, productLabel(p)]),
+  );
+
+  if (error || !entry) {
+    return (
+      <>
+        <Topbar title="Batch" backHref="/restock?view=batches" backLabel="Back to batches" />
+        <Main>
+          <div className="notice notice--danger" role="alert">
+            <Icon name="alert" />
+            <div>
+              <p className="notice__title">Couldn&apos;t load this batch.</p>
+              <p>{friendlyError(error)}</p>
+            </div>
+          </div>
+        </Main>
+      </>
+    );
+  }
+
+  const { batch, rows } = entry;
+  const t = totals(rows);
+  const left = t.received - t.sold;
+  const share = t.received > 0 ? t.sold / t.received : 0;
+  const days = spanDays(t.firstIn, t.sold >= t.received && t.lastSoldAt ? t.lastSoldAt : new Date());
+  const perDay = t.sold / days;
+  const sortedRows = [...rows].sort((a, b) => b.sold / b.received - a.sold / a.received || (names.get(a.product_id) ?? "").localeCompare(names.get(b.product_id) ?? ""));
+  const title = batchTitle(batch);
+
+  return (
+    <>
+      <Topbar title={title} backHref="/restock?view=batches" backLabel="Back to batches" />
+      <Main>
+        <div className="stack stack-6 narrow">
+          {sp.received === "1" && (
+            <div className="notice notice--success" role="status">
+              <Icon name="check" />
+              <div>
+                <p className="notice__title">
+                  {title} received: {t.received} pcs on the shelf.
+                </p>
+                <p>Its sales show here as the pieces sell.</p>
+              </div>
+            </div>
+          )}
+
+          <p className="t-sm muted">
+            {batch.received_on
+              ? `Arrived ${formatManilaDate(batch.received_on)}`
+              : `Opening stock and single restocks from ${formatManilaDate(t.firstIn)}, before batches were recorded`}
+            {batch.supplier && ` · ${batch.supplier}`}
+            {batch.note && ` · ${batch.note}`}
+          </p>
+
+          <KpiGrid aria-label="Batch sales">
+            <Kpi
+              variant="hero"
+              wide
+              label="Sold"
+              value={<span className="num">{Math.round(share * 100)}%</span>}
+              meta={`${t.sold} of ${t.received} pcs · ${left} left`}
+            />
+            <Kpi label="Sales" value={<Money cents={t.sales} />} meta="after discounts" />
+            <Kpi
+              label="Gross profit"
+              value={t.profit === null ? "–" : <Money cents={t.profit} />}
+              meta={t.profit === null ? "Some pieces have no cost" : t.sales > 0 ? `${Math.round((t.profit / t.sales) * 100)}% margin` : undefined}
+            />
+            <Kpi
+              wide
+              label="Pace"
+              value={t.sold === 0 ? "No sales yet" : paceLabel(perDay)}
+              meta={
+                t.sold === 0
+                  ? undefined
+                  : left <= 0
+                    ? `Sold out in ${Math.round(days)} day${Math.round(days) === 1 ? "" : "s"}`
+                    : `About ${Math.ceil(left / perDay)} more days to sell the rest`
+              }
+            />
+          </KpiGrid>
+
+          <section className="card card--flush" aria-labelledby="lines-t">
+            <div className="card__head">
+              <h2 className="card__title" id="lines-t">
+                By product
+              </h2>
+              <span className="t-caption muted">{rows.length}</span>
+            </div>
+            <ul className="list list--plain" role="list">
+              {sortedRows.map((r) => (
+                <li key={r.product_id}>
+                  <Link className="list-row list-row--compact" href={`/inventory/${r.product_id}`}>
+                    <span className="list-row__main">
+                      <span className="list-row__title">
+                        <span>{names.get(r.product_id) ?? "Removed product"}</span>
+                        {r.sold >= r.received && <span className="chip chip--ok">Sold out</span>}
+                      </span>
+                      <span className="list-row__meta">
+                        {soldLine(r)} · <Money cents={r.sales_cents} />
+                      </span>
+                      <span className="meter" aria-hidden="true">
+                        <span style={{ width: `${Math.min(100, (r.sold / r.received) * 100)}%` }} />
+                      </span>
+                    </span>
+                    <span className="list-row__trail stock-count">
+                      <span className="num">
+                        {r.sold} / {r.received}
+                      </span>
+                      <span className="t-caption muted">sold</span>
+                    </span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </section>
+          <p className="t-sm muted">
+            Sales are matched first in, first out: a product&apos;s older pieces sell before this batch&apos;s. Damaged or
+            lost pieces aren&apos;t counted here.
+          </p>
+        </div>
+      </Main>
+    </>
+  );
+}

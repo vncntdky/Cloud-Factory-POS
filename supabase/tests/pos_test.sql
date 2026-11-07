@@ -198,6 +198,63 @@ select public.record_payment((:'owed'::jsonb ->> 'id')::uuid, 50000, 'gcash', 'G
 select pg_temp.check('paid in full leaves collectibles', (select public.collectibles() = '[]'::jsonb));
 select pg_temp.expect_error('nothing left to collect', format($$select public.record_payment('%s', 100, 'cash')$$, :'owed'::jsonb ->> 'id'), 'paid in full');
 
+-- ───────── Restock: batches, sales by batch, pace, reorder levels (manager) ─────────
+set request.jwt.claim.sub = '33333333-3333-3333-3333-333333333333';
+select public.save_product(null, '{"name": "Batch Pod", "price_cents": 10000, "cost_cents": 5000, "opening_qty": 5}') as bp \gset
+select public.receive_batch(format('{"supplier": " Cloud Supply ", "note": "", "items": [{"product_id": "%s", "qty": 10, "unit_cost_cents": 6000}, {"product_id": "%s", "qty": 4}]}',
+  :'bp', (select id from public.products where variant = 'Mango'))::jsonb) as batch1 \gset
+select pg_temp.check('receive_batch numbers the batch and trims the supplier',
+  (select batch_no = 1 and supplier = 'Cloud Supply' and note is null and received_on = public.manila_today() from public.stock_batches where id = :'batch1'));
+select pg_temp.check('receive_batch puts the pieces on the shelf, logged as restocks in the batch',
+  (select on_hand = 15 from public.products where id = :'bp')
+  and (select count(*) = 2 from public.stock_movements where batch_id = :'batch1' and kind = 'restock'));
+select pg_temp.check('a batch cost per piece becomes the product cost', (select cost_cents = 6000 from public.product_costs where product_id = :'bp'));
+select public.complete_sale(format('{"client_ref": "bbbbbbbb-0000-0000-0000-000000000001", "payment_method": "cash", "tendered_cents": 70000, "age_verified": true, "items": [{"product_id": "%s", "quantity": 7}]}', :'bp')::jsonb);
+select public.complete_sale(format('{"client_ref": "bbbbbbbb-0000-0000-0000-000000000002", "payment_method": "gcash", "discount_cents": 2000, "age_verified": true, "items": [{"product_id": "%s", "quantity": 2}]}', :'bp')::jsonb);
+-- First in, first out: the 5 opening pieces sell first, then 4 of the batch's 10.
+select pg_temp.check('opening stock sells first',
+  (select received = 5 and sold = 5 and sales_cents = 50000 from public.batch_sales() where product_id = :'bp' and batch_id is null));
+select pg_temp.check('then the batch: 2 at full price, 2 after the discount',
+  (select received = 10 and sold = 4 and sales_cents = 2 * 10000 + 2 * 9000 and cost_cents = 4 * 6000 and uncosted = 0
+     from public.batch_sales() where product_id = :'bp' and batch_id = :'batch1'));
+select pg_temp.check('sales_pace counts pieces sold', (select sold = 9 and days >= 1 from public.sales_pace(28) where product_id = :'bp'));
+select public.receive_batch(format('{"items": [{"product_id": "%s", "qty": 3}]}', :'bp')::jsonb) as batch2 \gset
+select pg_temp.check('the next batch gets the next number', (select batch_no = 2 from public.stock_batches where id = :'batch2'));
+select pg_temp.check('a batch with no sales yet shows 0 sold',
+  (select received = 3 and sold = 0 and sales_cents = 0 and first_sold_at is null from public.batch_sales() where batch_id = :'batch2'));
+select pg_temp.check('every product: pieces matched to batches = the lesser of received and sold',
+  not exists (
+    select 1
+      from (select product_id, sum(received) as rec, sum(sold) as sold from public.batch_sales() group by product_id) b
+      left join (select i.product_id, sum(i.quantity) as qty from public.sale_items i join public.sales s on s.id = i.sale_id
+                  where s.status = 'completed' group by i.product_id) t on t.product_id = b.product_id
+     where b.sold <> least(b.rec, coalesce(t.qty, 0))));
+select pg_temp.expect_error('a product only once per batch',
+  format($$select public.receive_batch('{"items": [{"product_id": "%s", "qty": 1}, {"product_id": "%s", "qty": 2}]}')$$, :'bp', :'bp'), 'only be in a batch once');
+select pg_temp.expect_error('batch pieces must be at least 1',
+  format($$select public.receive_batch('{"items": [{"product_id": "%s", "qty": 0}]}')$$, :'bp'), '1 to 100,000');
+select pg_temp.expect_error('no batches dated in the future',
+  format($$select public.receive_batch('{"received_on": "%s", "items": [{"product_id": "%s", "qty": 1}]}')$$, public.manila_today() + 1, :'bp'), 'last 60 days');
+select pg_temp.expect_error('an empty batch is refused', $$select public.receive_batch('{"items": []}')$$, 'at least one product');
+select public.set_reorder_levels(format('[{"product_id": "%s", "reorder_at": 12}, {"product_id": "%s", "reorder_at": %s}]', :'bp',
+    (select id from public.products where variant = 'Mint'), (select reorder_at from public.products where variant = 'Mint'))::jsonb) as changed \gset
+select pg_temp.check('set_reorder_levels changes only what differs',
+  :changed = 1 and (select reorder_at = 12 from public.products where id = :'bp'));
+select pg_temp.expect_error('alert levels are checked', format($$select public.set_reorder_levels('[{"product_id": "%s", "reorder_at": -1}]')$$, :'bp'), '0 to 10,000');
+select public.set_restock_plan(5, 2, 21);
+select pg_temp.check('manager sets the reorder plan',
+  (select restock_lead_days = 5 and restock_buffer_days = 2 and restock_cover_days = 21 from public.settings));
+select pg_temp.expect_error('the plan is checked', $$select public.set_restock_plan(5, 2, 0)$$, '1 to 180');
+
+set request.jwt.claim.sub = '22222222-2222-2222-2222-222222222222';
+select pg_temp.expect_error('staff cannot receive batches',
+  format($$select public.receive_batch('{"items": [{"product_id": "%s", "qty": 1}]}')$$, :'bp'), 'Only owners and managers');
+select pg_temp.check('staff see no batches or batch sales',
+  (select count(*) = 0 from public.stock_batches) and (select count(*) = 0 from public.batch_sales()) and (select count(*) = 0 from public.sales_pace(28)));
+select pg_temp.expect_error('staff cannot change alert levels in bulk',
+  format($$select public.set_reorder_levels('[{"product_id": "%s", "reorder_at": 1}]')$$, :'bp'), 'Only owners and managers');
+select pg_temp.expect_error('staff cannot change the reorder plan', $$select public.set_restock_plan(1, 1, 1)$$, 'Only owners and managers');
+
 reset role;
 select case when ok then 'ok   ' else 'FAIL ' end || name as result from results;
 select count(*) filter (where not ok) as failures, count(*) as checks from results;

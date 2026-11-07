@@ -1,0 +1,112 @@
+"use server";
+
+// Restock tab: the reorder plan settings, applying suggested reorder points as low-stock alerts,
+// and receiving a batch. Owners and managers; the database functions check the role too.
+import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
+import { requireActiveStaff } from "@/lib/auth";
+import { friendlyError, type DbError } from "@/lib/db-errors";
+import { toCents } from "@/lib/format";
+import { UUID_RE } from "@/lib/ids";
+import { can } from "@/lib/permissions";
+import { isIsoDate } from "@/lib/time";
+import { loadReorderPlan } from "./data";
+
+export type RestockFormState = { error: string; field?: string } | null;
+
+async function manager() {
+  try {
+    const staff = await requireActiveStaff();
+    if (!can(staff.profile, "editStock")) return { error: "Only owners and managers can restock." };
+    return staff;
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "Sign in again." };
+  }
+}
+
+function days(fd: FormData, key: string) {
+  const raw = String(fd.get(key) ?? "").trim();
+  return /^\d{1,3}$/.test(raw) ? Number(raw) : null;
+}
+
+/** Delivery time, buffer and how long each order should last. */
+export async function saveRestockPlan(_prev: RestockFormState, fd: FormData): Promise<RestockFormState> {
+  const staff = await manager();
+  if ("error" in staff) return { error: staff.error };
+  const lead = days(fd, "lead");
+  const buffer = days(fd, "buffer");
+  const cover = days(fd, "cover");
+  if (lead === null || lead > 90) return { error: "Delivery time is 0 to 90 days.", field: "lead" };
+  if (buffer === null || buffer > 90) return { error: "Buffer is 0 to 90 days.", field: "buffer" };
+  if (cover === null || cover < 1 || cover > 180) return { error: "Each order lasts 1 to 180 days.", field: "cover" };
+  const { error } = await staff.supabase.rpc("set_restock_plan", {
+    p_lead_days: lead,
+    p_buffer_days: buffer,
+    p_cover_days: cover,
+  });
+  if (error) return { error: friendlyError(error as DbError) };
+  revalidatePath("/restock");
+  redirect("/restock?plan=saved");
+}
+
+/**
+ * Set each selling product's low-stock alert (Inventory, the nav badge) to its suggested reorder
+ * point. Worked out again here from the database, not taken from the page.
+ */
+export async function applyReorderPoints(): Promise<void> {
+  const staff = await manager();
+  if ("error" in staff) redirect("/restock?alerts=error");
+  const { products } = await loadReorderPlan(staff.supabase);
+  const levels = products
+    .filter((p) => p.plan.reorderPoint !== null && p.plan.reorderPoint !== p.reorder_at)
+    .map((p) => ({ product_id: p.id, reorder_at: Math.min(10_000, p.plan.reorderPoint!) }));
+  if (levels.length === 0) redirect("/restock?alerts=0");
+  const { data, error } = await staff.supabase.rpc("set_reorder_levels", { p: levels });
+  if (error) redirect("/restock?alerts=error");
+  revalidatePath("/inventory");
+  revalidatePath("/", "layout");
+  redirect(`/restock?alerts=${Number(data) || 0}`);
+}
+
+/** One supplier delivery: pieces (and optionally cost per piece) for each product, as qty_<id> / cost_<id>. */
+export async function receiveBatch(_prev: RestockFormState, fd: FormData): Promise<RestockFormState> {
+  const staff = await manager();
+  if ("error" in staff) return { error: staff.error };
+
+  const items: { product_id: string; qty: number; unit_cost_cents: number | null }[] = [];
+  for (const [key, value] of fd.entries()) {
+    if (!key.startsWith("qty_") || typeof value !== "string") continue;
+    const id = key.slice(4);
+    const raw = value.trim().replace(/,/g, "");
+    if (!UUID_RE.test(id) || raw === "" || raw === "0") continue;
+    if (!/^\d{1,6}$/.test(raw) || Number(raw) > 100_000) {
+      return { error: "Pieces received must be whole numbers up to 100,000.", field: key };
+    }
+    const costRaw = String(fd.get(`cost_${id}`) ?? "").trim();
+    const cost = costRaw === "" ? null : toCents(costRaw);
+    if (costRaw !== "" && (cost === null || cost < 0)) return { error: "Check the cost per piece.", field: `cost_${id}` };
+    items.push({ product_id: id, qty: Number(raw), unit_cost_cents: cost });
+  }
+  if (items.length === 0) return { error: "Enter the pieces received for at least one product." };
+
+  const receivedOn = String(fd.get("received_on") ?? "").trim();
+  if (receivedOn && !isIsoDate(receivedOn)) return { error: "Pick the day the batch arrived.", field: "received_on" };
+
+  const { data, error } = await staff.supabase.rpc("receive_batch", {
+    p: {
+      supplier: String(fd.get("supplier") ?? "")
+        .trim()
+        .slice(0, 60),
+      received_on: receivedOn,
+      note: String(fd.get("note") ?? "")
+        .trim()
+        .slice(0, 200),
+      items,
+    },
+  });
+  if (error) return { error: friendlyError(error as DbError) };
+  revalidatePath("/restock");
+  revalidatePath("/inventory");
+  revalidatePath("/", "layout");
+  redirect(`/restock/batches/${data as string}?received=1`);
+}
