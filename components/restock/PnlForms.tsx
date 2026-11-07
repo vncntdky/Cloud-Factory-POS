@@ -74,6 +74,12 @@ export function ExpenseForm({
                 ))}
               </select>
             </div>
+            {(batches ?? []).length === 0 && (
+              <p className="field__hint">
+                No batches yet, so only General. <a href="/restock/batches/before">Turn your current stock into a batch</a> or
+                receive one to charge a batch.
+              </p>
+            )}
           </div>
         )}
         <div className="field">

@@ -397,6 +397,25 @@ select public.add_expense(format('{"batch_id": "%s", "category": "other", "amoun
 select public.delete_product(:'kbp');
 select pg_temp.check('a batch with expenses is kept when its last product goes', exists (select 1 from public.stock_batches where id = :'kb'));
 
+-- ───────── Turn stock before batches into a batch ─────────
+set request.jwt.claim.sub = '22222222-2222-2222-2222-222222222222';
+select pg_temp.expect_error('staff cannot make batches', $$select public.batch_existing_stock('{}')$$, 'Only owners and managers');
+set request.jwt.claim.sub = '33333333-3333-3333-3333-333333333333';
+select count(*) as loose_before from public.stock_movements where batch_id is null and kind in ('opening', 'restock') and delta > 0 \gset
+select (select coalesce(sum(sold), 0) from public.batch_sales() where batch_id is null) as loose_sold \gset
+select public.batch_existing_stock('{"supplier": " Old supplier "}') as made \gset
+select pg_temp.check('stock before batches becomes a batch (named, numbered, dated, labelled)',
+  (select supplier = 'Old supplier' and note = 'Opening stock' and batch_no = (select max(batch_no) from public.stock_batches)
+     and received_on = (select (min(created_at) at time zone 'Asia/Manila')::date from public.stock_movements where batch_id = :'made')
+     from public.stock_batches where id = :'made')
+  and (select count(*) from public.stock_movements where batch_id = :'made') = :loose_before
+  and not exists (select 1 from public.stock_movements where batch_id is null and kind in ('opening', 'restock') and delta > 0));
+select pg_temp.check('its sales move with it', (select sum(sold) from public.batch_sales() where batch_id = :'made') = :loose_sold
+  and not exists (select 1 from public.batch_sales() where batch_id is null));
+select public.add_expense(format('{"batch_id": "%s", "category": "other", "amount_cents": 1000}', :'made')::jsonb);
+select pg_temp.check('it can take expenses now', exists (select 1 from public.expenses where batch_id = :'made'));
+select pg_temp.expect_error('nothing left to batch', $$select public.batch_existing_stock('{}')$$, 'already in a batch');
+
 reset role;
 select case when ok then 'ok   ' else 'FAIL ' end || name as result from results;
 select count(*) filter (where not ok) as failures, count(*) as checks from results;

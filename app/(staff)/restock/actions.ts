@@ -217,3 +217,20 @@ export async function saveSplit(_prev: RestockFormState, fd: FormData): Promise<
   revalidatePath("/sales/pnl");
   redirect(pnlBack(fd, "split=saved"));
 }
+
+/** Turn "Stock before batches" into a real batch, so it gets restock costs, expenses and a P&L. */
+export async function batchExistingStock(_prev: RestockFormState, fd: FormData): Promise<RestockFormState> {
+  const staff = await manager();
+  if ("error" in staff) return { error: staff.error };
+  const { data, error } = await staff.supabase.rpc("batch_existing_stock", {
+    p: {
+      supplier: String(fd.get("supplier") ?? "")
+        .trim()
+        .slice(0, 60),
+    },
+  });
+  if (error) return { error: friendlyError(error as DbError) };
+  revalidatePath("/restock");
+  revalidatePath("/sales/pnl");
+  redirect(`/restock/batches/${data as string}?made=1`);
+}

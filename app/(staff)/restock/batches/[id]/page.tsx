@@ -9,6 +9,7 @@ import { Money } from "@/components/Money";
 import { NotAllowed } from "@/components/NotAllowed";
 import { Topbar } from "@/components/Topbar";
 import { BatchPnlCard } from "@/components/restock/BatchPnlCard";
+import { MakeBatchForm } from "@/components/restock/MakeBatchForm";
 import { requireActiveStaff } from "@/lib/auth";
 import { friendlyError } from "@/lib/db-errors";
 import { productLabel, saleNo } from "@/lib/format";
@@ -41,7 +42,7 @@ export default async function BatchPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ received?: string; costs?: string; expense?: string; split?: string }>;
+  searchParams: Promise<{ received?: string; costs?: string; expense?: string; split?: string; made?: string }>;
 }) {
   const { id } = await params;
   if (id !== "before" && !isUuid(id)) notFound();
@@ -104,6 +105,15 @@ export default async function BatchPage({
       <Topbar title={title} backHref="/restock?view=batches" backLabel="Back to batches" />
       <Main>
         <div className="stack stack-6 narrow">
+          {sp.made === "1" && (
+            <div className="notice notice--success" role="status">
+              <Icon name="check" />
+              <div>
+                <p className="notice__title">{title} made from your earlier stock.</p>
+                <p>Add its shipping, tax, MOOE and expenses in the P&amp;L below.</p>
+              </div>
+            </div>
+          )}
           {sp.received === "1" && (
             <div className="notice notice--success" role="status">
               <Icon name="check" />
@@ -205,6 +215,7 @@ export default async function BatchPage({
             </section>
           )}
 
+          {batch.id === null && <MakeBatchForm />}
           {batch.id !== null && (
             <BatchPnlCard
               batch={{ ...batch, id: batch.id }}
