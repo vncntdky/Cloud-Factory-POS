@@ -109,6 +109,16 @@ export default async function SalesPage({ searchParams }: { searchParams: Promis
       />
       <Main>
         <div className="stack stack-6">
+          {can(profile, "seeCosts") && (
+            <nav className="segmented" aria-label="Sales">
+              <Link className="segmented__option" href="/sales" aria-current="page">
+                Daily sales
+              </Link>
+              <Link className="segmented__option" href="/sales/dashboard">
+                Dashboard
+              </Link>
+            </nav>
+          )}
           {sp.deleted === "1" && (
             <div className="notice notice--success" role="status">
               <Icon name="check" />

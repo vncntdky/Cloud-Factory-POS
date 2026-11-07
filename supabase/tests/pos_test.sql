@@ -333,6 +333,28 @@ select pg_temp.expect_error('staff cannot change restock costs', format($$select
 select pg_temp.check('staff see no batch debts', (select count(*) = 0 from public.batch_owed(:'ob')));
 select pg_temp.expect_error('staff cannot call the internal matcher', 'select count(*) from public.batch_matches()', 'permission denied');
 
+-- ───────── Dashboard (manager) ─────────
+set request.jwt.claim.sub = '33333333-3333-3333-3333-333333333333';
+select public.dashboard(public.manila_today() - 6, public.manila_today(), 'day') as dash \gset
+select pg_temp.check('dashboard: one bucket per day', jsonb_array_length(:'dash'::jsonb -> 'buckets') = 7);
+select pg_temp.check('dashboard: totals match the sales',
+  (:'dash'::jsonb -> 'current' ->> 'sales_cents')::bigint = (select sum(total_cents) from public.sales where status = 'completed' and business_date > public.manila_today() - 7)
+  and (:'dash'::jsonb -> 'current' ->> 'sales')::int = (select count(*) from public.sales where status = 'completed' and business_date > public.manila_today() - 7)
+  and (:'dash'::jsonb -> 'current' ->> 'pieces')::int = (select sum(i.quantity) from public.sale_items i join public.sales s on s.id = i.sale_id where s.status = 'completed' and s.business_date > public.manila_today() - 7));
+select pg_temp.check('dashboard: buckets add up to the totals',
+  (select sum((b ->> 'sales_cents')::bigint) from jsonb_array_elements(:'dash'::jsonb -> 'buckets') b) = (:'dash'::jsonb -> 'current' ->> 'sales_cents')::bigint
+  and (select sum((b ->> 'pieces')::int) from jsonb_array_elements(:'dash'::jsonb -> 'buckets') b) = (:'dash'::jsonb -> 'current' ->> 'pieces')::int);
+select pg_temp.check('dashboard: busiest-times grid counts every sale',
+  (select sum((h ->> 'sales')::int) from jsonb_array_elements(:'dash'::jsonb -> 'hours') h) = (:'dash'::jsonb -> 'current' ->> 'sales')::int);
+select pg_temp.check('dashboard: product sales after discounts, named in full',
+  (select (p ->> 'pieces')::int = 9 and (p ->> 'sales_cents')::int = 7 * 10000 + 2 * 9000 and p ->> 'name' = 'Batch Pod'
+     from jsonb_array_elements(:'dash'::jsonb -> 'products') p where p ->> 'product_id' = :'bp'));
+select pg_temp.check('dashboard: previous period is there (empty here)', (:'dash'::jsonb -> 'previous' ->> 'sales')::int = 0);
+select pg_temp.check('dashboard: weeks group by week', jsonb_array_length(public.dashboard(public.manila_today() - 27, public.manila_today(), 'week') -> 'buckets') between 4 and 5);
+select pg_temp.expect_error('dashboard checks the grouping', $$select public.dashboard(current_date, current_date, 'hour')$$, 'day, week or month');
+set request.jwt.claim.sub = '22222222-2222-2222-2222-222222222222';
+select pg_temp.expect_error('staff cannot see the dashboard', $$select public.dashboard(current_date - 6, current_date)$$, 'Only owners and managers');
+
 reset role;
 select case when ok then 'ok   ' else 'FAIL ' end || name as result from results;
 select count(*) filter (where not ok) as failures, count(*) as checks from results;
