@@ -2,6 +2,7 @@
 // against the previous period, sales and profit over time, best sellers and slow movers, every
 // product's pace, and the busiest times. ?range = 7d | 30d | 90d | 12m, ?sort = the product table.
 import Link from "next/link";
+import { Fragment } from "react";
 import { ColumnChart } from "@/components/charts/ColumnChart";
 import { Heatmap, hourLabel, type HeatCell } from "@/components/charts/Heatmap";
 import { RankBars } from "@/components/charts/RankBars";
@@ -12,9 +13,13 @@ import { Main } from "@/components/Main";
 import { Money } from "@/components/Money";
 import { NotAllowed } from "@/components/NotAllowed";
 import { Topbar } from "@/components/Topbar";
+import { CategoryFilter } from "@/components/dashboard/CategoryFilter";
+import { ExpenseForm, SplitForm } from "@/components/dashboard/PnlForms";
+import { deleteExpense } from "./actions";
 import { requireActiveStaff } from "@/lib/auth";
 import { friendlyError } from "@/lib/db-errors";
 import { pesos } from "@/lib/format";
+import { EXPENSE_CATEGORIES, shareLabel, splitProfit } from "@/lib/pnl";
 import { can } from "@/lib/permissions";
 import { daysLeftLabel, paceLabel } from "@/lib/restock";
 import { addDays, formatManilaDate, manilaToday } from "@/lib/time";
@@ -107,18 +112,60 @@ const SORTS = [
 ] as const;
 type Sort = (typeof SORTS)[number]["id"];
 
-export default async function DashboardPage({ searchParams }: { searchParams: Promise<{ range?: string; sort?: string }> }) {
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ range?: string; sort?: string; cat?: string; expense?: string; split?: string }>;
+}) {
   const { supabase, profile } = await requireActiveStaff();
   if (!can(profile, "seeCosts")) return <NotAllowed title="Dashboard" what="The dashboard" />;
   const sp = await searchParams;
   const range = RANGES.find((r) => r.id === sp.range) ?? RANGES[1];
   const sort: Sort = SORTS.some((s) => s.id === sp.sort) ? (sp.sort as Sort) : "pieces";
+  const { data: catRows } = await supabase.from("categories").select("id, name").order("sort_order").order("name");
+  const categories = (catRows ?? []) as { id: string; name: string }[];
+  const cat = categories.some((c) => c.id === sp.cat) ? (sp.cat as string) : null;
+  const catName = categories.find((c) => c.id === cat)?.name;
+  /** This page with the current range, category and sort, changed by `next`. */
+  const link = (next: { range?: string; cat?: string | null; sort?: string }) => {
+    const u = new URLSearchParams();
+    const r = next.range ?? range.id;
+    if (r !== "30d") u.set("range", r);
+    const k = next.cat === undefined ? cat : next.cat;
+    if (k) u.set("cat", k);
+    const so = next.sort ?? (sort === "pieces" ? undefined : sort);
+    if (so) u.set("sort", so);
+    const q = u.toString();
+    return `/sales/dashboard${q ? `?${q}` : ""}`;
+  };
   const to = manilaToday();
   const from = addDays(to, -(range.days - 1));
   const prevLabel = `previous ${range.label}`;
 
-  const { data, error } = await supabase.rpc("dashboard", { p_from: from, p_to: to, p_grain: range.grain });
+  const [{ data, error }, expensesRes, splitRes] = await Promise.all([
+    supabase.rpc("dashboard", { p_from: from, p_to: to, p_grain: range.grain, p_category: cat }),
+    supabase
+      .from("expenses")
+      .select("id, spent_on, category, amount_cents, note")
+      .gte("spent_on", from)
+      .lte("spent_on", to)
+      .order("spent_on", { ascending: false })
+      .order("created_at", { ascending: false }),
+    supabase.from("settings").select("split_owner_parts, split_manager_parts").maybeSingle(),
+  ]);
   const d = data as Dashboard | null;
+  const expenses = (expensesRes.data ?? []) as {
+    id: string;
+    spent_on: string;
+    category: string;
+    amount_cents: number;
+    note: string | null;
+  }[];
+  const split = (splitRes.data as { split_owner_parts: number; split_manager_parts: number } | null) ?? {
+    split_owner_parts: 2,
+    split_manager_parts: 1,
+  };
+  const isOwner = can(profile, "editSettings");
 
   const header = (
     <>
@@ -135,13 +182,20 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
           <Link
             key={r.id}
             className="filter-chip"
-            href={`/sales/dashboard?range=${r.id}`}
+            href={link({ range: r.id })}
             aria-current={r.id === range.id ? "true" : undefined}
           >
             {r.label}
           </Link>
         ))}
       </div>
+      {categories.length > 0 && (
+        <CategoryFilter
+          value={cat ?? ""}
+          options={categories.map((c) => ({ value: c.id, label: c.name }))}
+          hrefs={Object.fromEntries([["", link({ cat: null })], ...categories.map((c) => [c.id, link({ cat: c.id })])])}
+        />
+      )}
     </>
   );
 
@@ -172,6 +226,12 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   const prevUnitMargin = p.pieces > 0 ? prevProfit / p.pieces : 0;
   const pricePerPiece = c.pieces > 0 ? c.sales_cents / c.pieces : 0;
   const incomplete = c.uncosted > 0;
+  const expenseBy = new Map<string, number>();
+  for (const e of expenses) expenseBy.set(e.category, (expenseBy.get(e.category) ?? 0) + e.amount_cents);
+  const expenseTotal = expenses.reduce((n, e) => n + e.amount_cents, 0);
+  const net = profit - c.restock_cents - (cat ? 0 : expenseTotal);
+  const splitTotal = split.split_owner_parts + split.split_manager_parts;
+  const shares = splitProfit(net, split.split_owner_parts, split.split_manager_parts);
 
   // Pace while in stock: from the range start (or first stock-in, if later) to now, or to the last
   // sale when the shelf is empty, so a product that sold out fast isn't judged on days it had none.
@@ -257,7 +317,8 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
 
           <section className="stack stack-3" aria-labelledby="units-t">
             <h2 className="eyebrow" id="units-t">
-              How the shop is doing · {formatManilaDate(from, { weekday: false })} – {formatManilaDate(to, { weekday: false })}
+              {catName ?? "How the shop is doing"} · {formatManilaDate(from, { weekday: false })} –{" "}
+              {formatManilaDate(to, { weekday: false })}
             </h2>
             <KpiGrid aria-label="Unit economics">
               <Kpi
@@ -322,6 +383,145 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
                 href={c.owed_cents > 0 ? "/collectibles" : undefined}
               />
             </KpiGrid>
+          </section>
+
+          <section className="card stack" id="pnl" aria-labelledby="pnl-t">
+            <div className="card__head">
+              <h2 className="card__title" id="pnl-t">
+                Profit and loss
+              </h2>
+              <span className="t-caption muted">
+                {formatManilaDate(from, { weekday: false })} – {formatManilaDate(to, { weekday: false })}
+              </span>
+            </div>
+            {sp.expense === "added" && <p className="t-sm notice-inline">Expense saved.</p>}
+            {sp.expense === "removed" && <p className="t-sm notice-inline">Expense removed.</p>}
+            {sp.split === "saved" && <p className="t-sm notice-inline">Profit split saved.</p>}
+            {sp.expense === "error" && (
+              <p className="field__error" role="alert">
+                <Icon name="alert" />
+                Couldn&apos;t change that expense. Try again.
+              </p>
+            )}
+            <dl className="cost-list pnl">
+              <dt>Net sales</dt>
+              <dd>
+                <Money cents={c.sales_cents} />
+              </dd>
+              <dt>Cost of pieces sold</dt>
+              <dd>
+                − <Money cents={c.cost_cents} />
+              </dd>
+              <dt className="cost-list__total">Gross profit</dt>
+              <dd className="cost-list__total">
+                <Money cents={profit} />
+              </dd>
+              <dt>Restock costs (shipping, tax, MOOE, other)</dt>
+              <dd>
+                − <Money cents={c.restock_cents} />
+              </dd>
+              {EXPENSE_CATEGORIES.map((ec) => {
+                const sum = expenseBy.get(ec.id) ?? 0;
+                if (cat || (sum === 0 && ec.id !== "salary")) return null;
+                return (
+                  <Fragment key={ec.id}>
+                    <dt>{ec.label}</dt>
+                    <dd>
+                      − <Money cents={sum} />
+                    </dd>
+                  </Fragment>
+                );
+              })}
+              <dt className="cost-list__total">{cat ? "After restock costs" : "Net profit"}</dt>
+              <dd className={`cost-list__total${net < 0 ? " text-alert" : ""}`}>
+                <Money cents={net} />
+              </dd>
+            </dl>
+            {(incomplete || c.owed_cents > 0) && (
+              <p className="t-sm muted">
+                {incomplete ? "Some pieces were sold without a cost, so profit is a little high. " : ""}
+                {c.owed_cents > 0 && (
+                  <>
+                    <Money cents={c.owed_cents} /> of these sales isn&apos;t paid yet (Collectibles).
+                  </>
+                )}
+              </p>
+            )}
+
+            {cat ? (
+              <p className="t-sm muted">
+                Salaries, other expenses and the owner / manager split are for the whole shop.{" "}
+                <Link href={link({ cat: null })}>Show all categories</Link>
+              </p>
+            ) : (
+              <>
+                <div className="pnl-split">
+                  <div className="row row--between row--wrap">
+                    <h3 className="eyebrow">
+                      Split · owner {shareLabel(split.split_owner_parts, splitTotal)}, manager{" "}
+                      {shareLabel(split.split_manager_parts, splitTotal)}
+                    </h3>
+                    {isOwner && (
+                      <SplitForm range={range.id} owner={split.split_owner_parts} manager={split.split_manager_parts} />
+                    )}
+                  </div>
+                  {net > 0 ? (
+                    <KpiGrid aria-label="Profit split">
+                      <Kpi
+                        wide
+                        label="Owner"
+                        value={<Money cents={shares.owner} />}
+                        meta={`${shareLabel(split.split_owner_parts, splitTotal)} of net profit`}
+                      />
+                      <Kpi
+                        wide
+                        label="Manager"
+                        value={<Money cents={shares.manager} />}
+                        meta={`${shareLabel(split.split_manager_parts, splitTotal)} of net profit`}
+                      />
+                    </KpiGrid>
+                  ) : (
+                    <p className="t-sm muted">No net profit in this range, so nothing to split.</p>
+                  )}
+                </div>
+
+                <div className="stack stack-2">
+                  <h3 className="eyebrow">Expenses in this range</h3>
+                  {expenses.length === 0 ? (
+                    <p className="t-sm muted">None yet. Add salaries, rent and other costs so net profit is right.</p>
+                  ) : (
+                    <ul className="list list--plain" role="list">
+                      {expenses.map((e) => (
+                        <li key={e.id} className="list-row list-row--compact">
+                          <span className="list-row__main">
+                            <span className="list-row__title">
+                              <span>{EXPENSE_CATEGORIES.find((x) => x.id === e.category)?.label ?? e.category}</span>
+                            </span>
+                            <span className="list-row__meta">
+                              {formatManilaDate(e.spent_on)}
+                              {e.note && ` · ${e.note}`}
+                            </span>
+                          </span>
+                          <span className="list-row__trail">
+                            <span className="num">
+                              <Money cents={e.amount_cents} />
+                            </span>
+                          </span>
+                          <form action={deleteExpense}>
+                            <input type="hidden" name="id" value={e.id} />
+                            <input type="hidden" name="range" value={range.id} />
+                            <button type="submit" className="icon-btn" aria-label={`Remove ${e.note ?? e.category} expense`}>
+                              <Icon name="trash" />
+                            </button>
+                          </form>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  <ExpenseForm range={range.id} today={to} earliest={addDays(to, -400)} />
+                </div>
+              </>
+            )}
           </section>
 
           <section className="card stack" aria-labelledby="trend-t">
@@ -497,7 +697,9 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
                           </span>
                         </span>
                         <span className="list-row__trail stock-count">
-                          <span className="num-lg">{r.soldOutIn !== null ? Math.max(1, Math.round(r.soldOutIn)) : r.on_hand}</span>
+                          <span className="num-lg">
+                            {r.soldOutIn !== null ? Math.max(1, Math.round(r.soldOutIn)) : r.on_hand}
+                          </span>
                           <span className="t-caption muted">{r.soldOutIn !== null ? "days" : "pcs"}</span>
                         </span>
                       </Link>
@@ -530,7 +732,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
                         className="num"
                         aria-sort={sort === s.id ? (asc ? "ascending" : "descending") : undefined}
                       >
-                        <Link href={`/sales/dashboard?range=${range.id}&sort=${s.id}`} className="th-sort">
+                        <Link href={link({ sort: s.id })} className="th-sort">
                           {s.label}
                         </Link>
                       </th>

@@ -2503,3 +2503,23 @@ a.segmented__option { text-decoration: none; }
   .table--dash td { padding: 3px 0; font-size: 14px; }
   .table--dash td::before { font-size: 11px; letter-spacing: .04em; }
 }
+
+/* Dashboard P&L */
+.pnl dt, .pnl dd { line-height: 22px; }
+.pnl-split { display: flex; flex-direction: column; gap: var(--space-3); padding-top: var(--space-3); border-top: 1px solid var(--line); }
+.notice-inline { color: var(--mint-ink); font-weight: 600; }
+
+/* Inventory: one folding card per category */
+.cat { background: var(--surface); border-radius: var(--radius-lg); box-shadow: var(--shadow-card); overflow: hidden; }
+.cat__head { display: flex; align-items: center; gap: var(--space-2); min-height: 64px; padding: var(--space-3) var(--space-4); cursor: pointer; list-style: none; }
+.cat__head::-webkit-details-marker { display: none; }
+.cat__main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.cat__name { font-weight: 700; font-size: 16px; line-height: 22px; letter-spacing: .02em; text-transform: uppercase; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cat__meta { font-size: 14px; color: var(--ink-muted); }
+.cat__chevron { flex-shrink: 0; width: 20px; height: 20px; color: var(--ink-muted); transition: transform var(--dur-press) var(--ease); }
+.cat[open] .cat__chevron { transform: rotate(180deg); }
+.cat[open] .cat__head { border-bottom: 1px solid var(--line); }
+.cat__list > li + li { border-top: 1px solid var(--line); }
+@media (hover: hover) { .cat__head:hover { background: var(--surface-hover); } }
+.cat__head:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+.dash-filter { max-width: 360px; }

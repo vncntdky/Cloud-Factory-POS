@@ -351,9 +351,42 @@ select pg_temp.check('dashboard: product sales after discounts, named in full',
      from jsonb_array_elements(:'dash'::jsonb -> 'products') p where p ->> 'product_id' = :'bp'));
 select pg_temp.check('dashboard: previous period is there (empty here)', (:'dash'::jsonb -> 'previous' ->> 'sales')::int = 0);
 select pg_temp.check('dashboard: weeks group by week', jsonb_array_length(public.dashboard(public.manila_today() - 27, public.manila_today(), 'week') -> 'buckets') between 4 and 5);
+select (select id from public.categories where name = 'Pods') as pods \gset
+select public.dashboard(public.manila_today() - 6, public.manila_today(), 'day', :'pods') as dpods \gset
+select pg_temp.check('dashboard by category: only its products and their sales',
+  (select bool_and(p ->> 'name' like 'Relx Infinity Pod%') from jsonb_array_elements(:'dpods'::jsonb -> 'products') p)
+  and (:'dpods'::jsonb -> 'current' ->> 'pieces')::int = (select sum(i.quantity) from public.sale_items i join public.sales s on s.id = i.sale_id
+        join public.products p on p.id = i.product_id where s.status = 'completed' and s.business_date > public.manila_today() - 7 and p.category_id = :'pods')
+  and (:'dpods'::jsonb -> 'current' ->> 'sales_cents')::bigint < (:'dash'::jsonb -> 'current' ->> 'sales_cents')::bigint);
+select pg_temp.check('dashboard: categories add up to the whole shop',
+  (select sum((public.dashboard(public.manila_today() - 6, public.manila_today(), 'day', c.id) -> 'current' ->> 'sales_cents')::bigint) from public.categories c)
+  + (select coalesce(round(sum(i.line_total_cents::numeric * s.total_cents / nullif(s.subtotal_cents, 0))), 0) from public.sale_items i join public.sales s on s.id = i.sale_id
+      left join public.products p on p.id = i.product_id where s.status = 'completed' and s.business_date > public.manila_today() - 7 and p.category_id is null)
+  between (:'dash'::jsonb -> 'current' ->> 'sales_cents')::bigint - 2 and (:'dash'::jsonb -> 'current' ->> 'sales_cents')::bigint + 2);
 select pg_temp.expect_error('dashboard checks the grouping', $$select public.dashboard(current_date, current_date, 'hour')$$, 'day, week or month');
 set request.jwt.claim.sub = '22222222-2222-2222-2222-222222222222';
 select pg_temp.expect_error('staff cannot see the dashboard', $$select public.dashboard(current_date - 6, current_date)$$, 'Only owners and managers');
+
+-- ───────── Expenses and profit split ─────────
+set request.jwt.claim.sub = '33333333-3333-3333-3333-333333333333';
+select public.add_expense('{"category": "salary", "amount_cents": 1500000, "note": " Cara, Nov 1-15 "}') as exp1 \gset
+select pg_temp.check('manager records an expense (note trimmed, dated today)',
+  (select category = 'salary' and amount_cents = 1500000 and note = 'Cara, Nov 1-15' and spent_on = public.manila_today() from public.expenses where id = :'exp1'));
+select pg_temp.expect_error('expense category is checked', $$select public.add_expense('{"category": "bribe", "amount_cents": 100}')$$, 'what the expense was for');
+select pg_temp.expect_error('expense amount is checked', $$select public.add_expense('{"category": "rent", "amount_cents": 0}')$$, 'amount');
+select pg_temp.expect_error('no future expenses', format($$select public.add_expense('{"category": "rent", "amount_cents": 100, "spent_on": "%s"}')$$, public.manila_today() + 1), 'last 400 days');
+select pg_temp.expect_error('manager cannot change the split', $$select public.set_profit_split(1, 1)$$, 'Only the owner');
+select pg_temp.check('split starts at 2 : 1', (select split_owner_parts = 2 and split_manager_parts = 1 from public.settings));
+set request.jwt.claim.sub = '22222222-2222-2222-2222-222222222222';
+select pg_temp.expect_error('staff cannot record expenses', $$select public.add_expense('{"category": "rent", "amount_cents": 100}')$$, 'Only owners and managers');
+select pg_temp.check('staff cannot see expenses', (select count(*) = 0 from public.expenses));
+select pg_temp.expect_error('staff cannot remove expenses', format($$select public.delete_expense('%s')$$, :'exp1'), 'Only owners and managers');
+set request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
+select public.set_profit_split(3, 1);
+select pg_temp.check('owner changes the split', (select split_owner_parts = 3 and split_manager_parts = 1 from public.settings));
+select pg_temp.expect_error('split needs at least one part', $$select public.set_profit_split(0, 0)$$, 'whole parts');
+select public.delete_expense(:'exp1');
+select pg_temp.check('expense removed', not exists (select 1 from public.expenses where id = :'exp1'));
 
 reset role;
 select case when ok then 'ok   ' else 'FAIL ' end || name as result from results;

@@ -82,12 +82,16 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
 
   const all = (productsRes.data ?? []) as Row[];
   const categories = (categoriesRes.data ?? []) as { id: string; name: string }[];
-  const costs = new Map(((costsRes.data ?? []) as { product_id: string; cost_cents: number }[]).map((c) => [c.product_id, c.cost_cents]));
+  const costs = new Map(
+    ((costsRes.data ?? []) as { product_id: string; cost_cents: number }[]).map((c) => [c.product_id, c.cost_cents]),
+  );
   const value = valueRes.data as { cost_cents: number; retail_cents: number; pieces: number; uncosted: number } | null;
 
   const needle = q.toLowerCase();
   const shown = all.filter(
-    (p) => matches(p, filter) && (!needle || productLabel(p).toLowerCase().includes(needle) || (p.barcode ?? "").toLowerCase().includes(needle)),
+    (p) =>
+      matches(p, filter) &&
+      (!needle || productLabel(p).toLowerCase().includes(needle) || (p.barcode ?? "").toLowerCase().includes(needle)),
   );
   const count = (f: Filter) => all.filter((p) => matches(p, f)).length;
   const lowCount = count("low");
@@ -189,7 +193,11 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
               {all.length === 0 ? (
                 <EmptyState
                   title="No products yet."
-                  text={editor ? "Add each product you sell, with its price and how many are on the shelf." : "Ask the owner or a manager to add products."}
+                  text={
+                    editor
+                      ? "Add each product you sell, with its price and how many are on the shelf."
+                      : "Ask the owner or a manager to add products."
+                  }
                   action={
                     editor ? (
                       <Link className="btn btn--money" href="/inventory/new">
@@ -210,53 +218,64 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
                   }
                 />
               ) : (
-                groups.map((g) => (
-                  <section key={g.id || "none"} className="stack stack-2" aria-labelledby={`cat-${g.id || "none"}`}>
-                    <div className="section-head">
-                      <h2 className="eyebrow" id={`cat-${g.id || "none"}`}>
-                        {g.name}
-                      </h2>
-                      <span className="section-head__count num">{g.items.length}</span>
-                    </div>
-                    <ul className="list" role="list">
-                      {g.items.map((p) => {
-                        const cost = costs.get(p.id);
-                        const src = photoUrl(p.photo_path);
-                        return (
-                          <li key={p.id}>
-                            <Link className="list-row" href={`/inventory/${p.id}`}>
-                              {thumbs && (
-                                <span className="list-row__lead thumb" aria-hidden="true">
-                                  {src ? <img src={src} alt="" loading="lazy" decoding="async" /> : <Icon name="image" />}
+                groups.map((g) => {
+                  const low = g.items.filter((p) => p.active && p.on_hand > 0 && p.on_hand <= p.reorder_at).length;
+                  const out = g.items.filter((p) => p.active && p.on_hand <= 0).length;
+                  const pieces = g.items.reduce((n, p) => n + Math.max(0, p.on_hand), 0);
+                  return (
+                    // Categories start folded so the list stays short; a search or a single category opens them.
+                    <details key={g.id || "none"} className="cat" open={q !== "" || groups.length === 1}>
+                      <summary className="cat__head">
+                        <span className="cat__main">
+                          <span className="cat__name">{g.name}</span>
+                          <span className="cat__meta">
+                            {g.items.length} product{g.items.length === 1 ? "" : "s"} · {pieces} pcs on the shelf
+                          </span>
+                        </span>
+                        {out > 0 && <span className="chip chip--reorder">{out} out</span>}
+                        {low > 0 && <span className="chip chip--low">{low} low</span>}
+                        <Icon name="chevron-down" className="cat__chevron" />
+                      </summary>
+                      <ul className="list list--plain cat__list" role="list">
+                        {g.items.map((p) => {
+                          const cost = costs.get(p.id);
+                          const src = photoUrl(p.photo_path);
+                          return (
+                            <li key={p.id}>
+                              <Link className="list-row" href={`/inventory/${p.id}`}>
+                                {thumbs && (
+                                  <span className="list-row__lead thumb" aria-hidden="true">
+                                    {src ? <img src={src} alt="" loading="lazy" decoding="async" /> : <Icon name="image" />}
+                                  </span>
+                                )}
+                                <span className="list-row__main">
+                                  <span className="list-row__title">
+                                    <span>{productLabel(p)}</span>
+                                    <StockChip p={p} />
+                                  </span>
+                                  <span className="list-row__meta">
+                                    <Money cents={p.price_cents} />
+                                    {manager && cost !== undefined && (
+                                      <>
+                                        {" "}
+                                        · cost <Money cents={cost} />
+                                      </>
+                                    )}
+                                    {p.barcode && ` · ${p.barcode}`}
+                                  </span>
                                 </span>
-                              )}
-                              <span className="list-row__main">
-                                <span className="list-row__title">
-                                  <span>{productLabel(p)}</span>
-                                  <StockChip p={p} />
+                                <span className="list-row__trail stock-count">
+                                  <span className={`num-lg${p.on_hand <= 0 ? " num--danger" : ""}`}>{p.on_hand}</span>
+                                  <span className="t-caption muted">pcs</span>
                                 </span>
-                                <span className="list-row__meta">
-                                  <Money cents={p.price_cents} />
-                                  {manager && cost !== undefined && (
-                                    <>
-                                      {" "}
-                                      · cost <Money cents={cost} />
-                                    </>
-                                  )}
-                                  {p.barcode && ` · ${p.barcode}`}
-                                </span>
-                              </span>
-                              <span className="list-row__trail stock-count">
-                                <span className={`num-lg${p.on_hand <= 0 ? " num--danger" : ""}`}>{p.on_hand}</span>
-                                <span className="t-caption muted">pcs</span>
-                              </span>
-                            </Link>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  </section>
-                ))
+                              </Link>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </details>
+                  );
+                })
               )}
             </>
           )}
