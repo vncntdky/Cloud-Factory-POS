@@ -58,3 +58,11 @@ export function daysLeftLabel(days: number | null) {
   if (days < 21) return `${Math.floor(days)} day${Math.floor(days) === 1 ? "" : "s"}`;
   return `${Math.floor(days / 7)} weeks`;
 }
+
+/** A batch's restock costs, on top of what the goods cost. "other" has its own label. */
+export const COST_FIELDS = [
+  { name: "shipping", label: "Shipping" },
+  { name: "tax", label: "Tax" },
+  { name: "mooe", label: "MOOE" },
+  { name: "other", label: "Other" },
+] as const;

@@ -9,6 +9,7 @@ import { friendlyError, type DbError } from "@/lib/db-errors";
 import { toCents } from "@/lib/format";
 import { UUID_RE } from "@/lib/ids";
 import { can } from "@/lib/permissions";
+import { COST_FIELDS } from "@/lib/restock";
 import { isIsoDate } from "@/lib/time";
 import { loadReorderPlan } from "./data";
 
@@ -68,6 +69,32 @@ export async function applyReorderPoints(): Promise<void> {
   redirect(`/restock?alerts=${Number(data) || 0}`);
 }
 
+/** A batch's restock costs from the form (pesos; blank = 0), as receive_batch / set_batch_costs take them. */
+function batchCosts(fd: FormData): { ok: true; costs: Record<string, number | string> } | { ok: false; error: string; field: string } {
+  const costs: Record<string, number | string> = {};
+  for (const f of COST_FIELDS) {
+    const raw = String(fd.get(f.name) ?? "").trim();
+    const cents = raw === "" ? 0 : toCents(raw);
+    if (cents === null || cents < 0 || cents > 100_000_000) return { ok: false, error: `Check the ${f.label} amount.`, field: f.name };
+    costs[`${f.name}_cents`] = cents;
+  }
+  costs.other_label = String(fd.get("other_label") ?? "").trim().slice(0, 40);
+  return { ok: true, costs };
+}
+
+/** Shipping, tax, MOOE and other costs of a batch, changed after it was received. */
+export async function saveBatchCosts(id: string, _prev: RestockFormState, fd: FormData): Promise<RestockFormState> {
+  if (!UUID_RE.test(id)) return { error: "Batch not found." };
+  const staff = await manager();
+  if ("error" in staff) return { error: staff.error };
+  const parsed = batchCosts(fd);
+  if (!parsed.ok) return { error: parsed.error, field: parsed.field };
+  const { error } = await staff.supabase.rpc("set_batch_costs", { p_batch: id, p: parsed.costs });
+  if (error) return { error: friendlyError(error as DbError) };
+  revalidatePath("/restock");
+  redirect(`/restock/batches/${id}?costs=saved`);
+}
+
 /** One supplier delivery: pieces (and optionally cost per piece) for each product, as qty_<id> / cost_<id>. */
 export async function receiveBatch(_prev: RestockFormState, fd: FormData): Promise<RestockFormState> {
   const staff = await manager();
@@ -92,8 +119,12 @@ export async function receiveBatch(_prev: RestockFormState, fd: FormData): Promi
   const receivedOn = String(fd.get("received_on") ?? "").trim();
   if (receivedOn && !isIsoDate(receivedOn)) return { error: "Pick the day the batch arrived.", field: "received_on" };
 
+  const parsed = batchCosts(fd);
+  if (!parsed.ok) return { error: parsed.error, field: parsed.field };
+
   const { data, error } = await staff.supabase.rpc("receive_batch", {
     p: {
+      ...parsed.costs,
       supplier: String(fd.get("supplier") ?? "")
         .trim()
         .slice(0, 60),

@@ -297,8 +297,21 @@ async function BatchesView({ supabase }: { supabase: ServerSupabase }) {
     );
   }
   const hasBatches = list.some((b) => b.batch.id !== null);
+  const all = totals(list.flatMap((b) => b.rows));
   return (
     <>
+      {list.length > 0 && (
+        <KpiGrid aria-label="All batches">
+          <Kpi wide label="Sales" value={<Money cents={all.sales} />} meta={`${all.sold} pcs sold`} />
+          <Kpi
+            wide
+            label="Still owed"
+            variant={all.owed > 0 ? "alert" : undefined}
+            value={<Money cents={all.owed} />}
+            meta={all.owed > 0 ? "Not paid yet, by batch below" : "Everything is paid"}
+          />
+        </KpiGrid>
+      )}
       {!hasBatches && (
         <EmptyState
           compact
@@ -341,6 +354,14 @@ async function BatchesView({ supabase }: { supabase: ServerSupabase }) {
                       </span>
                       <span className="list-row__meta">
                         {when} · {t.sold} of {t.received} pcs sold · <Money cents={t.sales} />
+                        {t.owed > 0 && (
+                          <>
+                            {" · "}
+                            <span className="text-alert">
+                              <Money cents={t.owed} /> owed
+                            </span>
+                          </>
+                        )}
                       </span>
                       <span className="meter" aria-hidden="true">
                         <span style={{ width: `${Math.min(100, share * 100)}%` }} />

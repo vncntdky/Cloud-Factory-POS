@@ -8,14 +8,15 @@ import { Main } from "@/components/Main";
 import { Money } from "@/components/Money";
 import { NotAllowed } from "@/components/NotAllowed";
 import { Topbar } from "@/components/Topbar";
+import { BatchCostsForm } from "@/components/restock/BatchCostsForm";
 import { requireActiveStaff } from "@/lib/auth";
 import { friendlyError } from "@/lib/db-errors";
-import { productLabel } from "@/lib/format";
+import { productLabel, saleNo } from "@/lib/format";
 import { isUuid } from "@/lib/ids";
 import { can } from "@/lib/permissions";
 import { paceLabel } from "@/lib/restock";
 import { formatManilaDate } from "@/lib/time";
-import { batchTitle, loadBatches, totals, type BatchRow } from "../../data";
+import { batchTitle, loadBatches, restockCosts, totals, type BatchRow } from "../../data";
 
 export const dynamic = "force-dynamic";
 
@@ -40,7 +41,7 @@ export default async function BatchPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ received?: string }>;
+  searchParams: Promise<{ received?: string; costs?: string }>;
 }) {
   const { id } = await params;
   if (id !== "before" && !isUuid(id)) notFound();
@@ -48,10 +49,19 @@ export default async function BatchPage({
   if (!can(profile, "editStock")) return <NotAllowed title="Batch" what="Batches" />;
   const sp = await searchParams;
 
-  const [{ list, error }, products] = await Promise.all([
+  const [{ list, error }, products, owedRes] = await Promise.all([
     loadBatches(supabase),
     supabase.from("products").select("id, brand, name, variant, on_hand"),
+    supabase.rpc("batch_owed", { p_batch: id === "before" ? null : id }),
   ]);
+  const owedSales = (owedRes.data ?? []) as {
+    sale_id: string;
+    sale_number: number;
+    business_date: string;
+    customer_name: string | null;
+    pcs: number;
+    owed_cents: number;
+  }[];
   const entry = list.find((b) => (b.batch.id ?? "before") === id);
   if (!error && !entry) notFound();
   const names = new Map(
@@ -83,6 +93,11 @@ export default async function BatchPage({
   const perDay = t.sold / days;
   const sortedRows = [...rows].sort((a, b) => b.sold / b.received - a.sold / a.received || (names.get(a.product_id) ?? "").localeCompare(names.get(b.product_id) ?? ""));
   const title = batchTitle(batch);
+  const extras = restockCosts(batch);
+  const totalCost = t.goodsCost === null ? null : t.goodsCost + extras;
+  // Restock costs are shared by every piece in the batch; the sold pieces carry their part.
+  const profitAfter = t.profit === null ? null : t.profit - (t.received > 0 ? Math.round((extras * t.sold) / t.received) : 0);
+  const buyers = new Set(owedSales.map((s) => (s.customer_name ?? "").trim().toLowerCase())).size;
 
   return (
     <>
@@ -97,6 +112,14 @@ export default async function BatchPage({
                   {title} received: {t.received} pcs on the shelf.
                 </p>
                 <p>Its sales show here as the pieces sell.</p>
+              </div>
+            </div>
+          )}
+          {sp.costs === "saved" && (
+            <div className="notice notice--success" role="status">
+              <Icon name="check" />
+              <div>
+                <p className="notice__title">Restock costs saved.</p>
               </div>
             </div>
           )}
@@ -119,10 +142,23 @@ export default async function BatchPage({
             />
             <Kpi label="Sales" value={<Money cents={t.sales} />} meta="after discounts" />
             <Kpi
+              label="Still owed"
+              variant={t.owed > 0 ? "alert" : undefined}
+              value={<Money cents={t.owed} />}
+              meta={t.owed > 0 ? `${buyers} buyer${buyers === 1 ? "" : "s"} · see below` : "All paid"}
+            />
+            <Kpi
               label="Gross profit"
               value={t.profit === null ? "–" : <Money cents={t.profit} />}
               meta={t.profit === null ? "Some pieces have no cost" : t.sales > 0 ? `${Math.round((t.profit / t.sales) * 100)}% margin` : undefined}
             />
+            {batch.id !== null && (
+              <Kpi
+                label="After restock costs"
+                value={profitAfter === null ? "–" : <Money cents={profitAfter} />}
+                meta={extras === 0 ? "No restock costs entered" : "shipping, tax, MOOE… for pieces sold"}
+              />
+            )}
             <Kpi
               wide
               label="Pace"
@@ -136,6 +172,79 @@ export default async function BatchPage({
               }
             />
           </KpiGrid>
+
+          {owedSales.length > 0 && (
+            <section className="card card--flush" aria-labelledby="owed-t">
+              <div className="card__head">
+                <h2 className="card__title" id="owed-t">
+                  Still owed on this batch
+                </h2>
+                <span className="t-caption muted">
+                  <Money cents={t.owed} />
+                </span>
+              </div>
+              <ul className="list list--plain" role="list">
+                {owedSales.map((s) => (
+                  <li key={s.sale_id}>
+                    <Link className="list-row list-row--compact" href={`/sales/${s.sale_id}`}>
+                      <span className="list-row__main">
+                        <span className="list-row__title">
+                          <span>{s.customer_name?.trim() || "No name"}</span>
+                        </span>
+                        <span className="list-row__meta">
+                          Sale {saleNo(s.sale_number)} · {formatManilaDate(s.business_date)} · {s.pcs} pc{s.pcs === 1 ? "" : "s"} from
+                          this batch
+                        </span>
+                      </span>
+                      <span className="list-row__trail">
+                        <span className="num text-alert">
+                          <Money cents={s.owed_cents} />
+                        </span>
+                      </span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+              <p className="card__body t-sm muted">
+                Tap a sale to collect. A sale with pieces from more than one batch is split by pieces.
+              </p>
+            </section>
+          )}
+
+          {batch.id !== null && (
+            <section className="card stack" aria-labelledby="costs-t">
+              <div className="card__head">
+                <h2 className="card__title" id="costs-t">
+                  Batch cost
+                </h2>
+              </div>
+              <dl className="cost-list">
+                <dt>Goods ({t.received} pcs)</dt>
+                <dd>{t.goodsCost === null ? "Some pieces have no cost" : <Money cents={t.goodsCost} />}</dd>
+                <dt>Shipping</dt>
+                <dd>
+                  <Money cents={batch.shipping_cents} />
+                </dd>
+                <dt>Tax</dt>
+                <dd>
+                  <Money cents={batch.tax_cents} />
+                </dd>
+                <dt>MOOE</dt>
+                <dd>
+                  <Money cents={batch.mooe_cents} />
+                </dd>
+                <dt>{batch.other_label || "Other"}</dt>
+                <dd>
+                  <Money cents={batch.other_cents} />
+                </dd>
+                <dt className="cost-list__total">Total</dt>
+                <dd className="cost-list__total">{totalCost === null ? "–" : <Money cents={totalCost} />}</dd>
+                <dt>Per piece</dt>
+                <dd>{totalCost === null || t.received === 0 ? "–" : <Money cents={Math.round(totalCost / t.received)} />}</dd>
+              </dl>
+              <BatchCostsForm id={batch.id} batch={batch} />
+            </section>
+          )}
 
           <section className="card card--flush" aria-labelledby="lines-t">
             <div className="card__head">
@@ -155,6 +264,14 @@ export default async function BatchPage({
                       </span>
                       <span className="list-row__meta">
                         {soldLine(r)} · <Money cents={r.sales_cents} />
+                        {r.owed_cents > 0 && (
+                          <>
+                            {" · "}
+                            <span className="text-alert">
+                              <Money cents={r.owed_cents} /> owed
+                            </span>
+                          </>
+                        )}
                       </span>
                       <span className="meter" aria-hidden="true">
                         <span style={{ width: `${Math.min(100, (r.sold / r.received) * 100)}%` }} />

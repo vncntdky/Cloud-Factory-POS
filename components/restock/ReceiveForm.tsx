@@ -6,6 +6,7 @@ import { useMemo, useState } from "react";
 import { receiveBatch, type RestockFormState } from "@/app/(staff)/restock/actions";
 import { Icon } from "@/components/Icon";
 import { Money } from "@/components/Money";
+import { RestockCostFields } from "@/components/restock/RestockCostFields";
 import { centsToInput, productLabel, toCents } from "@/lib/format";
 import { useFormAction } from "@/lib/use-form-action";
 
@@ -39,6 +40,7 @@ export function ReceiveForm({
     Object.fromEntries(products.map((p) => [p.id, p.cost_cents === null ? "" : centsToInput(p.cost_cents)])),
   );
   const [filter, setFilter] = useState("");
+  const [extras, setExtras] = useState(0);
 
   const summary = useMemo(() => {
     let pieces = 0;
@@ -104,6 +106,18 @@ export function ReceiveForm({
             />
           </div>
         </div>
+      </section>
+
+      <section className="card stack" aria-labelledby="extras-t">
+        <div className="card__head">
+          <h2 className="card__title" id="extras-t">
+            Restock costs
+          </h2>
+        </div>
+        <p className="t-sm muted">
+          What this batch cost on top of the goods. You can add or change these later on the batch&apos;s page.
+        </p>
+        <RestockCostFields invalid={state?.field} onChange={setExtras} />
       </section>
 
       <section className="stack stack-2" aria-labelledby="items-t">
@@ -194,7 +208,7 @@ export function ReceiveForm({
               {summary.pieces > 0 && summary.costed && (
                 <>
                   {" · "}
-                  <Money cents={summary.value} /> at cost
+                  <Money cents={summary.value + extras} /> with costs
                 </>
               )}
             </span>

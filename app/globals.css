@@ -2404,3 +2404,8 @@ a.segmented__option { text-decoration: none; }
 @media (min-width: 600px) {
   .receive-row { grid-template-columns: minmax(0, 1fr) 128px 140px; grid-template-areas: "name qty cost"; }
 }
+.text-alert { color: var(--alert); }
+/* Batch restock costs: label · amount rows */
+.cost-list { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--space-2) var(--space-4); font-size: 15px; }
+.cost-list dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; }
+.cost-list .cost-list__total { font-weight: 700; padding-top: var(--space-2); border-top: 1px solid var(--line); }

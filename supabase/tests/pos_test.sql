@@ -305,6 +305,34 @@ select public.delete_product(:'bj');
 select pg_temp.check('an emptied batch is deleted, others stay',
   not exists (select 1 from public.stock_batches where id = :'bj_batch') and exists (select 1 from public.stock_batches where id = :'batch1'));
 
+-- ───────── Batches: still owed, restock costs (manager) ─────────
+set request.jwt.claim.sub = '33333333-3333-3333-3333-333333333333';
+select public.save_product(null, '{"name": "Owed Pod", "price_cents": 1000}') as op \gset
+select public.receive_batch(format('{"supplier": "S", "shipping_cents": 1000, "tax_cents": 500, "mooe_cents": 300, "other_cents": 200, "other_label": " Permit ", "items": [{"product_id": "%s", "qty": 10, "unit_cost_cents": 400}]}', :'op')::jsonb) as ob \gset
+select pg_temp.check('receive_batch saves restock costs',
+  (select shipping_cents = 1000 and tax_cents = 500 and mooe_cents = 300 and other_cents = 200 and other_label = 'Permit' from public.stock_batches where id = :'ob'));
+select public.complete_sale(format('{"client_ref": "dddddddd-0000-0000-0000-000000000001", "payment_method": "unpaid", "customer_name": "Ana", "age_verified": true, "items": [{"product_id": "%s", "quantity": 2}]}', :'op')::jsonb) ->> 'id' as ana \gset
+select public.complete_sale(format('{"client_ref": "dddddddd-0000-0000-0000-000000000002", "payment_method": "gcash", "age_verified": true, "items": [{"product_id": "%s", "quantity": 1}]}', :'op')::jsonb);
+select public.record_payment(:'ana', 500, 'cash');
+select pg_temp.check('batch sales show what is still owed and what the pieces cost',
+  (select received = 10 and sold = 3 and sales_cents = 3000 and owed_cents = 1500 and received_cost_cents = 4000 and received_uncosted = 0
+     from public.batch_sales() where batch_id = :'ob'));
+select pg_temp.check('batch_owed lists who owes for the batch',
+  (select count(*) = 1 and min(customer_name) = 'Ana' and min(pcs) = 2 and min(owed_cents) = 1500 from public.batch_owed(:'ob')));
+select public.set_batch_costs(:'ob', '{"shipping_cents": 2500, "tax_cents": "", "other_label": ""}');
+select pg_temp.check('set_batch_costs replaces the costs (missing = 0)',
+  (select shipping_cents = 2500 and tax_cents = 0 and mooe_cents = 0 and other_cents = 0 and other_label is null from public.stock_batches where id = :'ob'));
+select pg_temp.expect_error('restock costs are checked', format($$select public.set_batch_costs('%s', '{"shipping_cents": -1}')$$, :'ob'), '0 to');
+select pg_temp.expect_error('receive_batch checks restock costs too',
+  format($$select public.receive_batch('{"tax_cents": -5, "items": [{"product_id": "%s", "qty": 1}]}')$$, :'op'), '0 to');
+select public.record_payment(:'ana', 1500, 'gcash');
+select pg_temp.check('paid in full: nothing owed on the batch',
+  (select owed_cents = 0 from public.batch_sales() where batch_id = :'ob') and not exists (select 1 from public.batch_owed(:'ob')));
+set request.jwt.claim.sub = '22222222-2222-2222-2222-222222222222';
+select pg_temp.expect_error('staff cannot change restock costs', format($$select public.set_batch_costs('%s', '{}')$$, :'ob'), 'Only owners and managers');
+select pg_temp.check('staff see no batch debts', (select count(*) = 0 from public.batch_owed(:'ob')));
+select pg_temp.expect_error('staff cannot call the internal matcher', 'select count(*) from public.batch_matches()', 'permission denied');
+
 reset role;
 select case when ok then 'ok   ' else 'FAIL ' end || name as result from results;
 select count(*) filter (where not ok) as failures, count(*) as checks from results;

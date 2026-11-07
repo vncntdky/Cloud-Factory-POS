@@ -61,6 +61,11 @@ export type BatchRow = {
   sales_cents: number;
   cost_cents: number;
   uncosted: number;
+  /** Still unpaid ("Not paid yet" balances), shared across each sale's pieces. */
+  owed_cents: number;
+  /** What the pieces received cost; received_uncosted pieces had no cost. */
+  received_cost_cents: number;
+  received_uncosted: number;
   first_in: string;
   first_sold_at: string | null;
   last_sold_at: string | null;
@@ -73,7 +78,31 @@ export type Batch = {
   received_on: string | null;
   note: string | null;
   created_at: string | null;
+  shipping_cents: number;
+  tax_cents: number;
+  mooe_cents: number;
+  other_cents: number;
+  other_label: string | null;
 };
+
+const NO_BATCH: Batch = {
+  id: null,
+  batch_no: null,
+  supplier: null,
+  received_on: null,
+  note: null,
+  created_at: null,
+  shipping_cents: 0,
+  tax_cents: 0,
+  mooe_cents: 0,
+  other_cents: 0,
+  other_label: null,
+};
+
+/** Shipping + tax + MOOE + other. */
+export function restockCosts(b: Batch) {
+  return b.shipping_cents + b.tax_cents + b.mooe_cents + b.other_cents;
+}
 
 export type BatchTotals = {
   received: number;
@@ -81,6 +110,10 @@ export type BatchTotals = {
   sales: number;
   /** Gross profit, when every sold piece has a cost; null otherwise. */
   profit: number | null;
+  /** Still owed on the pieces sold. */
+  owed: number;
+  /** What the pieces cost; null when some had no cost. */
+  goodsCost: number | null;
   firstIn: string;
   lastSoldAt: string | null;
 };
@@ -91,6 +124,9 @@ export function totals(rows: BatchRow[]): BatchTotals {
   const sales = rows.reduce((n, r) => n + Number(r.sales_cents), 0);
   const cost = rows.reduce((n, r) => n + Number(r.cost_cents), 0);
   const uncosted = rows.reduce((n, r) => n + r.uncosted, 0);
+  const owed = rows.reduce((n, r) => n + Number(r.owed_cents), 0);
+  const goods = rows.reduce((n, r) => n + Number(r.received_cost_cents), 0);
+  const goodsUncosted = rows.reduce((n, r) => n + r.received_uncosted, 0);
   const firstIn = rows.map((r) => r.first_in).sort()[0] ?? "";
   const lastSoldAt =
     rows
@@ -98,7 +134,16 @@ export function totals(rows: BatchRow[]): BatchTotals {
       .filter((d): d is string => !!d)
       .sort()
       .at(-1) ?? null;
-  return { received, sold, sales, profit: uncosted > 0 ? null : sales - cost, firstIn, lastSoldAt };
+  return {
+    received,
+    sold,
+    sales,
+    profit: uncosted > 0 ? null : sales - cost,
+    owed,
+    goodsCost: goodsUncosted > 0 ? null : goods,
+    firstIn,
+    lastSoldAt,
+  };
 }
 
 /** Every batch (newest first) with its rows; stock received outside a batch is the last entry (id null). */
@@ -106,7 +151,7 @@ export async function loadBatches(supabase: ServerSupabase) {
   const [batches, rows] = await Promise.all([
     supabase
       .from("stock_batches")
-      .select("id, batch_no, supplier, received_on, note, created_at")
+      .select("id, batch_no, supplier, received_on, note, created_at, shipping_cents, tax_cents, mooe_cents, other_cents, other_label")
       .order("batch_no", { ascending: false }),
     supabase.rpc("batch_sales"),
   ]);
@@ -114,10 +159,7 @@ export async function loadBatches(supabase: ServerSupabase) {
   const list = ((batches.data ?? []) as Batch[]).map((b) => ({ batch: b, rows: all.filter((r) => r.batch_id === b.id) }));
   const loose = all.filter((r) => r.batch_id === null);
   if (loose.length > 0) {
-    list.push({
-      batch: { id: null, batch_no: null, supplier: null, received_on: null, note: null, created_at: null },
-      rows: loose,
-    });
+    list.push({ batch: NO_BATCH, rows: loose });
   }
   return { list, error: batches.error ?? rows.error ?? null };
 }
