@@ -199,9 +199,11 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     .filter((r) => r.pieces > 0)
     .sort((a, b) => b.pieces - a.pieces || b.perDay - a.perDay)
     .slice(0, 5);
+  // Slowest: on the shelf and not selling, or sold out but slowly (longest to sell out first).
+  // Products with no stock and no sales (not stocked yet) aren't judged.
   const slow = [...products]
-    .filter((r) => r.active && r.on_hand > 0)
-    .sort((a, b) => a.perDay - b.perDay || b.on_hand - a.on_hand)
+    .filter((r) => r.active && (r.on_hand > 0 || r.pieces > 0))
+    .sort((a, b) => a.perDay - b.perDay || (b.soldOutIn ?? 0) - (a.soldOutIn ?? 0) || b.on_hand - a.on_hand)
     .slice(0, 5);
   const key: Record<Sort, (r: (typeof products)[number]) => number> = {
     pieces: (r) => r.pieces,
@@ -469,10 +471,10 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
                 <h2 className="card__title" id="slow-t">
                   Slowest movers
                 </h2>
-                <span className="t-caption muted">in stock, selling least</span>
+                <span className="t-caption muted">slowest to sell, incl. sold out</span>
               </div>
               {slow.length === 0 ? (
-                <p className="t-sm muted">Nothing on the shelf is standing still.</p>
+                <p className="t-sm muted">Nothing has stock or sales in this range yet.</p>
               ) : (
                 <ul className="list list--plain" role="list">
                   {slow.map((r) => (
@@ -482,18 +484,21 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
                           <span className="list-row__title">
                             <span>{r.name}</span>
                             {r.pieces === 0 && <span className="chip chip--low">No sales</span>}
+                            {r.soldOutIn !== null && <span className="chip chip--neutral">Sold out</span>}
                           </span>
                           <span className="list-row__meta">
                             {r.pieces === 0
                               ? r.last_sold_at
                                 ? `Last sold ${formatManilaDate(r.last_sold_at)}`
                                 : "Never sold"
-                              : `${paceLabel(r.perDay)} · ${daysLeftLabel(r.daysLeft)} of stock`}
+                              : r.soldOutIn !== null
+                                ? `${soldOutLabel(r.soldOutIn)} · ${paceLabel(r.perDay)} · ${r.pieces} pcs`
+                                : `${paceLabel(r.perDay)} · ${daysLeftLabel(r.daysLeft)} of stock`}
                           </span>
                         </span>
                         <span className="list-row__trail stock-count">
-                          <span className="num-lg">{r.on_hand}</span>
-                          <span className="t-caption muted">pcs</span>
+                          <span className="num-lg">{r.soldOutIn !== null ? Math.max(1, Math.round(r.soldOutIn)) : r.on_hand}</span>
+                          <span className="t-caption muted">{r.soldOutIn !== null ? "days" : "pcs"}</span>
                         </span>
                       </Link>
                     </li>
