@@ -12,7 +12,8 @@ export type Capability =
   | "unlimitedDiscount"
   | "voidSales"
   | "editSettings"
-  | "manageStaff"; // roles, activate, deactivate
+  | "manageStaff" // roles, activate, deactivate
+  | "deleteRecords"; // permanently delete test sales and products (owner only)
 
 const MANAGER: Capability[] = [
   "seeCosts",

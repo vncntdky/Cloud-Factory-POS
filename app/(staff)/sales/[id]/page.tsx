@@ -5,7 +5,7 @@ import { Main } from "@/components/Main";
 import { Money } from "@/components/Money";
 import { Topbar } from "@/components/Topbar";
 import { CollectPayment } from "@/components/collectibles/CollectPayment";
-import { PrintButton, VoidSale } from "@/components/sales/SaleTools";
+import { DeleteSale, PrintButton, VoidSale } from "@/components/sales/SaleTools";
 import { requireActiveStaff } from "@/lib/auth";
 import { paymentMethodLabel, pesos2, saleNo } from "@/lib/format";
 import { isUuid } from "@/lib/ids";
@@ -184,6 +184,7 @@ export default async function SalePage({
             )}
             <PrintButton autoPrint={sp.print === "1"} />
             {!voided && can(profile, "voidSales") && <VoidSale id={sale.id} label={label} />}
+            {can(profile, "deleteRecords") && <DeleteSale id={sale.id} date={sale.business_date} label={label} />}
           </div>
         </div>
       </Main>

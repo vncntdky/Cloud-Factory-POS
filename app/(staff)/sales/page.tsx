@@ -44,7 +44,7 @@ type SaleRow = {
   sale_items: { quantity: number; name: string }[];
 };
 
-type SP = { date?: string | string[]; from?: string | string[]; to?: string | string[] };
+type SP = { date?: string | string[]; from?: string | string[]; to?: string | string[]; deleted?: string };
 
 function rangeLabel(from: string, to: string, today: string) {
   if (from === to) return from === today ? `Today · ${formatManilaDate(from)}` : formatManilaDate(from);
@@ -56,7 +56,8 @@ export default async function SalesPage({ searchParams }: { searchParams: Promis
   // Staff see today only (the database also hides earlier days from them).
   const history = can(profile, "seeSalesHistory");
   const today = manilaToday();
-  const { from, to, single } = history ? parseSalesRange(await searchParams) : { from: today, to: today, single: true };
+  const sp = await searchParams;
+  const { from, to, single } = history ? parseSalesRange(sp) : { from: today, to: today, single: true };
 
   const [summaryRes, salesRes] = await Promise.all([
     supabase.rpc("sales_summary", { p_from: from, p_to: to }),
@@ -108,6 +109,14 @@ export default async function SalesPage({ searchParams }: { searchParams: Promis
       />
       <Main>
         <div className="stack stack-6">
+          {sp.deleted === "1" && (
+            <div className="notice notice--success" role="status">
+              <Icon name="check" />
+              <div>
+                <p className="notice__title">Sale deleted. Its pieces are back on the shelf.</p>
+              </div>
+            </div>
+          )}
           {history && (
             <div className="stack stack-3">
               <div className="filter-row" role="toolbar" aria-label="Pick a day">

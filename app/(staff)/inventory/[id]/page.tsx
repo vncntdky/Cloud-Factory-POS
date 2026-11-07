@@ -6,9 +6,10 @@ import { Kpi, KpiGrid } from "@/components/Kpi";
 import { Main } from "@/components/Main";
 import { Money } from "@/components/Money";
 import { Topbar } from "@/components/Topbar";
+import { DeleteProduct, type ProductUsage } from "@/components/inventory/DeleteProduct";
 import { ProductForm, StockForm } from "@/components/inventory/ProductForms";
 import { ProductPhoto } from "@/components/inventory/ProductPhoto";
-import { requireActiveStaff } from "@/lib/auth";
+import { requireActiveStaff, type ServerSupabase } from "@/lib/auth";
 import { centsToInput, productLabel, saleNo } from "@/lib/format";
 import { isUuid } from "@/lib/ids";
 import { can } from "@/lib/permissions";
@@ -57,6 +58,28 @@ const SAVED: Record<string, string> = {
   waste: "Loss saved.",
 };
 
+/** What deleting this product would take with it (owner's Delete product dialog). */
+async function loadUsage(supabase: ServerSupabase, id: string): Promise<ProductUsage> {
+  const [moves, items] = await Promise.all([
+    supabase.from("stock_movements").select("id", { count: "exact", head: true }).eq("product_id", id),
+    supabase.from("sale_items").select("sale_id").eq("product_id", id),
+  ]);
+  const saleIds = [...new Set(((items.data ?? []) as { sale_id: string }[]).map((r) => r.sale_id))];
+  if (saleIds.length === 0) return { moves: moves.count ?? 0, sales: 0, mixed: 0, salesCents: 0 };
+  const [others, sales] = await Promise.all([
+    supabase.from("sale_items").select("sale_id").in("sale_id", saleIds).or(`product_id.neq.${id},product_id.is.null`),
+    supabase.from("sales").select("total_cents, status").in("id", saleIds),
+  ]);
+  return {
+    moves: moves.count ?? 0,
+    sales: saleIds.length,
+    mixed: new Set(((others.data ?? []) as { sale_id: string }[]).map((r) => r.sale_id)).size,
+    salesCents: ((sales.data ?? []) as { total_cents: number; status: string }[])
+      .filter((s) => s.status === "completed")
+      .reduce((n, s) => n + s.total_cents, 0),
+  };
+}
+
 export default async function ProductPage({
   params,
   searchParams,
@@ -70,7 +93,9 @@ export default async function ProductPage({
   const editor = can(profile, "editProducts");
   const sp = await searchParams;
 
-  const [productRes, categoriesRes, costRes, movesRes] = await Promise.all([
+  const owner = can(profile, "deleteRecords");
+
+  const [productRes, categoriesRes, costRes, movesRes, usage] = await Promise.all([
     supabase
       .from("products")
       .select("id, brand, name, variant, barcode, price_cents, on_hand, reorder_at, active, category_id, photo_path")
@@ -86,6 +111,7 @@ export default async function ProductPage({
           .order("created_at", { ascending: false })
           .limit(50)
       : Promise.resolve({ data: [] }),
+    owner ? loadUsage(supabase, id) : Promise.resolve(null),
   ]);
   if (!productRes.data) notFound();
   const p = productRes.data as Product;
@@ -226,6 +252,7 @@ export default async function ProductPage({
                   </ul>
                 )}
               </section>
+              {usage && <DeleteProduct id={p.id} label={productLabel(p)} usage={usage} />}
             </>
           ) : (
             <p className="t-sm muted">Owners and managers record restocks and counts.</p>

@@ -255,6 +255,56 @@ select pg_temp.expect_error('staff cannot change alert levels in bulk',
   format($$select public.set_reorder_levels('[{"product_id": "%s", "reorder_at": 1}]')$$, :'bp'), 'Only owners and managers');
 select pg_temp.expect_error('staff cannot change the reorder plan', $$select public.set_restock_plan(1, 1, 1)$$, 'Only owners and managers');
 
+-- ───────── Owner clean-up: delete test sales and products ─────────
+set request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
+select public.save_product(null, '{"name": "Junk Pod", "price_cents": 100, "opening_qty": 5}') as junk \gset
+select public.complete_sale(format('{"client_ref": "cccccccc-0000-0000-0000-000000000001", "payment_method": "gcash", "age_verified": true, "items": [{"product_id": "%s", "quantity": 1}]}', :'junk')::jsonb) ->> 'id' as junk_sale \gset
+select public.complete_sale(format('{"client_ref": "cccccccc-0000-0000-0000-000000000002", "payment_method": "gcash", "age_verified": true, "items": [{"product_id": "%s", "quantity": 2}, {"product_id": "%s", "quantity": 1}]}', :'junk', :'bp')::jsonb) ->> 'id' as mixed_sale \gset
+select on_hand as bp_before from public.products where id = :'bp' \gset
+
+set request.jwt.claim.sub = '33333333-3333-3333-3333-333333333333';
+select pg_temp.expect_error('manager cannot delete sales', format($$select public.delete_sale('%s')$$, :'junk_sale'), 'Only the owner');
+select pg_temp.expect_error('manager cannot delete products', format($$select public.delete_product('%s', true)$$, :'junk'), 'Only the owner');
+set request.jwt.claim.sub = '22222222-2222-2222-2222-222222222222';
+select pg_temp.expect_error('staff cannot delete sales', format($$select public.delete_sale('%s')$$, :'junk_sale'), 'Only the owner');
+select pg_temp.expect_error('staff cannot call the internal remover', format($$select public.remove_sale('%s')$$, :'junk_sale'), 'permission denied');
+
+set request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
+select public.delete_sale(:'junk_sale');
+select pg_temp.check('deleted sale is gone with its items and stock moves, pieces back on the shelf',
+  not exists (select 1 from public.sales where id = :'junk_sale')
+  and not exists (select 1 from public.stock_movements where sale_id = :'junk_sale')
+  and (select on_hand = 3 from public.products where id = :'junk'));
+select pg_temp.expect_error('deleting it twice says so', format($$select public.delete_sale('%s')$$, :'junk_sale'), 'no longer exists');
+
+-- A voided sale already put its pieces back: deleting it changes no stock.
+select public.complete_sale(format('{"client_ref": "cccccccc-0000-0000-0000-000000000003", "payment_method": "gcash", "age_verified": true, "items": [{"product_id": "%s", "quantity": 1}]}', :'junk')::jsonb) ->> 'id' as void_me \gset
+select public.void_sale(:'void_me', 'test');
+select public.delete_sale(:'void_me');
+select pg_temp.check('deleting a voided sale leaves stock as it was', (select on_hand = 3 from public.products where id = :'junk'));
+
+select public.delete_product(:'junk', true) as del \gset
+select pg_temp.check('product deleted with its sales, stock history and the other product''s pieces back',
+  (:'del'::jsonb ->> 'sales_deleted')::int = 1
+  and not exists (select 1 from public.products where id = :'junk')
+  and not exists (select 1 from public.stock_movements where product_id = :'junk')
+  and not exists (select 1 from public.sales where id = :'mixed_sale')
+  and (select on_hand = :bp_before + 1 from public.products where id = :'bp'));
+
+-- Without its sales: they stay, under the product's name.
+select public.save_product(null, '{"name": "Keep Sales Pod", "price_cents": 100, "opening_qty": 2}') as keep \gset
+select public.complete_sale(format('{"client_ref": "cccccccc-0000-0000-0000-000000000004", "payment_method": "gcash", "age_verified": true, "items": [{"product_id": "%s", "quantity": 1}]}', :'keep')::jsonb) ->> 'id' as keep_sale \gset
+select public.delete_product(:'keep', false);
+select pg_temp.check('product deleted alone: its sale stays under its name',
+  (select product_id is null and name = 'Keep Sales Pod' from public.sale_items where sale_id = :'keep_sale'));
+
+-- A batch left empty goes; one with other products stays.
+select public.save_product(null, '{"name": "Batch Junk", "price_cents": 100}') as bj \gset
+select public.receive_batch(format('{"items": [{"product_id": "%s", "qty": 2}]}', :'bj')::jsonb) as bj_batch \gset
+select public.delete_product(:'bj');
+select pg_temp.check('an emptied batch is deleted, others stay',
+  not exists (select 1 from public.stock_batches where id = :'bj_batch') and exists (select 1 from public.stock_batches where id = :'batch1'));
+
 reset role;
 select case when ok then 'ok   ' else 'FAIL ' end || name as result from results;
 select count(*) filter (where not ok) as failures, count(*) as checks from results;

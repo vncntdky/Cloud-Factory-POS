@@ -58,7 +58,7 @@ function StockChip({ p }: { p: Row }) {
   return null;
 }
 
-type SP = { f?: string; q?: string };
+type SP = { f?: string; q?: string; deleted?: string };
 
 export default async function InventoryPage({ searchParams }: { searchParams: Promise<SP> }) {
   const { supabase, profile } = await requireActiveStaff();
@@ -122,6 +122,17 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
       />
       <Main>
         <div className="stack stack-6">
+          {sp.deleted !== undefined && (
+            <div className="notice notice--success" role="status">
+              <Icon name="check" />
+              <div>
+                <p className="notice__title">
+                  Product deleted
+                  {Number(sp.deleted) > 0 ? ` with its ${sp.deleted} sale${sp.deleted === "1" ? "" : "s"}` : ""}.
+                </p>
+              </div>
+            </div>
+          )}
           {productsRes.error ? (
             <div className="notice notice--danger" role="alert">
               <Icon name="alert" />

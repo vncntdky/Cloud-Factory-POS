@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useRef } from "react";
-import { voidSale, type VoidState } from "@/app/(staff)/sales/actions";
+import { deleteSale, voidSale, type VoidState } from "@/app/(staff)/sales/actions";
 import { Icon } from "@/components/Icon";
 import { toast } from "@/components/Toaster";
 import { useFormAction } from "@/lib/use-form-action";
@@ -83,6 +83,50 @@ export function VoidSale({ id, label }: { id: string; label: string }) {
             </button>
             <button type="submit" className="btn btn--danger" disabled={pending} aria-busy={pending || undefined}>
               {pending ? "Voiding…" : "Void sale"}
+            </button>
+          </footer>
+        </form>
+      </dialog>
+    </>
+  );
+}
+
+/** Delete a test sale for good, confirmed in a dialog. Owner only. */
+export function DeleteSale({ id, date, label }: { id: string; date: string; label: string }) {
+  const dialog = useRef<HTMLDialogElement>(null);
+  const [state, onSubmit, pending] = useFormAction<VoidState>(deleteSale.bind(null, id, date), { error: null });
+  return (
+    <>
+      <button type="button" className="btn btn--danger-ghost" onClick={() => dialog.current?.showModal()}>
+        <Icon name="trash" />
+        Delete sale
+      </button>
+      <dialog ref={dialog} className="dialog" role="alertdialog" aria-labelledby="delete-sale-title">
+        <form onSubmit={onSubmit} className="dialog-form">
+          <header className="sheet__head">
+            <h2 className="sheet__title" id="delete-sale-title">
+              Delete {label}?
+            </h2>
+          </header>
+          <div className="sheet__body stack stack-3">
+            <p>
+              For test sales. It disappears from Sales, reports, Collectibles and batch sales as if it never happened, and its
+              pieces go back on the shelf. This can&apos;t be undone.
+            </p>
+            <p className="t-sm muted">To undo a real sale, void it instead: voided sales stay in the records.</p>
+            {state.error && (
+              <p className="field__error" role="alert">
+                <Icon name="alert" />
+                {state.error}
+              </p>
+            )}
+          </div>
+          <footer className="sheet__foot">
+            <button type="button" className="btn btn--secondary" onClick={() => dialog.current?.close()}>
+              Keep sale
+            </button>
+            <button type="submit" className="btn btn--danger" disabled={pending} aria-busy={pending || undefined}>
+              {pending ? "Deleting…" : "Delete sale"}
             </button>
           </footer>
         </form>

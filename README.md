@@ -52,9 +52,14 @@ Register and per-piece inventory for the vape shop. Same stack as Matcha Bee: a 
 | Add / edit products, prices, costs | ✓ | ✓ | |
 | Restock, count, damaged / lost | ✓ | ✓ | |
 | Restock tab: reorder plan, receive batches, sales by batch | ✓ | ✓ | |
+| Delete test sales and products for good | ✓ | | |
 | Settings, staff and roles | ✓ | | |
 
 Row-level security and checked database functions enforce all of this. Staff can't read costs or the stock log through the API either.
+
+### Removing test data
+
+The owner can delete a **sale** (Sales → the sale → **Delete sale**) or a **product** (Inventory → the product → **Delete product**, optionally with its sales). Deleted data disappears from Sales, reports, Collectibles, Restock and batch sales as if it never happened, and the pieces a deleted sale took go back on the shelf. It can't be undone. For real sales use **Void**, and for products you no longer sell untick **For sale**: both keep the history.
 
 ### Receipts
 

@@ -181,3 +181,28 @@ export async function adjustStock(id: string, _prev: ProductFormState, fd: FormD
   refresh(id);
   redirect(`/inventory/${id}?stock=${kind}`);
 }
+
+/**
+ * Permanently delete a product with its stock history (test products). Owner only. With
+ * with_sales = "1" its sales go too; otherwise they stay in Sales under its name.
+ */
+export async function deleteProduct(id: string, _prev: ProductFormState, fd: FormData): Promise<ProductFormState> {
+  if (!UUID_RE.test(id)) return { error: "Product not found." };
+  let staff;
+  try {
+    staff = await requireActiveStaff();
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "Sign in again." };
+  }
+  if (!can(staff.profile, "deleteRecords")) return { error: "Only the owner can delete products." };
+
+  const { data, error } = await staff.supabase.rpc("delete_product", { p_product: id, p_with_sales: fd.get("with_sales") === "1" });
+  if (error) return { error: friendlyError(error as DbError) };
+  const result = data as { sales_deleted: number; photo_path: string | null };
+  // The photo file isn't used any more. If removing it fails, it just stays in the bucket.
+  if (result.photo_path) await staff.supabase.storage.from(PHOTO_BUCKET).remove([result.photo_path]);
+  revalidatePath("/inventory");
+  revalidatePath("/restock");
+  revalidatePath("/", "layout");
+  redirect(`/inventory?deleted=${result.sales_deleted}`);
+}
