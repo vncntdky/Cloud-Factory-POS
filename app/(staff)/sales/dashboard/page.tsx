@@ -63,6 +63,13 @@ type ProductRow = {
 type Dashboard = { buckets: Bucket[]; current: Totals; previous: Totals; products: ProductRow[]; hours: HeatCell[] };
 
 const DAY_MS = 86_400_000;
+
+/** "Sold out in 3 days", "Sold out within a day". */
+function soldOutLabel(days: number) {
+  if (days < 1) return "Sold out within a day";
+  const n = Math.round(days);
+  return `Sold out in ${n} day${n === 1 ? "" : "s"}`;
+}
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 function bucketLabel(start: string, grain: Range["grain"]) {
@@ -166,17 +173,23 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   const pricePerPiece = c.pieces > 0 ? c.sales_cents / c.pieces : 0;
   const incomplete = c.uncosted > 0;
 
-  // Product pace over the range (or since it was first stocked, if later).
+  // Pace while in stock: from the range start (or first stock-in, if later) to now, or to the last
+  // sale when the shelf is empty, so a product that sold out fast isn't judged on days it had none.
   const end = Date.now();
   const rangeStart = new Date(`${from}T00:00:00+08:00`).getTime();
   const products = d.products.map((r) => {
-    const startMs = Math.max(rangeStart, r.first_in ? new Date(r.first_in).getTime() : rangeStart);
-    const days = Math.max(1, (end - startMs) / DAY_MS);
+    const firstIn = r.first_in ? new Date(r.first_in).getTime() : rangeStart;
+    const startMs = Math.max(rangeStart, firstIn);
+    const lastSold = r.last_sold_at ? new Date(r.last_sold_at).getTime() : null;
+    const soldOut = r.on_hand <= 0 && r.pieces > 0 && lastSold !== null;
+    const days = Math.max(1, ((soldOut ? Math.max(startMs, lastSold) : end) - startMs) / DAY_MS);
     const perDay = r.pieces / days;
     const prof = r.sales_cents - r.cost_cents;
     return {
       ...r,
       perDay,
+      /** Days from stock arriving to the last piece selling, when it's sold out. */
+      soldOutIn: soldOut ? (lastSold - firstIn) / DAY_MS : null,
       profit: prof,
       margin: r.sales_cents > 0 ? prof / r.sales_cents : null,
       daysLeft: perDay > 0 ? Math.max(0, r.on_hand) / perDay : null,
@@ -184,7 +197,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   });
   const best = [...products]
     .filter((r) => r.pieces > 0)
-    .sort((a, b) => b.pieces - a.pieces || b.sales_cents - a.sales_cents)
+    .sort((a, b) => b.pieces - a.pieces || b.perDay - a.perDay)
     .slice(0, 5);
   const slow = [...products]
     .filter((r) => r.active && r.on_hand > 0)
@@ -428,7 +441,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
                 <h2 className="card__title" id="best-t">
                   Best sellers
                 </h2>
-                <span className="t-caption muted">by pieces sold</span>
+                <span className="t-caption muted">by pieces sold, then speed</span>
               </div>
               {best.length === 0 ? (
                 <p className="t-sm muted">No sales in this range.</p>
@@ -440,7 +453,12 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
                     label: r.name,
                     value: r.pieces,
                     valueText: `${r.pieces} pcs`,
-                    meta: `${pesos(r.sales_cents)} · ${paceLabel(r.perDay)}${r.margin !== null ? ` · ${Math.round(r.margin * 100)}% margin` : ""}`,
+                    meta: [
+                      r.soldOutIn !== null ? soldOutLabel(r.soldOutIn) : `${daysLeftLabel(r.daysLeft)} of stock left`,
+                      paceLabel(r.perDay),
+                      pesos(r.sales_cents),
+                      ...(r.margin !== null ? [`${Math.round(r.margin * 100)}% margin`] : []),
+                    ].join(" · "),
                     href: `/inventory/${r.product_id}`,
                   }))}
                 />
