@@ -369,16 +369,17 @@ select pg_temp.expect_error('staff cannot see the dashboard', $$select public.da
 
 -- ───────── Expenses and profit split ─────────
 set request.jwt.claim.sub = '33333333-3333-3333-3333-333333333333';
-select public.add_expense('{"category": "salary", "amount_cents": 1500000, "note": " Cara, Nov 1-15 "}') as exp1 \gset
-select pg_temp.check('manager records an expense (note trimmed, dated today)',
-  (select category = 'salary' and amount_cents = 1500000 and note = 'Cara, Nov 1-15' and spent_on = public.manila_today() from public.expenses where id = :'exp1'));
-select pg_temp.expect_error('expense category is checked', $$select public.add_expense('{"category": "bribe", "amount_cents": 100}')$$, 'what the expense was for');
-select pg_temp.expect_error('expense amount is checked', $$select public.add_expense('{"category": "rent", "amount_cents": 0}')$$, 'amount');
-select pg_temp.expect_error('no future expenses', format($$select public.add_expense('{"category": "rent", "amount_cents": 100, "spent_on": "%s"}')$$, public.manila_today() + 1), 'last 400 days');
+select public.add_expense(format('{"batch_id": "%s", "category": "salary", "amount_cents": 1500000, "note": " Cara, Nov 1-15 "}', :'ob')::jsonb) as exp1 \gset
+select pg_temp.check('manager records an expense on a batch (note trimmed, dated today)',
+  (select category = 'salary' and amount_cents = 1500000 and note = 'Cara, Nov 1-15' and spent_on = public.manila_today() and batch_id = :'ob' from public.expenses where id = :'exp1'));
+select pg_temp.expect_error('an expense needs a batch', $$select public.add_expense('{"category": "rent", "amount_cents": 100}')$$, 'batch this expense is for');
+select pg_temp.expect_error('expense category is checked', format($$select public.add_expense('{"batch_id": "%s", "category": "bribe", "amount_cents": 100}')$$, :'ob'), 'what the expense was for');
+select pg_temp.expect_error('expense amount is checked', format($$select public.add_expense('{"batch_id": "%s", "category": "rent", "amount_cents": 0}')$$, :'ob'), 'amount');
+select pg_temp.expect_error('no future expenses', format($$select public.add_expense('{"batch_id": "%s", "category": "rent", "amount_cents": 100, "spent_on": "%s"}')$$, :'ob', public.manila_today() + 1), 'last 400 days');
 select pg_temp.expect_error('manager cannot change the split', $$select public.set_profit_split(1, 1)$$, 'Only the owner');
 select pg_temp.check('split starts at 2 : 1', (select split_owner_parts = 2 and split_manager_parts = 1 from public.settings));
 set request.jwt.claim.sub = '22222222-2222-2222-2222-222222222222';
-select pg_temp.expect_error('staff cannot record expenses', $$select public.add_expense('{"category": "rent", "amount_cents": 100}')$$, 'Only owners and managers');
+select pg_temp.expect_error('staff cannot record expenses', format($$select public.add_expense('{"batch_id": "%s", "category": "rent", "amount_cents": 100}')$$, :'ob'), 'Only owners and managers');
 select pg_temp.check('staff cannot see expenses', (select count(*) = 0 from public.expenses));
 select pg_temp.expect_error('staff cannot remove expenses', format($$select public.delete_expense('%s')$$, :'exp1'), 'Only owners and managers');
 set request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
@@ -387,6 +388,12 @@ select pg_temp.check('owner changes the split', (select split_owner_parts = 3 an
 select pg_temp.expect_error('split needs at least one part', $$select public.set_profit_split(0, 0)$$, 'whole parts');
 select public.delete_expense(:'exp1');
 select pg_temp.check('expense removed', not exists (select 1 from public.expenses where id = :'exp1'));
+-- A batch whose last product is deleted stays if it has expenses.
+select public.save_product(null, '{"name": "Kept Batch Pod", "price_cents": 100}') as kbp \gset
+select public.receive_batch(format('{"items": [{"product_id": "%s", "qty": 2}]}', :'kbp')::jsonb) as kb \gset
+select public.add_expense(format('{"batch_id": "%s", "category": "other", "amount_cents": 500}', :'kb')::jsonb);
+select public.delete_product(:'kbp');
+select pg_temp.check('a batch with expenses is kept when its last product goes', exists (select 1 from public.stock_batches where id = :'kb'));
 
 reset role;
 select case when ok then 'ok   ' else 'FAIL ' end || name as result from results;

@@ -9,6 +9,7 @@ import { friendlyError, type DbError } from "@/lib/db-errors";
 import { toCents } from "@/lib/format";
 import { UUID_RE } from "@/lib/ids";
 import { can } from "@/lib/permissions";
+import { EXPENSE_CATEGORIES } from "@/lib/pnl";
 import { COST_FIELDS } from "@/lib/restock";
 import { isIsoDate } from "@/lib/time";
 import { loadReorderPlan } from "./data";
@@ -70,15 +71,20 @@ export async function applyReorderPoints(): Promise<void> {
 }
 
 /** A batch's restock costs from the form (pesos; blank = 0), as receive_batch / set_batch_costs take them. */
-function batchCosts(fd: FormData): { ok: true; costs: Record<string, number | string> } | { ok: false; error: string; field: string } {
+function batchCosts(
+  fd: FormData,
+): { ok: true; costs: Record<string, number | string> } | { ok: false; error: string; field: string } {
   const costs: Record<string, number | string> = {};
   for (const f of COST_FIELDS) {
     const raw = String(fd.get(f.name) ?? "").trim();
     const cents = raw === "" ? 0 : toCents(raw);
-    if (cents === null || cents < 0 || cents > 100_000_000) return { ok: false, error: `Check the ${f.label} amount.`, field: f.name };
+    if (cents === null || cents < 0 || cents > 100_000_000)
+      return { ok: false, error: `Check the ${f.label} amount.`, field: f.name };
     costs[`${f.name}_cents`] = cents;
   }
-  costs.other_label = String(fd.get("other_label") ?? "").trim().slice(0, 40);
+  costs.other_label = String(fd.get("other_label") ?? "")
+    .trim()
+    .slice(0, 40);
   return { ok: true, costs };
 }
 
@@ -140,4 +146,66 @@ export async function receiveBatch(_prev: RestockFormState, fd: FormData): Promi
   revalidatePath("/inventory");
   revalidatePath("/", "layout");
   redirect(`/restock/batches/${data as string}?received=1`);
+}
+
+/** Where the P&L forms send you back to: the batch page or Sales → P&L. */
+function pnlBack(fd: FormData, extra: string) {
+  const to = String(fd.get("return_to") ?? "");
+  const base = /^\/restock\/batches\/[0-9a-f-]{36}$/.test(to) || to === "/sales/pnl" ? to : "/sales/pnl";
+  return `${base}?${extra}#pnl`;
+}
+
+/** An expense (salary, rent, utilities, supplies, other) charged to a batch. Owners and managers. */
+export async function addBatchExpense(batchId: string, _prev: RestockFormState, fd: FormData): Promise<RestockFormState> {
+  if (!UUID_RE.test(batchId)) return { error: "Batch not found." };
+  const staff = await manager();
+  if ("error" in staff) return { error: staff.error };
+  const category = String(fd.get("category") ?? "");
+  if (!EXPENSE_CATEGORIES.some((c) => c.id === category)) return { error: "Pick what the expense was for.", field: "category" };
+  const amount = toCents(String(fd.get("amount") ?? "").trim());
+  if (amount === null || amount <= 0 || amount > 100_000_000)
+    return { error: "Enter the amount in pesos, e.g. 7500.", field: "amount" };
+  const spentOn = String(fd.get("spent_on") ?? "").trim();
+  if (spentOn && !isIsoDate(spentOn)) return { error: "Pick the date it was paid.", field: "spent_on" };
+  const { error } = await staff.supabase.rpc("add_expense", {
+    p: {
+      batch_id: batchId,
+      category,
+      amount_cents: amount,
+      spent_on: spentOn,
+      note: String(fd.get("note") ?? "")
+        .trim()
+        .slice(0, 200),
+    },
+  });
+  if (error) return { error: friendlyError(error as DbError) };
+  revalidatePath("/restock");
+  revalidatePath("/sales/pnl");
+  redirect(pnlBack(fd, "expense=added"));
+}
+
+export async function deleteBatchExpense(fd: FormData): Promise<void> {
+  const id = String(fd.get("id") ?? "");
+  const staff = await manager();
+  if ("error" in staff || !UUID_RE.test(id)) redirect(pnlBack(fd, "expense=error"));
+  const { error } = await staff.supabase.rpc("delete_expense", { p_id: id });
+  revalidatePath("/restock");
+  revalidatePath("/sales/pnl");
+  redirect(pnlBack(fd, error ? "expense=error" : "expense=removed"));
+}
+
+/** Owner : manager parts of net profit (2 : 1 = two thirds and one third). Owner only. */
+export async function saveSplit(_prev: RestockFormState, fd: FormData): Promise<RestockFormState> {
+  const staff = await manager();
+  if ("error" in staff) return { error: staff.error };
+  const owner = String(fd.get("owner_parts") ?? "").trim();
+  const mgr = String(fd.get("manager_parts") ?? "").trim();
+  if (!/^\d{1,3}$/.test(owner) || !/^\d{1,3}$/.test(mgr) || Number(owner) + Number(mgr) === 0) {
+    return { error: "Use whole parts, e.g. 2 and 1 for two thirds and one third." };
+  }
+  const { error } = await staff.supabase.rpc("set_profit_split", { p_owner_parts: Number(owner), p_manager_parts: Number(mgr) });
+  if (error) return { error: friendlyError(error as DbError) };
+  revalidatePath("/restock");
+  revalidatePath("/sales/pnl");
+  redirect(pnlBack(fd, "split=saved"));
 }

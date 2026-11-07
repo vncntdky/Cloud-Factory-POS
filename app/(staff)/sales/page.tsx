@@ -117,6 +117,9 @@ export default async function SalesPage({ searchParams }: { searchParams: Promis
               <Link className="segmented__option" href="/sales/dashboard">
                 Dashboard
               </Link>
+              <Link className="segmented__option" href="/sales/pnl">
+                P&amp;L
+              </Link>
             </nav>
           )}
           {sp.deleted === "1" && (

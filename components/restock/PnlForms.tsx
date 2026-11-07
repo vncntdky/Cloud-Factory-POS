@@ -1,9 +1,9 @@
 "use client";
 
-// P&L forms on the dashboard: add an expense (owners and managers) and change the profit split
-// (owner). Each is folded away behind a button until needed.
+// P&L forms: add an expense to a batch (owners and managers) and change the profit split (owner).
+// Each is folded away behind a button until needed. return_to says which page to come back to.
 import { useState } from "react";
-import { addExpense, saveSplit, type PnlFormState } from "@/app/(staff)/sales/dashboard/actions";
+import { addBatchExpense, saveSplit, type RestockFormState as PnlFormState } from "@/app/(staff)/restock/actions";
 import { Icon } from "@/components/Icon";
 import { EXPENSE_CATEGORIES } from "@/lib/pnl";
 import { useFormAction } from "@/lib/use-form-action";
@@ -18,9 +18,19 @@ function FormError({ state }: { state: PnlFormState }) {
   );
 }
 
-export function ExpenseForm({ range, today, earliest }: { range: string; today: string; earliest: string }) {
+export function ExpenseForm({
+  batchId,
+  returnTo,
+  today,
+  earliest,
+}: {
+  batchId: string;
+  returnTo: string;
+  today: string;
+  earliest: string;
+}) {
   const [open, setOpen] = useState(false);
-  const [state, onSubmit, pending] = useFormAction<PnlFormState>(addExpense, null);
+  const [state, onSubmit, pending] = useFormAction<PnlFormState>(addBatchExpense.bind(null, batchId), null);
   if (!open) {
     return (
       <div>
@@ -34,7 +44,7 @@ export function ExpenseForm({ range, today, earliest }: { range: string; today: 
   const bad = (f: string) => (state?.field === f ? true : undefined);
   return (
     <form onSubmit={onSubmit} className="stack" aria-label="Add expense">
-      <input type="hidden" name="range" value={range} />
+      <input type="hidden" name="return_to" value={returnTo} />
       <div className="form-grid form-grid--2">
         <div className="field">
           <label className="field__label" htmlFor="exp-category">
@@ -104,7 +114,7 @@ export function ExpenseForm({ range, today, earliest }: { range: string; today: 
   );
 }
 
-export function SplitForm({ range, owner, manager }: { range: string; owner: number; manager: number }) {
+export function SplitForm({ returnTo, owner, manager }: { returnTo: string; owner: number; manager: number }) {
   const [open, setOpen] = useState(false);
   const [state, onSubmit, pending] = useFormAction<PnlFormState>(saveSplit, null);
   if (!open) {
@@ -116,7 +126,7 @@ export function SplitForm({ range, owner, manager }: { range: string; owner: num
   }
   return (
     <form onSubmit={onSubmit} className="stack" aria-label="Profit split">
-      <input type="hidden" name="range" value={range} />
+      <input type="hidden" name="return_to" value={returnTo} />
       <div className="form-grid form-grid--2">
         <div className="field">
           <label className="field__label" htmlFor="split-owner">
