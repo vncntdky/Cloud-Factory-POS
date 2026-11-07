@@ -149,7 +149,7 @@ export function totals(rows: BatchRow[]): BatchTotals {
 /** Every batch (newest first) with its rows; stock received outside a batch is the last entry (id null). */
 export type Expense = {
   id: string;
-  batch_id: string;
+  batch_id: string | null;
   spent_on: string;
   category: string;
   amount_cents: number;

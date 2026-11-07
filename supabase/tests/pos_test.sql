@@ -372,7 +372,9 @@ set request.jwt.claim.sub = '33333333-3333-3333-3333-333333333333';
 select public.add_expense(format('{"batch_id": "%s", "category": "salary", "amount_cents": 1500000, "note": " Cara, Nov 1-15 "}', :'ob')::jsonb) as exp1 \gset
 select pg_temp.check('manager records an expense on a batch (note trimmed, dated today)',
   (select category = 'salary' and amount_cents = 1500000 and note = 'Cara, Nov 1-15' and spent_on = public.manila_today() and batch_id = :'ob' from public.expenses where id = :'exp1'));
-select pg_temp.expect_error('an expense needs a batch', $$select public.add_expense('{"category": "rent", "amount_cents": 100}')$$, 'batch this expense is for');
+select public.add_expense('{"category": "rent", "amount_cents": 800000, "note": "November"}') as gen \gset
+select pg_temp.check('a general expense has no batch', (select batch_id is null and amount_cents = 800000 from public.expenses where id = :'gen'));
+select pg_temp.expect_error('an expense''s batch must exist', $$select public.add_expense('{"batch_id": "00000000-0000-4000-8000-000000000000", "category": "rent", "amount_cents": 100}')$$, 'no longer exists');
 select pg_temp.expect_error('expense category is checked', format($$select public.add_expense('{"batch_id": "%s", "category": "bribe", "amount_cents": 100}')$$, :'ob'), 'what the expense was for');
 select pg_temp.expect_error('expense amount is checked', format($$select public.add_expense('{"batch_id": "%s", "category": "rent", "amount_cents": 0}')$$, :'ob'), 'amount');
 select pg_temp.expect_error('no future expenses', format($$select public.add_expense('{"batch_id": "%s", "category": "rent", "amount_cents": 100, "spent_on": "%s"}')$$, :'ob', public.manila_today() + 1), 'last 400 days');

@@ -10,12 +10,12 @@ import { Main } from "@/components/Main";
 import { Money } from "@/components/Money";
 import { NotAllowed } from "@/components/NotAllowed";
 import { Topbar } from "@/components/Topbar";
-import { SplitForm } from "@/components/restock/PnlForms";
+import { ExpenseForm, SplitForm } from "@/components/restock/PnlForms";
 import { requireActiveStaff } from "@/lib/auth";
 import { friendlyError } from "@/lib/db-errors";
 import { can } from "@/lib/permissions";
 import { shareLabel, splitProfit } from "@/lib/pnl";
-import { formatManilaDate } from "@/lib/time";
+import { addDays, formatManilaDate, manilaToday } from "@/lib/time";
 import { batchPnl, batchTitle, loadBatches, totals } from "../../restock/data";
 
 export const dynamic = "force-dynamic";
@@ -25,7 +25,7 @@ function Amount({ cents }: { cents: number | null }) {
   return <span className={cents < 0 ? "text-alert" : undefined}>{<Money cents={cents} />}</span>;
 }
 
-export default async function PnlPage({ searchParams }: { searchParams: Promise<{ split?: string }> }) {
+export default async function PnlPage({ searchParams }: { searchParams: Promise<{ split?: string; expense?: string }> }) {
   const { supabase, profile } = await requireActiveStaff();
   if (!can(profile, "seeCosts")) return <NotAllowed title="P&L" what="Profit and loss" />;
   const sp = await searchParams;
@@ -44,8 +44,11 @@ export default async function PnlPage({ searchParams }: { searchParams: Promise<
   });
   const known = rows.filter((r) => r.pnl.net !== null);
   const sum = (f: (r: (typeof rows)[number]) => number) => known.reduce((n, r) => n + f(r), 0);
-  const totalNet = sum((r) => r.pnl.net ?? 0);
-  const totalProjected = sum((r) => r.pnl.projected ?? 0);
+  // General expenses (not in a batch) come off the shop's total, before the split.
+  const generalExpenses = expenses.filter((e) => !e.batch_id).reduce((n, e) => n + e.amount_cents, 0);
+  const batchesNet = sum((r) => r.pnl.net ?? 0);
+  const totalNet = batchesNet - generalExpenses;
+  const totalProjected = sum((r) => r.pnl.projected ?? 0) - generalExpenses;
   const totalSplit = splitProfit(totalNet, split.owner, split.manager);
   const projectedSplit = splitProfit(totalProjected, split.owner, split.manager);
   const missing = rows.length - known.length;
@@ -88,6 +91,14 @@ export default async function PnlPage({ searchParams }: { searchParams: Promise<
             />
           ) : (
             <>
+              {sp.expense === "added" && (
+                <div className="notice notice--success" role="status">
+                  <Icon name="check" />
+                  <div>
+                    <p className="notice__title">Expense saved.</p>
+                  </div>
+                </div>
+              )}
               {sp.split === "saved" && (
                 <div className="notice notice--success" role="status">
                   <Icon name="check" />
@@ -109,7 +120,7 @@ export default async function PnlPage({ searchParams }: { searchParams: Promise<
                   <Kpi
                     variant="hero"
                     wide
-                    label="Net so far"
+                    label={generalExpenses > 0 ? "Shop net so far" : "Net so far"}
                     value={<Money cents={totalNet} />}
                     meta={
                       <>
@@ -142,6 +153,46 @@ export default async function PnlPage({ searchParams }: { searchParams: Promise<
                   {missing > 0 &&
                     ` ${missing} batch${missing === 1 ? " has" : "es have"} pieces without a cost and ${missing === 1 ? "isn't" : "aren't"} in the totals.`}
                 </p>
+              </section>
+
+              <section className="card stack" aria-labelledby="pnl-exp-t">
+                <div className="card__head">
+                  <h2 className="card__title" id="pnl-exp-t">
+                    Expenses
+                  </h2>
+                  <Link className="text-btn" href="/restock/expenses">
+                    See all
+                  </Link>
+                </div>
+                <dl className="cost-list pnl">
+                  <dt>Batches, net so far</dt>
+                  <dd>
+                    <Money cents={batchesNet} />
+                  </dd>
+                  <dt>General expenses (not in a batch)</dt>
+                  <dd>
+                    − <Money cents={generalExpenses} />
+                  </dd>
+                  <dt className="cost-list__total">Shop net so far</dt>
+                  <dd className={`cost-list__total${totalNet < 0 ? " text-alert" : ""}`}>
+                    <Money cents={totalNet} />
+                  </dd>
+                </dl>
+                <p className="t-sm muted">
+                  Charge an expense to a batch (it goes into that batch&apos;s P&amp;L) or to the whole shop (it comes off the
+                  total above, before the split).
+                </p>
+                <ExpenseForm
+                  batches={list
+                    .filter((b) => b.batch.id !== null)
+                    .map((b) => ({
+                      id: b.batch.id as string,
+                      label: `${batchTitle(b.batch)}${b.batch.supplier ? ` · ${b.batch.supplier}` : ""}`,
+                    }))}
+                  returnTo="/sales/pnl"
+                  today={manilaToday()}
+                  earliest={addDays(manilaToday(), -400)}
+                />
               </section>
 
               <div className="table-wrap">
@@ -212,7 +263,7 @@ export default async function PnlPage({ searchParams }: { searchParams: Promise<
                   </tbody>
                 </table>
               </div>
-              <p className="t-sm muted">Tap a batch to see its full P&amp;L and add salaries, rent and other expenses to it.</p>
+              <p className="t-sm muted">Tap a batch to see its full P&amp;L.</p>
             </>
           )}
         </div>

@@ -148,18 +148,26 @@ export async function receiveBatch(_prev: RestockFormState, fd: FormData): Promi
   redirect(`/restock/batches/${data as string}?received=1`);
 }
 
-/** Where the P&L forms send you back to: the batch page or Sales → P&L. */
+/** Where the P&L and expense forms send you back to. */
 function pnlBack(fd: FormData, extra: string) {
   const to = String(fd.get("return_to") ?? "");
-  const base = /^\/restock\/batches\/[0-9a-f-]{36}$/.test(to) || to === "/sales/pnl" ? to : "/sales/pnl";
-  return `${base}?${extra}#pnl`;
+  const ok =
+    /^\/restock\/batches\/[0-9a-f-]{36}$/.test(to) ||
+    ["/sales/pnl", "/restock/expenses", "/restock?view=batches"].includes(to) ||
+    /^\/restock\/expenses\?batch=([0-9a-f-]{36}|general)$/.test(to);
+  const base = ok ? to : "/restock/expenses";
+  return `${base}${base.includes("?") ? "&" : "?"}${extra}${base.startsWith("/restock/batches/") ? "#pnl" : ""}`;
 }
 
-/** An expense (salary, rent, utilities, supplies, other) charged to a batch. Owners and managers. */
-export async function addBatchExpense(batchId: string, _prev: RestockFormState, fd: FormData): Promise<RestockFormState> {
-  if (!UUID_RE.test(batchId)) return { error: "Batch not found." };
+/**
+ * An expense (salary, rent, utilities, supplies, other), charged to a batch (batch_id) or general
+ * (batch_id empty). Owners and managers.
+ */
+export async function addExpense(_prev: RestockFormState, fd: FormData): Promise<RestockFormState> {
   const staff = await manager();
   if ("error" in staff) return { error: staff.error };
+  const batchId = String(fd.get("batch_id") ?? "");
+  if (batchId && !UUID_RE.test(batchId)) return { error: "Pick the batch, or General.", field: "batch_id" };
   const category = String(fd.get("category") ?? "");
   if (!EXPENSE_CATEGORIES.some((c) => c.id === category)) return { error: "Pick what the expense was for.", field: "category" };
   const amount = toCents(String(fd.get("amount") ?? "").trim());

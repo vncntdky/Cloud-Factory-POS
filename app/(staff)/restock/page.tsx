@@ -11,19 +11,20 @@ import { NotAllowed } from "@/components/NotAllowed";
 import { Topbar } from "@/components/Topbar";
 import { CopyOrder } from "@/components/restock/CopyOrder";
 import { PlanForm } from "@/components/restock/PlanForm";
+import { ExpenseForm } from "@/components/restock/PnlForms";
 import { requireActiveStaff, type ServerSupabase } from "@/lib/auth";
 import { friendlyError } from "@/lib/db-errors";
 import { productLabel } from "@/lib/format";
 import { can } from "@/lib/permissions";
 import { photoUrl } from "@/lib/photos";
 import { PACE_DAYS, daysLeftLabel, paceLabel, type PlanStatus } from "@/lib/restock";
-import { formatManilaDate } from "@/lib/time";
+import { addDays, formatManilaDate, manilaToday } from "@/lib/time";
 import { applyReorderPoints } from "./actions";
 import { batchTitle, loadBatches, loadReorderPlan, totals, type RestockProduct } from "./data";
 
 export const dynamic = "force-dynamic";
 
-type SP = { view?: string; plan?: string; alerts?: string };
+type SP = { view?: string; plan?: string; alerts?: string; expense?: string };
 
 const SECTIONS: { status: PlanStatus; title: string }[] = [
   { status: "order", title: "Order now" },
@@ -88,8 +89,11 @@ export default async function RestockPage({ searchParams }: { searchParams: Prom
             >
               Batches
             </Link>
+            <Link className="segmented__option" href="/restock/expenses">
+              Expenses
+            </Link>
           </nav>
-          {view === "reorder" ? <ReorderView supabase={supabase} /> : <BatchesView supabase={supabase} />}
+          {view === "reorder" ? <ReorderView supabase={supabase} /> : <BatchesView supabase={supabase} expense={sp.expense} />}
         </div>
       </Main>
     </>
@@ -283,7 +287,7 @@ async function ReorderView({ supabase }: { supabase: ServerSupabase }) {
   );
 }
 
-async function BatchesView({ supabase }: { supabase: ServerSupabase }) {
+async function BatchesView({ supabase, expense }: { supabase: ServerSupabase; expense?: string }) {
   const { list, error } = await loadBatches(supabase);
   if (error) {
     return (
@@ -298,8 +302,42 @@ async function BatchesView({ supabase }: { supabase: ServerSupabase }) {
   }
   const hasBatches = list.some((b) => b.batch.id !== null);
   const all = totals(list.flatMap((b) => b.rows));
+  const today = manilaToday();
   return (
     <>
+      {expense === "added" && (
+        <div className="notice notice--success" role="status">
+          <Icon name="check" />
+          <div>
+            <p className="notice__title">Expense saved.</p>
+            <p>
+              See it under <Link href="/restock/expenses">Expenses</Link>, and in the batch&apos;s P&amp;L.
+            </p>
+          </div>
+        </div>
+      )}
+      <section className="card stack" aria-labelledby="batch-exp-t">
+        <div className="card__head">
+          <h2 className="card__title" id="batch-exp-t">
+            Expenses
+          </h2>
+          <Link className="text-btn" href="/restock/expenses">
+            See all
+          </Link>
+        </div>
+        <p className="t-sm muted">Shipping fees, courier, salaries, rent: charge them to a batch, or to the whole shop.</p>
+        <ExpenseForm
+          batches={list
+            .filter((b) => b.batch.id !== null)
+            .map((b) => ({
+              id: b.batch.id!,
+              label: `${batchTitle(b.batch)}${b.batch.supplier ? ` · ${b.batch.supplier}` : ""}`,
+            }))}
+          returnTo="/restock?view=batches"
+          today={today}
+          earliest={addDays(today, -400)}
+        />
+      </section>
       {list.length > 0 && (
         <KpiGrid aria-label="All batches">
           <Kpi wide label="Sales" value={<Money cents={all.sales} />} meta={`${all.sold} pcs sold`} />

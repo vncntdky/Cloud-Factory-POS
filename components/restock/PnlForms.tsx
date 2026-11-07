@@ -1,9 +1,10 @@
 "use client";
 
-// P&L forms: add an expense to a batch (owners and managers) and change the profit split (owner).
+// P&L forms: add an expense, to a batch or general (owners and managers), and change the profit
+// split (owner).
 // Each is folded away behind a button until needed. return_to says which page to come back to.
 import { useState } from "react";
-import { addBatchExpense, saveSplit, type RestockFormState as PnlFormState } from "@/app/(staff)/restock/actions";
+import { addExpense, saveSplit, type RestockFormState as PnlFormState } from "@/app/(staff)/restock/actions";
 import { Icon } from "@/components/Icon";
 import { EXPENSE_CATEGORIES } from "@/lib/pnl";
 import { useFormAction } from "@/lib/use-form-action";
@@ -18,19 +19,24 @@ function FormError({ state }: { state: PnlFormState }) {
   );
 }
 
+/** With batchId the expense goes to that batch; otherwise you pick a batch, or General. */
 export function ExpenseForm({
   batchId,
+  batches,
+  defaultBatch = "",
   returnTo,
   today,
   earliest,
 }: {
-  batchId: string;
+  batchId?: string;
+  batches?: { id: string; label: string }[];
+  defaultBatch?: string;
   returnTo: string;
   today: string;
   earliest: string;
 }) {
   const [open, setOpen] = useState(false);
-  const [state, onSubmit, pending] = useFormAction<PnlFormState>(addBatchExpense.bind(null, batchId), null);
+  const [state, onSubmit, pending] = useFormAction<PnlFormState>(addExpense, null);
   if (!open) {
     return (
       <div>
@@ -45,7 +51,31 @@ export function ExpenseForm({
   return (
     <form onSubmit={onSubmit} className="stack" aria-label="Add expense">
       <input type="hidden" name="return_to" value={returnTo} />
+      {batchId && <input type="hidden" name="batch_id" value={batchId} />}
       <div className="form-grid form-grid--2">
+        {!batchId && (
+          <div className="field span-all">
+            <label className="field__label" htmlFor="exp-batch">
+              Charge to
+            </label>
+            <div className="select-wrap">
+              <select
+                id="exp-batch"
+                name="batch_id"
+                className="select"
+                defaultValue={defaultBatch}
+                aria-invalid={bad("batch_id")}
+              >
+                <option value="">General (whole shop, not a batch)</option>
+                {(batches ?? []).map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+        )}
         <div className="field">
           <label className="field__label" htmlFor="exp-category">
             For

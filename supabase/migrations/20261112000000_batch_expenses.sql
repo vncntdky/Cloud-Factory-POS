@@ -1,11 +1,11 @@
--- Expenses belong to a batch, so each batch has its own P&L (Sales → P&L, and on the batch page).
--- A batch with expenses is never removed when its last product is deleted, so no expense is lost.
-delete from public.expenses where true; -- none recorded yet; every expense now needs a batch
+-- Expenses can belong to a batch (that batch's P&L) or be general shop costs (no batch), which come
+-- off the shop's total in Sales → P&L. A batch with expenses is never removed when its last product
+-- is deleted, so no expense is lost.
 alter table public.expenses
-  add column batch_id uuid not null references public.stock_batches (id);
+  add column batch_id uuid references public.stock_batches (id);
 create index expenses_batch_idx on public.expenses (batch_id);
 
--- p: {batch_id, spent_on, category, amount_cents, note}
+-- p: {batch_id (optional), spent_on, category, amount_cents, note}
 create or replace function public.add_expense(p jsonb)
 returns uuid
 language plpgsql security definer set search_path = ''
@@ -19,8 +19,8 @@ begin
   if not public.is_manager() then
     raise exception 'Only owners and managers can record expenses' using errcode = '42501';
   end if;
-  if v_batch is null or not exists (select 1 from public.stock_batches where id = v_batch) then
-    raise exception 'Pick the batch this expense is for' using errcode = '22023';
+  if v_batch is not null and not exists (select 1 from public.stock_batches where id = v_batch) then
+    raise exception 'That batch no longer exists' using errcode = '22023';
   end if;
   if coalesce(p ->> 'category', '') not in ('salary', 'rent', 'utilities', 'supplies', 'other') then
     raise exception 'Pick what the expense was for' using errcode = '22023';
