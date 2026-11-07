@@ -18,6 +18,7 @@ export type ReceiveProduct = {
   on_hand: number;
   cost_cents: number | null;
   suggest: number;
+  category_id: string | null;
 };
 
 export function ReceiveForm({
@@ -25,12 +26,15 @@ export function ReceiveForm({
   prefill,
   today,
   earliest,
+  categories,
 }: {
   products: ReceiveProduct[];
   /** Start each product at its suggested order. */
   prefill: boolean;
   today: string;
   earliest: string;
+  /** For the category chips: a long list is easier one category at a time. */
+  categories: { id: string; name: string }[];
 }) {
   const [state, onSubmit, pending] = useFormAction<RestockFormState>(receiveBatch, null);
   const [qty, setQty] = useState<Record<string, string>>(() =>
@@ -40,7 +44,10 @@ export function ReceiveForm({
     Object.fromEntries(products.map((p) => [p.id, p.cost_cents === null ? "" : centsToInput(p.cost_cents)])),
   );
   const [filter, setFilter] = useState("");
+  // "" = all; "none" = products without a category.
+  const [category, setCategory] = useState("");
   const [extras, setExtras] = useState(0);
+  const [showExtras, setShowExtras] = useState(false);
 
   const summary = useMemo(() => {
     let pieces = 0;
@@ -60,6 +67,11 @@ export function ReceiveForm({
   }, [products, qty, cost]);
 
   const needle = filter.trim().toLowerCase();
+  // Only categories that have products here, in the shop's order; "No category" last if needed.
+  const chips = [
+    ...categories.filter((c) => products.some((p) => p.category_id === c.id)),
+    ...(products.some((p) => !p.category_id) ? [{ id: "none", name: "No category" }] : []),
+  ];
   const bad = (f: string) => (state?.field === f ? true : undefined);
 
   return (
@@ -108,18 +120,6 @@ export function ReceiveForm({
         </div>
       </section>
 
-      <section className="card stack" aria-labelledby="extras-t">
-        <div className="card__head">
-          <h2 className="card__title" id="extras-t">
-            Restock costs
-          </h2>
-        </div>
-        <p className="t-sm muted">
-          What this batch cost on top of the goods. You can add or change these later on the batch&apos;s page.
-        </p>
-        <RestockCostFields invalid={state?.field} onChange={setExtras} />
-      </section>
-
       <section className="stack stack-2" aria-labelledby="items-t">
         <div className="section-head">
           <h2 className="eyebrow" id="items-t">
@@ -129,6 +129,27 @@ export function ReceiveForm({
             {summary.lines} of {products.length}
           </span>
         </div>
+        {chips.length > 1 && (
+          <div className="filter-row" role="toolbar" aria-label="Category">
+            {[{ id: "", name: "All" }, ...chips].map((c) => {
+              const entered = products
+                .filter((p) => c.id === "" || (p.category_id ?? "none") === c.id)
+                .reduce((n, p) => n + (Number(qty[p.id]) > 0 ? Number(qty[p.id]) : 0), 0);
+              return (
+                <button
+                  key={c.id || "all"}
+                  type="button"
+                  className="filter-chip"
+                  aria-pressed={category === c.id}
+                  onClick={() => setCategory(c.id)}
+                >
+                  {c.name}
+                  {entered > 0 && <span className="count">{entered} pcs</span>}
+                </button>
+              );
+            })}
+          </div>
+        )}
         {products.length > 8 && (
           <div className="search">
             <Icon name="search" className="search__icon" />
@@ -146,7 +167,9 @@ export function ReceiveForm({
         <ul className="list" role="list">
           {products.map((p) => {
             const label = productLabel(p);
-            const hidden = needle !== "" && !label.toLowerCase().includes(needle) && !qty[p.id];
+            const hidden =
+              (category !== "" && (p.category_id ?? "none") !== category) ||
+              (needle !== "" && !label.toLowerCase().includes(needle) && !qty[p.id]);
             return (
               <li key={p.id} className="receive-row" hidden={hidden}>
                 <span className="receive-row__name">
@@ -190,6 +213,24 @@ export function ReceiveForm({
           })}
         </ul>
         <p className="t-sm muted">Cost is per piece. A new cost replaces the product&apos;s cost from now on.</p>
+      </section>
+
+      <section className="card stack" aria-labelledby="extras-t">
+        <div className="row row--between">
+          <h2 className="card__title" id="extras-t">
+            Restock costs <span className="optional">(optional)</span>
+          </h2>
+          <button type="button" className="text-btn" aria-expanded={showExtras} onClick={() => setShowExtras((v) => !v)}>
+            {showExtras ? "Hide" : extras > 0 ? "Edit" : "Add"}
+          </button>
+        </div>
+        <p className="t-sm muted">
+          Shipping, tax, MOOE and other costs on top of the goods. You can also add them later on the batch&apos;s page.
+        </p>
+        {/* Kept mounted while hidden so what was typed isn't lost. */}
+        <div hidden={!showExtras && !["shipping", "tax", "mooe", "other"].includes(state?.field ?? "")}>
+          <RestockCostFields invalid={state?.field} onChange={setExtras} />
+        </div>
       </section>
 
       {state?.error && (

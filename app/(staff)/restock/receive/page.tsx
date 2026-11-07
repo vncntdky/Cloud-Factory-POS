@@ -17,7 +17,11 @@ export default async function ReceiveBatchPage({ searchParams }: { searchParams:
   const { supabase, profile } = await requireActiveStaff();
   if (!can(profile, "editStock")) return <NotAllowed title="Receive batch" what="Receiving stock" />;
   const { suggested } = await searchParams;
-  const { products, error } = await loadReorderPlan(supabase);
+  const [{ products, error }, cats] = await Promise.all([
+    loadReorderPlan(supabase),
+    supabase.from("categories").select("id, name").eq("active", true).order("sort_order").order("name"),
+  ]);
+  const categories = (cats.data ?? []) as { id: string; name: string }[];
   const today = manilaToday();
 
   return (
@@ -48,7 +52,9 @@ export default async function ReceiveBatchPage({ searchParams }: { searchParams:
                   on_hand: p.on_hand,
                   cost_cents: p.cost_cents,
                   suggest: p.plan.suggest,
+                  category_id: p.category_id,
                 }))}
+                categories={categories}
                 prefill={suggested === "1"}
                 today={today}
                 earliest={addDays(today, -60)}
