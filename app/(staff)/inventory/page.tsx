@@ -27,6 +27,9 @@ type Row = {
   active: boolean;
   category_id: string | null;
   photo_path: string | null;
+  /** Pieces held for customers, and who for. */
+  reserved?: number;
+  reservedFor?: string;
 };
 
 const FILTERS = [
@@ -34,10 +37,12 @@ const FILTERS = [
   { id: "low", label: "Low stock" },
   { id: "out", label: "Out" },
   { id: "hidden", label: "Not for sale" },
+  { id: "reserved", label: "Reserved" },
 ] as const;
 type Filter = (typeof FILTERS)[number]["id"];
 
 function matches(p: Row, f: Filter) {
+  if (f === "reserved") return (p.reserved ?? 0) > 0;
   if (f === "hidden") return !p.active;
   if (!p.active) return false;
   if (f === "low") return p.on_hand <= p.reorder_at;
@@ -68,7 +73,7 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
   const manager = can(profile, "seeCosts");
   const editor = can(profile, "editProducts");
 
-  const [productsRes, categoriesRes, costsRes, valueRes] = await Promise.all([
+  const [productsRes, categoriesRes, costsRes, valueRes, heldRes] = await Promise.all([
     supabase
       .from("products")
       .select("id, brand, name, variant, barcode, price_cents, on_hand, reorder_at, active, category_id, photo_path")
@@ -78,9 +83,16 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
     supabase.from("categories").select("id, name, sort_order").order("sort_order").order("name"),
     manager ? supabase.from("product_costs").select("product_id, cost_cents") : Promise.resolve({ data: [], error: null }),
     manager ? supabase.rpc("stock_value") : Promise.resolve({ data: null, error: null }),
+    supabase.from("reservations").select("product_id, qty, customer_name").eq("status", "active").order("created_at"),
   ]);
 
   const all = (productsRes.data ?? []) as Row[];
+  for (const r of (heldRes.data ?? []) as { product_id: string; qty: number; customer_name: string }[]) {
+    const p = all.find((x) => x.id === r.product_id);
+    if (!p) continue;
+    p.reserved = (p.reserved ?? 0) + r.qty;
+    p.reservedFor = p.reservedFor ? `${p.reservedFor}, ${r.customer_name}` : r.customer_name;
+  }
   const categories = (categoriesRes.data ?? []) as { id: string; name: string }[];
   const costs = new Map(
     ((costsRes.data ?? []) as { product_id: string; cost_cents: number }[]).map((c) => [c.product_id, c.cost_cents]),
@@ -262,6 +274,7 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
                                       </>
                                     )}
                                     {p.barcode && ` · ${p.barcode}`}
+                                    {(p.reserved ?? 0) > 0 && ` · ${p.reserved} reserved (${p.reservedFor})`}
                                   </span>
                                 </span>
                                 <span className="list-row__trail stock-count">

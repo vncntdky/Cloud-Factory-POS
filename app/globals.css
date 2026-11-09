@@ -2527,3 +2527,11 @@ a.segmented__option { text-decoration: none; }
 .pnl-link > svg { color: var(--ink-muted); flex-shrink: 0; }
 @media (hover: hover) { .pnl-link:hover { background: var(--surface-hover); } }
 .pnl-when { display: block; font-weight: 400; margin-top: 2px; }
+
+/* Fixing a stock change: the row wraps to show the form under it */
+.list-row--wrap { flex-wrap: wrap; }
+.stock-fix__open { flex-shrink: 0; }
+.stock-fix { flex-basis: 100%; display: flex; flex-direction: column; gap: var(--space-3); padding: var(--space-3) 0 var(--space-2); }
+.stock-fix__form { display: flex; flex-direction: column; gap: var(--space-3); }
+.contents { display: contents; }
+.pnl-funds { gap: var(--space-2); padding-top: var(--space-2); border-top: 1px solid var(--line); }

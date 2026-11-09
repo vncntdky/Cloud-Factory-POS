@@ -138,7 +138,14 @@ export default async function DashboardPage({
   const from = addDays(to, -(range.days - 1));
   const prevLabel = `previous ${range.label}`;
 
-  const { data, error } = await supabase.rpc("dashboard", { p_from: from, p_to: to, p_grain: range.grain, p_category: cat });
+  const [{ data, error }, held] = await Promise.all([
+    supabase.rpc("dashboard", { p_from: from, p_to: to, p_grain: range.grain, p_category: cat }),
+    supabase.from("reservations").select("product_id, qty").eq("status", "active"),
+  ]);
+  // Reserved pieces are spoken for: not slow stock, and not counted in days of stock left.
+  const heldBy = new Map<string, number>();
+  for (const r of (held.data ?? []) as { product_id: string; qty: number }[])
+    heldBy.set(r.product_id, (heldBy.get(r.product_id) ?? 0) + r.qty);
   const d = data as Dashboard | null;
 
   const header = (
@@ -215,14 +222,18 @@ export default async function DashboardPage({
     const days = Math.max(1, ((soldOut ? Math.max(startMs, lastSold) : end) - startMs) / DAY_MS);
     const perDay = r.pieces / days;
     const prof = r.sales_cents - r.cost_cents;
+    const reserved = heldBy.get(r.product_id) ?? 0;
     return {
       ...r,
+      reserved,
+      /** On the shelf and not held for anyone. */
+      free: Math.max(0, r.on_hand - reserved),
       perDay,
       /** Days from stock arriving to the last piece selling, when it's sold out. */
       soldOutIn: soldOut ? (lastSold - firstIn) / DAY_MS : null,
       profit: prof,
       margin: r.sales_cents > 0 ? prof / r.sales_cents : null,
-      daysLeft: perDay > 0 ? Math.max(0, r.on_hand) / perDay : null,
+      daysLeft: perDay > 0 ? Math.max(0, r.on_hand - reserved) / perDay : null,
     };
   });
   const best = [...products]
@@ -232,7 +243,7 @@ export default async function DashboardPage({
   // Slowest: on the shelf and not selling, or sold out but slowly (longest to sell out first).
   // Products with no stock and no sales (not stocked yet) aren't judged.
   const slow = [...products]
-    .filter((r) => r.active && (r.on_hand > 0 || r.pieces > 0))
+    .filter((r) => r.active && (r.free > 0 || (r.on_hand <= 0 && r.pieces > 0)))
     .sort((a, b) => a.perDay - b.perDay || (b.soldOutIn ?? 0) - (a.soldOutIn ?? 0) || b.on_hand - a.on_hand)
     .slice(0, 5);
   const key: Record<Sort, (r: (typeof products)[number]) => number> = {
@@ -534,7 +545,7 @@ export default async function DashboardPage({
                                 : "Never sold"
                               : r.soldOutIn !== null
                                 ? `${soldOutLabel(r.soldOutIn)} · ${paceLabel(r.perDay)} · ${r.pieces} pcs`
-                                : `${paceLabel(r.perDay)} · ${daysLeftLabel(r.daysLeft)} of stock`}
+                                : `${paceLabel(r.perDay)} · ${daysLeftLabel(r.daysLeft)} of stock${r.reserved > 0 ? ` · ${r.reserved} reserved` : ""}`}
                           </span>
                         </span>
                         <span className="list-row__trail stock-count">
@@ -604,6 +615,7 @@ export default async function DashboardPage({
                       </td>
                       <td role="cell" data-label="Stock" className="num">
                         {r.on_hand}
+                        {r.reserved > 0 && <span className="t-caption muted"> ({r.reserved} reserved)</span>}
                       </td>
                       <td role="cell" data-label="Days left" className="num">
                         {daysLeftLabel(r.daysLeft)}

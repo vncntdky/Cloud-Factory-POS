@@ -105,7 +105,9 @@ export async function saveProduct(id: string | null, _prev: ProductFormState, fd
   const photoFailed = photo !== null && !(await attachNewPhoto(staff.supabase, newId, photo));
   const flag = photoFailed ? "&photo=failed" : "";
   refresh(newId);
-  redirect(id === null && fd.get("again") === "1" ? `/inventory/new?added=${newId}${flag}` : `/inventory/${newId}?saved=1${flag}`);
+  redirect(
+    id === null && fd.get("again") === "1" ? `/inventory/new?added=${newId}${flag}` : `/inventory/${newId}?saved=1${flag}`,
+  );
 }
 
 /** Upload the photo chosen on Add product (already shrunk in the browser) and attach it. */
@@ -196,7 +198,10 @@ export async function deleteProduct(id: string, _prev: ProductFormState, fd: For
   }
   if (!can(staff.profile, "deleteRecords")) return { error: "Only the owner can delete products." };
 
-  const { data, error } = await staff.supabase.rpc("delete_product", { p_product: id, p_with_sales: fd.get("with_sales") === "1" });
+  const { data, error } = await staff.supabase.rpc("delete_product", {
+    p_product: id,
+    p_with_sales: fd.get("with_sales") === "1",
+  });
   if (error) return { error: friendlyError(error as DbError) };
   const result = data as { sales_deleted: number; photo_path: string | null };
   // The photo file isn't used any more. If removing it fails, it just stays in the bucket.
@@ -205,4 +210,80 @@ export async function deleteProduct(id: string, _prev: ProductFormState, fd: For
   revalidatePath("/restock");
   revalidatePath("/", "layout");
   redirect(`/inventory?deleted=${result.sales_deleted}`);
+}
+
+/**
+ * Fix a stock change entered by mistake: edit its pieces (and cost per piece, for a restock) or
+ * remove it. Owners and managers; the database carries the change through the later history.
+ */
+export async function editStockChange(
+  id: string,
+  productId: string,
+  _prev: ProductFormState,
+  fd: FormData,
+): Promise<ProductFormState> {
+  if (!UUID_RE.test(id) || !UUID_RE.test(productId)) return { error: "Stock change not found." };
+  const staff = await manager();
+  if ("error" in staff) return { error: staff.error };
+  const q = pieces(str(fd, "qty", 10));
+  if (q === null || q === "invalid") return { error: "Enter a whole number of pieces.", field: "qty" };
+  const costRaw = str(fd, "unit_cost", 20);
+  const cost = costRaw === "" ? null : toCents(costRaw);
+  if (costRaw !== "" && (cost === null || cost < 0)) return { error: "Check the cost per piece.", field: "unit_cost" };
+  const { error } = await staff.supabase.rpc("edit_stock_change", { p_movement: id, p_qty: q, p_unit_cost_cents: cost });
+  if (error) return { error: friendlyError(error as DbError) };
+  refresh(productId);
+  revalidatePath("/restock");
+  redirect(`/inventory/${productId}?fixed=edited`);
+}
+
+export async function removeStockChange(fd: FormData): Promise<void> {
+  const id = String(fd.get("id") ?? "");
+  const productId = String(fd.get("product_id") ?? "");
+  if (!UUID_RE.test(id) || !UUID_RE.test(productId)) redirect("/inventory");
+  const staff = await manager();
+  if ("error" in staff) redirect(`/inventory/${productId}?fixed=error`);
+  const { error } = await staff.supabase.rpc("remove_stock_change", { p_movement: id });
+  refresh(productId);
+  revalidatePath("/restock");
+  redirect(`/inventory/${productId}?fixed=${error ? "error" : "removed"}`);
+}
+
+/** Hold pieces of a product for a customer. Any active staff member. */
+export async function reserveProduct(productId: string, _prev: ProductFormState, fd: FormData): Promise<ProductFormState> {
+  if (!UUID_RE.test(productId)) return { error: "Product not found." };
+  let staff;
+  try {
+    staff = await requireActiveStaff();
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "Sign in again." };
+  }
+  const name = str(fd, "customer_name", 60);
+  if (!name) return { error: "Add the customer's name.", field: "customer_name" };
+  const q = pieces(str(fd, "qty", 10), 10_000);
+  if (q === null || q === "invalid" || q < 1) return { error: "Reserve at least 1 piece.", field: "qty" };
+  const until = str(fd, "hold_until", 10);
+  if (until && !/^\d{4}-\d{2}-\d{2}$/.test(until)) return { error: "Pick the date to hold until.", field: "hold_until" };
+  const { error } = await staff.supabase.rpc("reserve_product", {
+    p: { product_id: productId, customer_name: name, qty: q, hold_until: until, note: str(fd, "note", 200) },
+  });
+  if (error) return { error: friendlyError(error as DbError), field: /left to reserve/.test(error.message) ? "qty" : undefined };
+  refresh(productId);
+  redirect(`/inventory/${productId}?reserved=1#reservations`);
+}
+
+/** Cancel a reservation: its pieces are free to sell again. Any active staff member. */
+export async function cancelReservation(fd: FormData): Promise<void> {
+  const id = String(fd.get("id") ?? "");
+  const productId = String(fd.get("product_id") ?? "");
+  if (!UUID_RE.test(id) || !UUID_RE.test(productId)) redirect("/inventory");
+  let staff;
+  try {
+    staff = await requireActiveStaff();
+  } catch {
+    redirect(`/inventory/${productId}`);
+  }
+  await staff.supabase.rpc("close_reservation", { p_id: id, p_sale: null });
+  refresh(productId);
+  redirect(`/inventory/${productId}?reserved=cancelled#reservations`);
 }

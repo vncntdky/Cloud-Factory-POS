@@ -20,6 +20,8 @@ export type SaleInput = {
   ageVerified: boolean;
   /** Optional, except for unpaid sales. */
   customerName: string;
+  /** Selling a reservation: it closes with this sale. */
+  reservationId?: string | null;
 };
 
 export type SaleResult =
@@ -69,6 +71,11 @@ export async function completeSale(input: SaleInput): Promise<SaleResult> {
   if (error) return { ok: false, error: friendlyError(error) };
 
   const r = data as { id: string; sale_number: number; total_cents: number; change_cents: number | null; balance_cents?: number };
+  // A reservation sold here closes with this sale. The sale stands even if this fails (it can be
+  // cancelled from the product page).
+  if (input.reservationId && isUuid(input.reservationId)) {
+    await staff.supabase.rpc("close_reservation", { p_id: input.reservationId, p_sale: r.id });
+  }
   // Stock counts on the register, the low-stock badge, today's sales and Collectibles all change.
   revalidatePath("/", "layout");
   return {

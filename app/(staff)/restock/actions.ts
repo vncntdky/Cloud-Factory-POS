@@ -142,7 +142,12 @@ export async function receiveBatch(_prev: RestockFormState, fd: FormData): Promi
     },
   });
   if (error) return { error: friendlyError(error as DbError) };
+  // New batches are paid from the company funds unless this was unticked.
+  if (fd.get("paid_from_funds") !== "1") {
+    await staff.supabase.rpc("set_batch_paid_from_funds", { p_batch: data as string, p_paid: false });
+  }
   revalidatePath("/restock");
+  revalidatePath("/sales/pnl");
   revalidatePath("/inventory");
   revalidatePath("/", "layout");
   redirect(`/restock/batches/${data as string}?received=1`);
@@ -233,4 +238,42 @@ export async function batchExistingStock(_prev: RestockFormState, fd: FormData):
   revalidatePath("/restock");
   revalidatePath("/sales/pnl");
   redirect(`/restock/batches/${data as string}?made=1`);
+}
+
+/** Release profit from the company funds, split owner : manager. Owner only (checked again in the database). */
+export async function releaseProfits(_prev: RestockFormState, fd: FormData): Promise<RestockFormState> {
+  const staff = await manager();
+  if ("error" in staff) return { error: staff.error };
+  const amount = toCents(String(fd.get("amount") ?? "").trim());
+  if (amount === null || amount <= 0) return { error: "Enter the amount to release, e.g. 5000.", field: "amount" };
+  const { error } = await staff.supabase.rpc("release_profits", {
+    p_amount_cents: amount,
+    p_note: String(fd.get("note") ?? "")
+      .trim()
+      .slice(0, 200),
+  });
+  if (error) return { error: friendlyError(error as DbError), field: "amount" };
+  revalidatePath("/sales/pnl");
+  redirect("/sales/pnl?released=1#funds");
+}
+
+export async function undoRelease(fd: FormData): Promise<void> {
+  const id = String(fd.get("id") ?? "");
+  const staff = await manager();
+  if ("error" in staff || !UUID_RE.test(id)) redirect("/sales/pnl?released=error#funds");
+  const { error } = await staff.supabase.rpc("delete_fund_release", { p_id: id });
+  revalidatePath("/sales/pnl");
+  redirect(`/sales/pnl?released=${error ? "error" : "undone"}#funds`);
+}
+
+/** Whether a batch was paid from the company funds (a new batch is, unless switched off). */
+export async function setPaidFromFunds(fd: FormData): Promise<void> {
+  const id = String(fd.get("id") ?? "");
+  const paid = fd.get("paid") === "1";
+  if (!UUID_RE.test(id)) redirect("/restock?view=batches");
+  const staff = await manager();
+  if (!("error" in staff)) await staff.supabase.rpc("set_batch_paid_from_funds", { p_batch: id, p_paid: paid });
+  revalidatePath("/restock");
+  revalidatePath("/sales/pnl");
+  redirect(`/restock/batches/${id}#pnl`);
 }

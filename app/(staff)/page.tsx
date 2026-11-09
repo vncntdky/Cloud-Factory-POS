@@ -7,14 +7,16 @@ import { Topbar } from "@/components/Topbar";
 import { Register, type RegisterProduct } from "@/components/register/Register";
 import { requireActiveStaff } from "@/lib/auth";
 import { buyerKey } from "@/lib/format";
+import { isUuid } from "@/lib/ids";
 import { can } from "@/lib/permissions";
 import { eyebrowDate } from "@/lib/time";
 
 export const dynamic = "force-dynamic";
 
-export default async function SellPage() {
+export default async function SellPage({ searchParams }: { searchParams: Promise<{ reservation?: string }> }) {
   const { supabase, profile } = await requireActiveStaff();
-  const [products, categories, settings, owed] = await Promise.all([
+  const { reservation: reservationId } = await searchParams;
+  const [products, categories, settings, owed, held, selling] = await Promise.all([
     supabase
       .from("products")
       .select("id, brand, name, variant, barcode, price_cents, on_hand, category_id, photo_path")
@@ -25,12 +27,26 @@ export default async function SellPage() {
     supabase.from("categories").select("id, name").eq("active", true).order("sort_order").order("name"),
     supabase.from("settings").select("min_age, staff_discount_limit_cents, allow_negative_stock").maybeSingle(),
     supabase.rpc("collectibles"),
+    supabase.from("reservations").select("product_id, qty").eq("status", "active"),
+    isUuid(reservationId)
+      ? supabase
+          .from("reservations")
+          .select("id, product_id, qty, customer_name")
+          .eq("id", reservationId)
+          .eq("status", "active")
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
   ]);
+  const reservedBy = new Map<string, number>();
+  for (const r of (held.data ?? []) as { product_id: string; qty: number }[])
+    reservedBy.set(r.product_id, (reservedBy.get(r.product_id) ?? 0) + r.qty);
+  const sell = selling.data as { id: string; product_id: string; qty: number; customer_name: string } | null;
   const s = settings.data as { min_age: number; staff_discount_limit_cents: number; allow_negative_stock: boolean } | null;
   const canEditProducts = can(profile, "editProducts");
   const buyerNames = new Map<string, string>();
   for (const o of (owed.data ?? []) as { customer_name: string | null }[]) {
-    if (o.customer_name && !buyerNames.has(buyerKey(o.customer_name))) buyerNames.set(buyerKey(o.customer_name), o.customer_name.trim());
+    if (o.customer_name && !buyerNames.has(buyerKey(o.customer_name)))
+      buyerNames.set(buyerKey(o.customer_name), o.customer_name.trim());
   }
 
   return (
@@ -58,10 +74,16 @@ export default async function SellPage() {
           </div>
         ) : (
           <Register
-            products={(products.data ?? []) as RegisterProduct[]}
+            products={((products.data ?? []) as Omit<RegisterProduct, "reserved">[]).map((p) => ({
+              ...p,
+              reserved: reservedBy.get(p.id) ?? 0,
+            }))}
+            reservation={
+              sell ? { id: sell.id, productId: sell.product_id, qty: sell.qty, customerName: sell.customer_name } : null
+            }
             categories={(categories.data ?? []) as { id: string; name: string }[]}
             minAge={s?.min_age ?? 18}
-            discountLimitCents={can(profile, "unlimitedDiscount") ? null : s?.staff_discount_limit_cents ?? 0}
+            discountLimitCents={can(profile, "unlimitedDiscount") ? null : (s?.staff_discount_limit_cents ?? 0)}
             allowNegative={s?.allow_negative_stock ?? false}
             canEditProducts={canEditProducts}
             buyerNames={[...buyerNames.values()].sort((a, b) => a.localeCompare(b))}

@@ -131,6 +131,9 @@ function ProductRow({ p, thumbs }: { p: RestockProduct; thumbs: boolean }) {
     if (p.on_hand > 0) meta.push(`${daysLeftLabel(plan.daysLeft)} left`);
     meta.push(`reorder at ${plan.reorderPoint}`);
   }
+  if (p.reserved > 0) {
+    meta.push(`${p.reserved} reserved`);
+  }
   return (
     <li>
       <Link className="list-row" href={`/inventory/${p.id}`}>

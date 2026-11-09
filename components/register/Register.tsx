@@ -34,6 +34,8 @@ export type RegisterProduct = {
   on_hand: number;
   category_id: string | null;
   photo_path: string | null;
+  /** Pieces held for customers (reservations); they can't be sold to anyone else. */
+  reserved: number;
 };
 
 export type RegisterProps = {
@@ -46,6 +48,8 @@ export type RegisterProps = {
   canEditProducts: boolean;
   /** Buyers who still owe, suggested in the buyer field. */
   buyerNames: string[];
+  /** Selling a reservation (?reservation=…): its pieces go in the cart and are free to sell. */
+  reservation?: { id: string; productId: string; qty: number; customerName: string } | null;
 };
 
 type Line = { id: string; qty: number };
@@ -74,7 +78,16 @@ function cashSuggestions(total: number) {
   return [...out].sort((a, b) => a - b).slice(0, 4);
 }
 
-export function Register({ products, categories, minAge, discountLimitCents, allowNegative, canEditProducts, buyerNames }: RegisterProps) {
+export function Register({
+  products,
+  categories,
+  minAge,
+  discountLimitCents,
+  allowNegative,
+  canEditProducts,
+  buyerNames,
+  reservation = null,
+}: RegisterProps) {
   const router = useRouter();
   const byId = useMemo(() => new Map(products.map((p) => [p.id, p])), [products]);
   const byBarcode = useMemo(
@@ -125,13 +138,41 @@ export function Register({ products, categories, minAge, discountLimitCents, all
 
   const qtyOf = (id: string) => lines.find((l) => l.id === id)?.qty ?? 0;
 
+  // A reservation being sold: its customer's pieces are free for this sale.
+  const [selling, setSelling] = useState(reservation);
+  /** Pieces that can go in this sale: on the shelf, minus what's held for other customers. */
+  const free = (p: RegisterProduct) => p.on_hand - p.reserved + (selling && selling.productId === p.id ? selling.qty : 0);
+  useEffect(() => {
+    if (!reservation || !byId.has(reservation.productId)) return;
+    setLines((ls) =>
+      ls.some((l) => l.id === reservation.productId)
+        ? ls.map((l) => (l.id === reservation.productId ? { ...l, qty: Math.max(l.qty, reservation.qty) } : l))
+        : [...ls, { id: reservation.productId, qty: reservation.qty }],
+    );
+    setBuyer(reservation.customerName);
+    // Once, when the register opens for a reservation.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  function stopSelling() {
+    setSelling(null);
+    router.replace("/", { scroll: false });
+  }
+
   function add(p: RegisterProduct, n = 1) {
     const next = qtyOf(p.id) + n;
-    if (!allowNegative && next > p.on_hand) {
-      toast({ text: p.on_hand <= 0 ? `${productLabel(p)} is out of stock` : `Only ${p.on_hand} of ${productLabel(p)} in stock`, icon: "alert" });
+    if (!allowNegative && next > free(p)) {
+      toast({
+        text:
+          free(p) <= 0
+            ? `${productLabel(p)} is ${p.reserved > 0 && p.on_hand > 0 ? "all reserved" : "out of stock"}`
+            : `Only ${free(p)} of ${productLabel(p)} free to sell${p.reserved > 0 ? ` (${p.reserved} reserved)` : ""}`,
+        icon: "alert",
+      });
       return false;
     }
-    setLines((ls) => (ls.some((l) => l.id === p.id) ? ls.map((l) => (l.id === p.id ? { ...l, qty: next } : l)) : [...ls, { id: p.id, qty: next }]));
+    setLines((ls) =>
+      ls.some((l) => l.id === p.id) ? ls.map((l) => (l.id === p.id ? { ...l, qty: next } : l)) : [...ls, { id: p.id, qty: next }],
+    );
     setError(null);
     return true;
   }
@@ -142,8 +183,11 @@ export function Register({ products, categories, minAge, discountLimitCents, all
       return;
     }
     const p = byId.get(id);
-    if (p && !allowNegative && qty > p.on_hand) {
-      toast({ text: `Only ${p.on_hand} of ${productLabel(p)} in stock`, icon: "alert" });
+    if (p && !allowNegative && qty > free(p)) {
+      toast({
+        text: `Only ${free(p)} of ${productLabel(p)} free to sell${p.reserved > 0 ? ` (${p.reserved} reserved)` : ""}`,
+        icon: "alert",
+      });
       return;
     }
     setLines((ls) => ls.map((l) => (l.id === id ? { ...l, qty } : l)));
@@ -228,9 +272,7 @@ export function Register({ products, categories, minAge, discountLimitCents, all
     return products.filter((p) => {
       if (category && p.category_id !== category) return false;
       if (!q) return true;
-      return (
-        productLabel(p).toLowerCase().includes(q) || (p.barcode ?? "").toLowerCase().includes(q)
-      );
+      return productLabel(p).toLowerCase().includes(q) || (p.barcode ?? "").toLowerCase().includes(q);
     });
   }, [products, deferredQuery, category]);
 
@@ -286,6 +328,7 @@ export function Register({ products, categories, minAge, discountLimitCents, all
       reference,
       ageVerified: ageOk,
       customerName: buyerName,
+      reservationId: selling?.id ?? null,
     }).catch(() => ({ ok: false as const, error: "Couldn't reach the server. Check your connection and try again." }));
     setBusy(false);
     if (!res.ok) {
@@ -302,6 +345,7 @@ export function Register({ products, categories, minAge, discountLimitCents, all
       buyer: buyerName,
     });
     clearCart();
+    if (selling) stopSelling();
     router.refresh();
   }
 
@@ -315,7 +359,11 @@ export function Register({ products, categories, minAge, discountLimitCents, all
         <li key={l.id} className={`cart-line${showPhotos ? " cart-line--photo" : ""}`}>
           {showPhotos && (
             <span className="thumb cart-line__thumb" aria-hidden="true">
-              {l.product.photo_path ? <img src={photoUrl(l.product.photo_path)!} alt="" decoding="async" /> : <Icon name="image" />}
+              {l.product.photo_path ? (
+                <img src={photoUrl(l.product.photo_path)!} alt="" decoding="async" />
+              ) : (
+                <Icon name="image" />
+              )}
             </span>
           )}
           <div className="cart-line__main">
@@ -326,7 +374,12 @@ export function Register({ products, categories, minAge, discountLimitCents, all
             </span>
           </div>
           <div className="qty" role="group" aria-label={`Quantity of ${productLabel(l.product)}`}>
-            <button type="button" className="qty__btn" aria-label={l.qty === 1 ? "Remove" : "One less"} onClick={() => setQty(l.id, l.qty - 1)}>
+            <button
+              type="button"
+              className="qty__btn"
+              aria-label={l.qty === 1 ? "Remove" : "One less"}
+              onClick={() => setQty(l.id, l.qty - 1)}
+            >
               <Icon name={l.qty === 1 ? "trash" : "minus"} />
             </button>
             <span className="qty__value" aria-live="polite">
@@ -347,6 +400,20 @@ export function Register({ products, categories, minAge, discountLimitCents, all
   return (
     <div className="register">
       <div className="register__shop stack">
+        {selling && byId.has(selling.productId) && (
+          <div className="notice notice--info" role="status">
+            <Icon name="bag" />
+            <div className="grow">
+              <p className="notice__title">
+                Selling {selling.customerName}&apos;s reservation: {productLabel(byId.get(selling.productId)!)} × {selling.qty}
+              </p>
+              <p>It&apos;s in the cart with their name. The reservation closes when you charge.</p>
+            </div>
+            <button type="button" className="text-btn" onClick={stopSelling}>
+              Not now
+            </button>
+          </div>
+        )}
         <form className="search search--lg" role="search" onSubmit={onSearchSubmit}>
           <Icon name="search" className="search__icon" />
           <input
@@ -390,7 +457,11 @@ export function Register({ products, categories, minAge, discountLimitCents, all
         {products.length === 0 ? (
           <EmptyState
             title="No products yet."
-            text={canEditProducts ? "Add what you sell, with prices and opening stock." : "Ask the owner or a manager to add products."}
+            text={
+              canEditProducts
+                ? "Add what you sell, with prices and opening stock."
+                : "Ask the owner or a manager to add products."
+            }
             action={
               canEditProducts ? (
                 <Link className="btn btn--money" href="/inventory/new">
@@ -405,7 +476,14 @@ export function Register({ products, categories, minAge, discountLimitCents, all
             compact
             title="No matches."
             action={
-              <button type="button" className="text-btn" onClick={() => { setQuery(""); setCategory(null); }}>
+              <button
+                type="button"
+                className="text-btn"
+                onClick={() => {
+                  setQuery("");
+                  setCategory(null);
+                }}
+              >
                 Show all products
               </button>
             }
@@ -414,8 +492,9 @@ export function Register({ products, categories, minAge, discountLimitCents, all
           <div className="product-grid">
             {filtered.map((p) => {
               const q = qtyOf(p.id);
-              const out = p.on_hand <= 0;
-              const low = !out && p.on_hand <= 3;
+              const avail = free(p);
+              const out = avail <= 0;
+              const low = !out && avail <= 3;
               // A tile in the cart stays tappable (to take it out); change its quantity in the cart.
               const soldOut = !allowNegative && q === 0 && out;
               return (
@@ -426,12 +505,16 @@ export function Register({ products, categories, minAge, discountLimitCents, all
                   data-qty={q || undefined}
                   aria-pressed={q > 0}
                   aria-disabled={soldOut || undefined}
-                  aria-label={`${productLabel(p)}, ${pesos(p.price_cents)}, ${out ? "out of stock" : `${p.on_hand} in stock`}${q ? `, ${q} in cart, tap to remove` : ""}`}
+                  aria-label={`${productLabel(p)}, ${pesos(p.price_cents)}, ${out ? "none free to sell" : `${avail} free to sell`}${p.reserved > 0 ? `, ${p.reserved} reserved` : ""}${q ? `, ${q} in cart, tap to remove` : ""}`}
                   onClick={() => toggle(p)}
                 >
                   {showPhotos && (
                     <span className="product-tile__media" aria-hidden="true">
-                      {p.photo_path ? <img src={photoUrl(p.photo_path)!} alt="" loading="lazy" decoding="async" /> : <Icon name="image" />}
+                      {p.photo_path ? (
+                        <img src={photoUrl(p.photo_path)!} alt="" loading="lazy" decoding="async" />
+                      ) : (
+                        <Icon name="image" />
+                      )}
                     </span>
                   )}
                   <span className="product-tile__text">
@@ -444,7 +527,7 @@ export function Register({ products, categories, minAge, discountLimitCents, all
                       <Money cents={p.price_cents} />
                     </span>
                     <span className={`product-tile__stock${out ? " is-out" : low ? " is-low" : ""}`}>
-                      {out ? "Out" : `${p.on_hand} left`}
+                      {out ? (p.reserved > 0 && p.on_hand > 0 ? "Reserved" : "Out") : `${avail} left`}
                     </span>
                   </span>
                   <span className="product-tile__qty" aria-hidden="true">
@@ -526,7 +609,13 @@ export function Register({ products, categories, minAge, discountLimitCents, all
           <h2 className="sheet__title" id="checkout-title">
             Checkout
           </h2>
-          <button type="button" className="icon-btn" aria-label="Back to products" disabled={busy} onClick={() => sheetRef.current?.close()}>
+          <button
+            type="button"
+            className="icon-btn"
+            aria-label="Back to products"
+            disabled={busy}
+            onClick={() => sheetRef.current?.close()}
+          >
             <Icon name="x" />
           </button>
         </header>
@@ -636,7 +725,13 @@ export function Register({ products, categories, minAge, discountLimitCents, all
               </div>
               <div className="choice-group quick-cash" role="group" aria-label="Quick amounts">
                 {cashSuggestions(total).map((c) => (
-                  <button key={c} type="button" className="choice" aria-pressed={tenderedCents === c && tendered !== ""} onClick={() => setTendered(centsToInput(c))}>
+                  <button
+                    key={c}
+                    type="button"
+                    className="choice"
+                    aria-pressed={tenderedCents === c && tendered !== ""}
+                    onClick={() => setTendered(centsToInput(c))}
+                  >
                     {c === total ? "Exact" : pesos(c)}
                   </button>
                 ))}

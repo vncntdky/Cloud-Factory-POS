@@ -2,7 +2,7 @@
 // restock costs and its expenses, charged in full), the owner / manager split, and the batch's
 // expenses with Add / Remove. Owners and managers; only the owner changes the split.
 import { Fragment } from "react";
-import { deleteBatchExpense } from "@/app/(staff)/restock/actions";
+import { deleteBatchExpense, setPaidFromFunds } from "@/app/(staff)/restock/actions";
 import type { Batch, BatchPnl, Expense } from "@/app/(staff)/restock/data";
 import { Icon } from "@/components/Icon";
 import { Kpi, KpiGrid } from "@/components/Kpi";
@@ -137,6 +137,18 @@ export function BatchPnlCard({
         )}
       </p>
       <BatchCostsForm id={batch.id} batch={batch} />
+      <form action={setPaidFromFunds} className="row row--between row--wrap pnl-funds">
+        <input type="hidden" name="id" value={batch.id} />
+        <input type="hidden" name="paid" value={batch.paid_from_funds ? "0" : "1"} />
+        <span className="t-sm">
+          {batch.paid_from_funds
+            ? "Paid from company funds: its goods and restocking fees come out of the fund."
+            : "Not paid from company funds."}
+        </span>
+        <button type="submit" className="text-btn">
+          {batch.paid_from_funds ? "Not from the fund" : "Paid from the fund"}
+        </button>
+      </form>
 
       <div className="pnl-split">
         <div className="row row--between row--wrap">

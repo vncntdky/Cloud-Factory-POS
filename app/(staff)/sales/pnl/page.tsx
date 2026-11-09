@@ -10,6 +10,7 @@ import { Main } from "@/components/Main";
 import { Money } from "@/components/Money";
 import { NotAllowed } from "@/components/NotAllowed";
 import { Topbar } from "@/components/Topbar";
+import { FundsCard, type Funds, type Release } from "@/components/restock/FundsCard";
 import { ExpenseForm, SplitForm } from "@/components/restock/PnlForms";
 import { requireActiveStaff } from "@/lib/auth";
 import { friendlyError } from "@/lib/db-errors";
@@ -25,14 +26,26 @@ function Amount({ cents }: { cents: number | null }) {
   return <span className={cents < 0 ? "text-alert" : undefined}>{<Money cents={cents} />}</span>;
 }
 
-export default async function PnlPage({ searchParams }: { searchParams: Promise<{ split?: string; expense?: string }> }) {
+export default async function PnlPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ split?: string; expense?: string; released?: string }>;
+}) {
   const { supabase, profile } = await requireActiveStaff();
   if (!can(profile, "seeCosts")) return <NotAllowed title="P&L" what="Profit and loss" />;
   const sp = await searchParams;
-  const [{ list, expenses, prices, error }, splitRes] = await Promise.all([
+  const [{ list, expenses, prices, error }, splitRes, fundsRes, releasesRes] = await Promise.all([
     loadBatches(supabase),
     supabase.from("settings").select("split_owner_parts, split_manager_parts").maybeSingle(),
+    supabase.rpc("company_funds"),
+    supabase
+      .from("fund_releases")
+      .select("id, amount_cents, owner_cents, manager_cents, note, released_on")
+      .order("released_on", { ascending: false })
+      .order("created_at", { ascending: false }),
   ]);
+  const funds = fundsRes.data as Funds | null;
+  const releases = (releasesRes.data ?? []) as Release[];
   const splitRow = splitRes.data as { split_owner_parts: number; split_manager_parts: number } | null;
   const split = { owner: splitRow?.split_owner_parts ?? 2, manager: splitRow?.split_manager_parts ?? 1 };
   const parts = split.owner + split.manager;
@@ -69,6 +82,24 @@ export default async function PnlPage({ searchParams }: { searchParams: Promise<
               P&amp;L
             </Link>
           </nav>
+
+          {sp.released === "1" && (
+            <div className="notice notice--success" role="status">
+              <Icon name="check" />
+              <div>
+                <p className="notice__title">Profit released.</p>
+              </div>
+            </div>
+          )}
+          {sp.released === "undone" && (
+            <div className="notice notice--success" role="status">
+              <Icon name="check" />
+              <div>
+                <p className="notice__title">Release undone: the money is back in the fund.</p>
+              </div>
+            </div>
+          )}
+          {funds && <FundsCard funds={funds} releases={releases} split={split} isOwner={can(profile, "editSettings")} />}
 
           {error ? (
             <div className="notice notice--danger" role="alert">
@@ -118,7 +149,6 @@ export default async function PnlPage({ searchParams }: { searchParams: Promise<
                 </div>
                 <KpiGrid aria-label="All batches">
                   <Kpi
-                    variant="hero"
                     wide
                     label={generalExpenses > 0 ? "Shop net so far" : "Net so far"}
                     value={<Money cents={totalNet} />}

@@ -1,0 +1,210 @@
+// Company funds on Sales → P&L (owners and managers): where the money from sales went, how much is
+// kept back for the next batch, and how much profit can be released (split owner : manager).
+// Only the owner releases profit.
+import { undoRelease } from "@/app/(staff)/restock/actions";
+import { Icon } from "@/components/Icon";
+import { Kpi, KpiGrid } from "@/components/Kpi";
+import { Money } from "@/components/Money";
+import { ReleaseForm } from "@/components/restock/ReleaseForm";
+import { PAYMENT_METHOD_LABELS, type SaleMethod } from "@/lib/format";
+import { shareLabel, splitProfit } from "@/lib/pnl";
+import { formatManilaDate } from "@/lib/time";
+
+export type Funds = {
+  gross_cents: number;
+  discount_cents: number;
+  net_cents: number;
+  owed_cents: number;
+  collected_cents: number;
+  collected_by_method: Record<string, number>;
+  goods_cents: number;
+  goods_uncosted: number;
+  restock_fees_cents: number;
+  expenses_cents: number;
+  released_cents: number;
+  owner_released_cents: number;
+  manager_released_cents: number;
+  balance_cents: number;
+  reserve_cents: number;
+  reserve_batch_no: number | null;
+  available_cents: number;
+};
+
+export type Release = {
+  id: string;
+  amount_cents: number;
+  owner_cents: number;
+  manager_cents: number;
+  note: string | null;
+  released_on: string;
+};
+
+const ORDER = ["cash", "gcash", "maya", "card", "bank_transfer"];
+
+export function FundsCard({
+  funds: f,
+  releases,
+  split,
+  isOwner,
+}: {
+  funds: Funds;
+  releases: Release[];
+  split: { owner: number; manager: number };
+  isOwner: boolean;
+}) {
+  const parts = split.owner + split.manager;
+  const shares = splitProfit(f.available_cents, split.owner, split.manager);
+  const methods = Object.entries(f.collected_by_method)
+    .filter(([, c]) => Number(c) > 0)
+    .sort(([a], [b]) => ORDER.indexOf(a) - ORDER.indexOf(b));
+  const nonCash = methods.filter(([m]) => m !== "cash").reduce((n, [, c]) => n + Number(c), 0);
+
+  return (
+    <section className="card stack" id="funds" aria-labelledby="funds-t">
+      <div className="card__head">
+        <h2 className="card__title" id="funds-t">
+          Company funds
+        </h2>
+      </div>
+      <KpiGrid aria-label="Company funds">
+        <Kpi
+          variant="hero"
+          wide
+          label="Available to release"
+          value={<Money cents={f.available_cents} />}
+          meta={
+            <>
+              after keeping <Money cents={f.reserve_cents} /> for the next batch
+            </>
+          }
+        />
+        <Kpi label={`Owner ${shareLabel(split.owner, parts)}`} value={<Money cents={shares.owner} />} meta="if released now" />
+        <Kpi
+          label={`Manager ${shareLabel(split.manager, parts)}`}
+          value={<Money cents={shares.manager} />}
+          meta="if released now"
+        />
+      </KpiGrid>
+
+      <dl className="cost-list pnl">
+        <dt>Gross sales</dt>
+        <dd>
+          <Money cents={f.gross_cents} />
+        </dd>
+        <dt>Discounts</dt>
+        <dd>
+          − <Money cents={f.discount_cents} />
+        </dd>
+        <dt className="cost-list__total">Net sales</dt>
+        <dd className="cost-list__total">
+          <Money cents={f.net_cents} />
+        </dd>
+        <dt>
+          Floating: not paid yet <span className="muted">(Collectibles)</span>
+        </dt>
+        <dd>
+          − <Money cents={f.owed_cents} />
+        </dd>
+        <dt className="cost-list__total">Cash collected</dt>
+        <dd className="cost-list__total">
+          <Money cents={f.collected_cents} />
+        </dd>
+        <dt>Stock bought (goods)</dt>
+        <dd>
+          − <Money cents={f.goods_cents} />
+        </dd>
+        <dt>Restocking fees (shipping, tax, MOOE, other)</dt>
+        <dd>
+          − <Money cents={f.restock_fees_cents} />
+        </dd>
+        <dt>Expenses</dt>
+        <dd>
+          − <Money cents={f.expenses_cents} />
+        </dd>
+        <dt>Profit released so far</dt>
+        <dd>
+          − <Money cents={f.released_cents} />
+        </dd>
+        <dt className="cost-list__total">In the fund</dt>
+        <dd className={`cost-list__total${f.balance_cents < 0 ? " text-alert" : ""}`}>
+          <Money cents={f.balance_cents} />
+        </dd>
+        <dt>Kept for the next batch{f.reserve_batch_no !== null ? ` (Batch ${f.reserve_batch_no}'s full cost)` : ""}</dt>
+        <dd>
+          − <Money cents={f.reserve_cents} />
+        </dd>
+        <dt className="cost-list__total">Available to release</dt>
+        <dd className="cost-list__total">
+          <Money cents={f.available_cents} />
+        </dd>
+      </dl>
+
+      {methods.length > 0 && (
+        <div className="stack stack-2">
+          <h3 className="eyebrow">Where the collected money came in</h3>
+          <dl className="cost-list">
+            {methods.map(([m, c]) => (
+              <div key={m} className="contents">
+                <dt>{PAYMENT_METHOD_LABELS[m as SaleMethod] ?? m}</dt>
+                <dd>
+                  <Money cents={Number(c)} />
+                </dd>
+              </div>
+            ))}
+          </dl>
+          {nonCash > 0 && (
+            <p className="t-sm muted">
+              Floating: <Money cents={nonCash} /> came in by GCash, Maya, card or bank, so it may not be in the cash drawer.
+            </p>
+          )}
+        </div>
+      )}
+      {f.goods_uncosted > 0 && (
+        <p className="t-sm muted">Some restocked pieces have no cost per piece, so &ldquo;Stock bought&rdquo; is a little low.</p>
+      )}
+      <p className="t-sm muted">
+        New batches are paid from the fund (goods and restocking fees), so what you release is profit after the next batch is
+        covered. Stock from before batches wasn&apos;t bought from the fund.
+      </p>
+
+      {isOwner && <ReleaseForm available={f.available_cents} split={split} />}
+
+      <div className="stack stack-2">
+        <h3 className="eyebrow">Released</h3>
+        {releases.length === 0 ? (
+          <p className="t-sm muted">No profit released yet.</p>
+        ) : (
+          <ul className="list list--plain" role="list">
+            {releases.map((r) => (
+              <li key={r.id} className="list-row list-row--compact">
+                <span className="list-row__main">
+                  <span className="list-row__title">
+                    <span>
+                      <Money cents={r.amount_cents} />
+                    </span>
+                  </span>
+                  <span className="list-row__meta">
+                    {formatManilaDate(r.released_on)} · owner <Money cents={r.owner_cents} /> · manager{" "}
+                    <Money cents={r.manager_cents} />
+                    {r.note && ` · ${r.note}`}
+                  </span>
+                </span>
+                {isOwner && (
+                  <form action={undoRelease}>
+                    <input type="hidden" name="id" value={r.id} />
+                    <button type="submit" className="icon-btn" aria-label="Undo this release">
+                      <Icon name="undo" />
+                    </button>
+                  </form>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+        <p className="t-sm muted">
+          Released so far: owner <Money cents={f.owner_released_cents} />, manager <Money cents={f.manager_released_cents} />.
+        </p>
+      </div>
+    </section>
+  );
+}

@@ -13,12 +13,14 @@ export type RestockProduct = {
   category_id: string | null;
   photo_path: string | null;
   cost_cents: number | null;
+  /** Pieces held for customers: spoken for, so the plan only counts the rest. */
+  reserved: number;
   plan: ProductPlan;
   lastSoldAt: string | null;
 };
 
 export async function loadReorderPlan(supabase: ServerSupabase) {
-  const [products, pace, settings, costs] = await Promise.all([
+  const [products, pace, settings, costs, held] = await Promise.all([
     supabase
       .from("products")
       .select("id, brand, name, variant, on_hand, reorder_at, category_id, photo_path")
@@ -29,6 +31,7 @@ export async function loadReorderPlan(supabase: ServerSupabase) {
     supabase.rpc("sales_pace", { p_days: PACE_DAYS }),
     supabase.from("settings").select("restock_lead_days, restock_buffer_days, restock_cover_days").maybeSingle(),
     supabase.from("product_costs").select("product_id, cost_cents"),
+    supabase.from("reservations").select("product_id, qty").eq("status", "active"),
   ]);
   const s = settings.data as { restock_lead_days: number; restock_buffer_days: number; restock_cover_days: number } | null;
   const plan: RestockPlan = s
@@ -43,11 +46,15 @@ export async function loadReorderPlan(supabase: ServerSupabase) {
   const costBy = new Map(
     ((costs.data ?? []) as { product_id: string; cost_cents: number }[]).map((c) => [c.product_id, c.cost_cents]),
   );
-  type Row = Omit<RestockProduct, "plan" | "lastSoldAt" | "cost_cents">;
+  const heldBy = new Map<string, number>();
+  for (const r of (held.data ?? []) as { product_id: string; qty: number }[])
+    heldBy.set(r.product_id, (heldBy.get(r.product_id) ?? 0) + r.qty);
+  type Row = Omit<RestockProduct, "plan" | "lastSoldAt" | "cost_cents" | "reserved">;
   const rows: RestockProduct[] = ((products.data ?? []) as Row[]).map((p) => ({
     ...p,
     cost_cents: costBy.get(p.id) ?? null,
-    plan: planProduct(p.on_hand, paceBy.get(p.id), plan),
+    reserved: heldBy.get(p.id) ?? 0,
+    plan: planProduct(p.on_hand - (heldBy.get(p.id) ?? 0), paceBy.get(p.id), plan),
     lastSoldAt: paceBy.get(p.id)?.lastSoldAt ?? null,
   }));
   return { products: rows, plan, error: products.error ?? pace.error ?? null };
@@ -83,6 +90,8 @@ export type Batch = {
   mooe_cents: number;
   other_cents: number;
   other_label: string | null;
+  /** Bought with the company funds (new batches are, unless switched off). */
+  paid_from_funds: boolean;
 };
 
 const NO_BATCH: Batch = {
@@ -97,6 +106,7 @@ const NO_BATCH: Batch = {
   mooe_cents: 0,
   other_cents: 0,
   other_label: null,
+  paid_from_funds: false,
 };
 
 /** Shipping + tax + MOOE + other. */
@@ -205,7 +215,7 @@ export async function loadBatches(supabase: ServerSupabase) {
     supabase
       .from("stock_batches")
       .select(
-        "id, batch_no, supplier, received_on, note, created_at, shipping_cents, tax_cents, mooe_cents, other_cents, other_label",
+        "id, batch_no, supplier, received_on, note, created_at, shipping_cents, tax_cents, mooe_cents, other_cents, other_label, paid_from_funds",
       )
       .order("batch_no", { ascending: false }),
     supabase.rpc("batch_sales"),

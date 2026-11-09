@@ -117,6 +117,13 @@ export function ReceiveForm({
               placeholder="Order no., receipt no., anything missing…"
             />
           </div>
+          <label className="check-row span-all" htmlFor="b-funds">
+            <input id="b-funds" type="checkbox" className="check" name="paid_from_funds" value="1" defaultChecked />
+            <span className="grow">
+              <span className="check-row__title">Paid from company funds</span>
+              <span className="t-sm muted">The goods and restocking fees come out of what earlier sales brought in.</span>
+            </span>
+          </label>
         </div>
       </section>
 

@@ -8,12 +8,14 @@ import { Money } from "@/components/Money";
 import { Topbar } from "@/components/Topbar";
 import { DeleteProduct, type ProductUsage } from "@/components/inventory/DeleteProduct";
 import { ProductForm, StockForm } from "@/components/inventory/ProductForms";
+import { StockFix } from "@/components/inventory/StockFix";
 import { ProductPhoto } from "@/components/inventory/ProductPhoto";
 import { requireActiveStaff, type ServerSupabase } from "@/lib/auth";
 import { centsToInput, productLabel, saleNo } from "@/lib/format";
 import { isUuid } from "@/lib/ids";
 import { can } from "@/lib/permissions";
-import { formatManila } from "@/lib/time";
+import { formatManila, formatManilaDate, manilaToday } from "@/lib/time";
+import { Reservations, type Reservation } from "@/components/inventory/Reservations";
 
 export const dynamic = "force-dynamic";
 
@@ -85,7 +87,7 @@ export default async function ProductPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ saved?: string; stock?: string; photo?: string }>;
+  searchParams: Promise<{ saved?: string; stock?: string; photo?: string; fixed?: string; reserved?: string }>;
 }) {
   const { id } = await params;
   if (!isUuid(id)) notFound();
@@ -95,7 +97,7 @@ export default async function ProductPage({
 
   const owner = can(profile, "deleteRecords");
 
-  const [productRes, categoriesRes, costRes, movesRes, usage] = await Promise.all([
+  const [productRes, categoriesRes, costRes, movesRes, usage, resRes] = await Promise.all([
     supabase
       .from("products")
       .select("id, brand, name, variant, barcode, price_cents, on_hand, reorder_at, active, category_id, photo_path")
@@ -112,6 +114,12 @@ export default async function ProductPage({
           .limit(50)
       : Promise.resolve({ data: [] }),
     owner ? loadUsage(supabase, id) : Promise.resolve(null),
+    supabase
+      .from("reservations")
+      .select("id, customer_name, qty, note, hold_until, created_at")
+      .eq("product_id", id)
+      .eq("status", "active")
+      .order("created_at"),
   ]);
   if (!productRes.data) notFound();
   const p = productRes.data as Product;
@@ -120,7 +128,20 @@ export default async function ProductPage({
   const moves = (movesRes.data ?? []) as unknown as Movement[];
   const category = categories.find((c) => c.id === p.category_id)?.name;
   const low = p.on_hand <= p.reorder_at;
-  const notice = sp.stock ? SAVED[sp.stock] : sp.saved ? "Product saved." : null;
+  const reservations = (resRes.data ?? []) as Reservation[];
+  const notice = sp.stock
+    ? SAVED[sp.stock]
+    : sp.fixed === "edited"
+      ? "Stock change fixed."
+      : sp.fixed === "removed"
+        ? "Stock change removed."
+        : sp.reserved === "1"
+          ? "Reserved."
+          : sp.reserved === "cancelled"
+            ? "Reservation cancelled."
+        : sp.saved
+          ? "Product saved."
+          : null;
 
   return (
     <>
@@ -186,6 +207,16 @@ export default async function ProductPage({
             </p>
           )}
 
+          <Reservations
+            productId={p.id}
+            free={Math.max(0, p.on_hand - reservations.reduce((n, r) => n + r.qty, 0))}
+            reservations={reservations}
+            today={manilaToday()}
+            dateLabel={Object.fromEntries(
+              reservations.map((r) => [r.id, r.hold_until ? `hold until ${formatManilaDate(r.hold_until)}` : `since ${formatManilaDate(r.created_at)}`]),
+            )}
+          />
+
           {editor ? (
             <>
               <StockForm id={p.id} />
@@ -216,7 +247,7 @@ export default async function ProductPage({
                 ) : (
                   <ul className="list list--plain" role="list">
                     {moves.map((m) => (
-                      <li key={m.id} className="list-row list-row--compact">
+                      <li key={m.id} className="list-row list-row--compact list-row--wrap">
                         <span className="list-row__main">
                           <span className="list-row__title">
                             <span>
@@ -247,6 +278,9 @@ export default async function ProductPage({
                           </span>
                           <span className="t-caption muted">→ {m.on_hand_after}</span>
                         </span>
+                        {m.kind !== "sale" && m.kind !== "void" && (
+                          <StockFix change={{ ...m, kind: m.kind }} productId={p.id} />
+                        )}
                       </li>
                     ))}
                   </ul>
