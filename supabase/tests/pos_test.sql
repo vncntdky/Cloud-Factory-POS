@@ -434,7 +434,7 @@ select pg_temp.check('its sales move with it', (select sum(sold) from public.bat
   and not exists (select 1 from public.batch_sales() where batch_id is null));
 select public.add_expense(format('{"batch_id": "%s", "category": "other", "amount_cents": 1000}', :'made')::jsonb);
 select pg_temp.check('it can take expenses now', exists (select 1 from public.expenses where batch_id = :'made'));
-select pg_temp.check('earlier stock is paid from the funds too', (select paid_from_funds from public.stock_batches where id = :'made'));
+select pg_temp.check('earlier stock was already paid for: not charged to the funds', (select not paid_from_funds from public.stock_batches where id = :'made'));
 select pg_temp.expect_error('nothing left to batch', $$select public.batch_existing_stock('{}')$$, 'already in a batch');
 
 -- ───────── Reservations (all staff) ─────────
@@ -466,10 +466,10 @@ select pg_temp.check('funds: gross − discounts = net; net − still owed = col
   and (:'f0'::jsonb ->> 'net_cents')::bigint = (:'f0'::jsonb ->> 'gross_cents')::bigint - (:'f0'::jsonb ->> 'discount_cents')::bigint
   and (:'f0'::jsonb ->> 'collected_cents')::bigint = (select sum(total_cents - balance_cents) from public.sales where status = 'completed')
   and (select sum(value::bigint) from jsonb_each_text(:'f0'::jsonb -> 'collected_by_method')) = (:'f0'::jsonb ->> 'collected_cents')::bigint);
-select public.set_batch_paid_from_funds(:'made', false);
-select pg_temp.check('opening stock''s cost counts in the funds (Mint 10 + Mango 2 at 210, Batch Pod 5 at 50)',
-  (public.company_funds() ->> 'goods_cents')::bigint = (:'f0'::jsonb ->> 'goods_cents')::bigint - (12 * 21000 + 5 * 5000));
 select public.set_batch_paid_from_funds(:'made', true);
+select pg_temp.check('switched on, opening stock''s cost counts in the funds (Mint 10 + Mango 2 at 210, Batch Pod 5 at 50)',
+  (public.company_funds() ->> 'goods_cents')::bigint = (:'f0'::jsonb ->> 'goods_cents')::bigint + (12 * 21000 + 5 * 5000));
+select public.set_batch_paid_from_funds(:'made', false);
 select public.save_product(null, '{"name": "Fund Pod", "price_cents": 1000}') as fp \gset
 select public.receive_batch(format('{"shipping_cents": 500, "items": [{"product_id": "%s", "qty": 10, "unit_cost_cents": 300}]}', :'fp')::jsonb) as fb \gset
 select public.company_funds() as f1 \gset
