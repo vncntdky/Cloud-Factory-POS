@@ -473,15 +473,31 @@ select public.set_batch_paid_from_funds(:'made', false);
 select public.save_product(null, '{"name": "Fund Pod", "price_cents": 1000}') as fp \gset
 select public.receive_batch(format('{"shipping_cents": 500, "items": [{"product_id": "%s", "qty": 10, "unit_cost_cents": 300}]}', :'fp')::jsonb) as fb \gset
 select public.company_funds() as f1 \gset
-select pg_temp.check('a new batch is paid from the funds (goods + restocking fees) and is the reserve',
+select pg_temp.check('a new batch is paid from the funds (goods + restocking fees); nothing kept until you decide, so it asks',
   (:'f1'::jsonb ->> 'goods_cents')::bigint = (:'f0'::jsonb ->> 'goods_cents')::bigint + 3000
   and (:'f1'::jsonb ->> 'restock_fees_cents')::bigint = (:'f0'::jsonb ->> 'restock_fees_cents')::bigint + 500
   and (:'f1'::jsonb ->> 'balance_cents')::bigint = (:'f0'::jsonb ->> 'balance_cents')::bigint - 3500
-  and (:'f1'::jsonb ->> 'reserve_cents')::bigint = 3500
-  and (:'f1'::jsonb ->> 'available_cents')::bigint = greatest(0, (:'f1'::jsonb ->> 'balance_cents')::bigint - 3500));
+  and (:'f1'::jsonb ->> 'kept_cents')::bigint = 0
+  and (:'f1'::jsonb ->> 'needs_decision')::boolean
+  and (:'f1'::jsonb ->> 'last_batch_cents')::bigint = 3500
+  and (:'f1'::jsonb ->> 'available_cents')::bigint = greatest(0, (:'f1'::jsonb ->> 'balance_cents')::bigint));
+select public.set_restock_set_aside(2000, ' Next order ');
+select public.company_funds() as f2 \gset
+select pg_temp.check('deciding what to keep for the next restock holds it back and clears the ask',
+  (:'f2'::jsonb ->> 'kept_cents')::bigint = 2000 and (:'f2'::jsonb ->> 'set_aside_note') = 'Next order'
+  and not (:'f2'::jsonb ->> 'needs_decision')::boolean
+  and (:'f2'::jsonb ->> 'available_cents')::bigint = greatest(0, (:'f2'::jsonb ->> 'balance_cents')::bigint - 2000));
+select public.save_product(null, '{"name": "Next Pod", "price_cents": 1000}') as np \gset
+select public.receive_batch(format('{"shipping_cents": 300, "items": [{"product_id": "%s", "qty": 4, "unit_cost_cents": 300}]}', :'np')::jsonb);
+select public.company_funds() as f3 \gset
+select pg_temp.check('the next batch uses what was kept (₱12 goods + ₱3 shipping of ₱20), then asks again',
+  (:'f3'::jsonb ->> 'set_aside_used_cents')::bigint = 1500 and (:'f3'::jsonb ->> 'kept_cents')::bigint = 500
+  and (:'f3'::jsonb ->> 'needs_decision')::boolean
+  and (:'f3'::jsonb ->> 'balance_cents')::bigint = (:'f2'::jsonb ->> 'balance_cents')::bigint - 1500);
+select pg_temp.expect_error('the amount kept is checked', $$select public.set_restock_set_aside(-1)$$, '₱0 or more');
 select public.set_batch_paid_from_funds(:'fb', false);
 select pg_temp.check('a batch not paid from funds isn''t charged',
-  (public.company_funds() ->> 'goods_cents')::bigint = (:'f0'::jsonb ->> 'goods_cents')::bigint);
+  (public.company_funds() ->> 'goods_cents')::bigint = (:'f3'::jsonb ->> 'goods_cents')::bigint - 3000);
 select public.set_batch_paid_from_funds(:'fb', true);
 select pg_temp.expect_error('manager can''t release profits', $$select public.release_profits(100)$$, 'Only the owner');
 set request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
@@ -499,7 +515,9 @@ select pg_temp.check('a release is split by the profit split (3 : 1 here) and co
 select public.delete_fund_release(:'rel');
 select pg_temp.check('owner can undo a release', not exists (select 1 from public.fund_releases where id = :'rel'));
 set request.jwt.claim.sub = '22222222-2222-2222-2222-222222222222';
-select pg_temp.check('staff see no funds', public.company_funds() is null and (select count(*) = 0 from public.fund_releases));
+select pg_temp.check('staff see no funds', public.company_funds() is null and (select count(*) = 0 from public.fund_releases)
+  and (select count(*) = 0 from public.fund_set_asides));
+select pg_temp.expect_error('staff can''t decide the restock budget', $$select public.set_restock_set_aside(100)$$, 'Only owners and managers');
 select pg_temp.expect_error('staff can''t call the internal summary', 'select public.funds_summary()', 'permission denied');
 
 -- ───────── Fixing stock changes (owners and managers) ─────────

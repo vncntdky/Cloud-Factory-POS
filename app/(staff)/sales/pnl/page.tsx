@@ -29,7 +29,7 @@ function Amount({ cents }: { cents: number | null }) {
 export default async function PnlPage({
   searchParams,
 }: {
-  searchParams: Promise<{ split?: string; expense?: string; released?: string }>;
+  searchParams: Promise<{ split?: string; expense?: string; released?: string; kept?: string }>;
 }) {
   const { supabase, profile } = await requireActiveStaff();
   if (!can(profile, "seeCosts")) return <NotAllowed title="P&L" what="Profit and loss" />;
@@ -99,7 +99,7 @@ export default async function PnlPage({
               </div>
             </div>
           )}
-          {funds && <FundsCard funds={funds} releases={releases} split={split} isOwner={can(profile, "editSettings")} />}
+          {funds && <FundsCard funds={funds} releases={releases} split={split} isOwner={can(profile, "editSettings")} kept={sp.kept === "1"} />}
 
           {error ? (
             <div className="notice notice--danger" role="alert">

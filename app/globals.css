@@ -2549,3 +2549,4 @@ a.segmented__option { text-decoration: none; }
 .batch-move__text { flex: 1 1 0; min-width: 0; }
 .batch-moves .stock-fix { padding-top: var(--space-2); }
 .batch-add { padding: var(--space-4); border-top: 1px solid var(--line); }
+.pick-chips { display: flex; flex-wrap: wrap; gap: var(--space-2); }

@@ -303,3 +303,20 @@ export async function addToBatch(batchId: string, _prev: RestockFormState, fd: F
   revalidatePath("/", "layout");
   redirect(`/restock/batches/${batchId}?added=1#lines-t`);
 }
+
+/** Decide how much the company funds keep for the next restock. Owners and managers. */
+export async function setRestockSetAside(_prev: RestockFormState, fd: FormData): Promise<RestockFormState> {
+  const staff = await manager();
+  if ("error" in staff) return { error: staff.error };
+  const amount = toCents(String(fd.get("amount") ?? "").trim());
+  if (amount === null || amount < 0) return { error: "Enter the amount to keep, e.g. 5000, or 0 for nothing.", field: "amount" };
+  const { error } = await staff.supabase.rpc("set_restock_set_aside", {
+    p_amount_cents: amount,
+    p_note: String(fd.get("note") ?? "")
+      .trim()
+      .slice(0, 200),
+  });
+  if (error) return { error: friendlyError(error as DbError) };
+  revalidatePath("/sales/pnl");
+  redirect("/sales/pnl?kept=1#funds");
+}

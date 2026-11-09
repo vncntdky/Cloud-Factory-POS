@@ -192,7 +192,15 @@ export default async function BatchPage({
                 <p className="notice__title">
                   {title} received: {t.received} pcs on the shelf.
                 </p>
-                <p>Its sales show here as the pieces sell.</p>
+                <p>
+                  Its sales show here as the pieces sell.
+                  {batch.paid_from_funds && (
+                    <>
+                      {" "}
+                      It was paid from the company funds: <Link href="/sales/pnl#next-restock">decide what to keep for the next restock</Link>.
+                    </>
+                  )}
+                </p>
               </div>
             </div>
           )}

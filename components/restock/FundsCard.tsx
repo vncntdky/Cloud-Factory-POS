@@ -1,11 +1,12 @@
-// Company funds on Sales → P&L (owners and managers): where the money from sales went, how much is
-// kept back for the next batch, and how much profit can be released (split owner : manager).
-// Only the owner releases profit.
+// Company funds on Sales → P&L (owners and managers): gross and net sales, where the money went,
+// what you decided to keep for the next restock, and how much profit can be released (split
+// owner : manager). Owners and managers decide the restock amount; only the owner releases profit.
 import { undoRelease } from "@/app/(staff)/restock/actions";
 import { Icon } from "@/components/Icon";
 import { Kpi, KpiGrid } from "@/components/Kpi";
 import { Money } from "@/components/Money";
 import { ReleaseForm } from "@/components/restock/ReleaseForm";
+import { SetAsideForm } from "@/components/restock/SetAsideForm";
 import { PAYMENT_METHOD_LABELS, type SaleMethod } from "@/lib/format";
 import { shareLabel, splitProfit } from "@/lib/pnl";
 import { formatManilaDate } from "@/lib/time";
@@ -25,8 +26,16 @@ export type Funds = {
   owner_released_cents: number;
   manager_released_cents: number;
   balance_cents: number;
-  reserve_cents: number;
-  reserve_batch_no: number | null;
+  /** The latest decision on what to keep for the next restock, and what batches since used of it. */
+  set_aside_cents: number;
+  set_aside_used_cents: number;
+  kept_cents: number;
+  set_aside_at: string | null;
+  set_aside_note: string | null;
+  /** A batch came in since the last decision (or none was made yet). */
+  needs_decision: boolean;
+  last_batch_no: number | null;
+  last_batch_cents: number | null;
   available_cents: number;
 };
 
@@ -46,11 +55,14 @@ export function FundsCard({
   releases,
   split,
   isOwner,
+  kept,
 }: {
   funds: Funds;
   releases: Release[];
   split: { owner: number; manager: number };
   isOwner: boolean;
+  /** Just saved the restock amount. */
+  kept?: boolean;
 }) {
   const parts = split.owner + split.manager;
   const shares = splitProfit(f.available_cents, split.owner, split.manager);
@@ -74,17 +86,28 @@ export function FundsCard({
           value={<Money cents={f.available_cents} />}
           meta={
             <>
-              after keeping <Money cents={f.reserve_cents} /> for the next batch
+              owner <Money cents={shares.owner} /> · manager <Money cents={shares.manager} /> ({shareLabel(split.owner, parts)} :{" "}
+              {shareLabel(split.manager, parts)})
             </>
           }
         />
-        <Kpi label={`Owner ${shareLabel(split.owner, parts)}`} value={<Money cents={shares.owner} />} meta="if released now" />
+        <Kpi label="Gross sales" value={<Money cents={f.gross_cents} />} meta="before discounts" />
+        <Kpi label="Net sales" value={<Money cents={f.net_cents} />} meta="after discounts" />
         <Kpi
-          label={`Manager ${shareLabel(split.manager, parts)}`}
-          value={<Money cents={shares.manager} />}
-          meta="if released now"
+          label="In the fund"
+          variant={f.balance_cents < 0 ? "alert" : undefined}
+          value={<Money cents={f.balance_cents} />}
+          meta="after stock, expenses, releases"
+        />
+        <Kpi
+          label="Kept for next restock"
+          variant={f.needs_decision ? "alert" : undefined}
+          value={<Money cents={f.kept_cents} />}
+          meta={f.needs_decision ? "Decide below" : "your decision"}
+          href="#next-restock"
         />
       </KpiGrid>
+      {kept && <p className="t-sm notice-inline">Saved: the fund keeps that for the next restock.</p>}
 
       <dl className="cost-list pnl">
         <dt>Gross sales</dt>
@@ -129,9 +152,9 @@ export function FundsCard({
         <dd className={`cost-list__total${f.balance_cents < 0 ? " text-alert" : ""}`}>
           <Money cents={f.balance_cents} />
         </dd>
-        <dt>Kept for the next batch{f.reserve_batch_no !== null ? ` (Batch ${f.reserve_batch_no}'s full cost)` : ""}</dt>
+        <dt>Kept for the next restock</dt>
         <dd>
-          − <Money cents={f.reserve_cents} />
+          − <Money cents={f.kept_cents} />
         </dd>
         <dt className="cost-list__total">Available to release</dt>
         <dd className="cost-list__total">
@@ -163,10 +186,24 @@ export function FundsCard({
         <p className="t-sm muted">Some restocked pieces have no cost per piece, so &ldquo;Stock bought&rdquo; is a little low.</p>
       )}
       <p className="t-sm muted">
-        New batches are paid from the fund: their goods plus shipping, tax, MOOE and other restocking fees. Stock you had
-        already paid for yourselves (like Batch 1) isn&apos;t charged, so its sales count in full. Switch a batch on or off
-        on its page.
+        Each new batch is paid from the fund when it&apos;s received: its goods plus shipping, tax, MOOE and other restocking
+        fees, taken first from what you kept for it. Stock you had already paid for yourselves (like Batch 1) isn&apos;t
+        charged, so its sales count in full. Switch a batch on or off on its page.
       </p>
+
+      <SetAsideForm
+        s={{
+          needsDecision: f.needs_decision,
+          kept: f.kept_cents,
+          setAside: f.set_aside_cents,
+          used: f.set_aside_used_cents,
+          setAt: f.set_aside_at,
+          note: f.set_aside_note,
+          lastBatchNo: f.last_batch_no,
+          lastBatchCents: f.last_batch_cents === null ? null : Number(f.last_batch_cents),
+          balance: f.balance_cents,
+        }}
+      />
 
       {isOwner && <ReleaseForm available={f.available_cents} split={split} />}
 
