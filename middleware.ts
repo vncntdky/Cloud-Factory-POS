@@ -38,9 +38,10 @@ export async function middleware(request: NextRequest) {
     },
   );
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // getClaims refreshes the session cookies when needed, then checks the login token's signature
+  // locally (the project signs tokens with ES256), so most requests make no call to Supabase.
+  const { data } = await supabase.auth.getClaims();
+  const user = data?.claims?.sub ? { id: data.claims.sub } : null;
 
   const path = request.nextUrl.pathname;
   const onLogin = path.startsWith("/login") || path.startsWith("/signup");

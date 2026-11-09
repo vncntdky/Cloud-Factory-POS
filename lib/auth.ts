@@ -15,19 +15,23 @@ export type Profile = {
 
 export type ServerSupabase = Awaited<ReturnType<typeof createClient>>;
 
+/** Who's signed in, from the verified login token. */
+export type SessionUser = Pick<User, "id" | "email">;
+
 export type Staff = {
   supabase: ServerSupabase;
-  user: User;
+  user: SessionUser;
   profile: Profile;
 };
 
-// One getUser + profile read per request, shared by the layout and the page.
+// One login check + profile read per request, shared by the layout and the page. getClaims checks
+// the token's signature locally (ES256 keys), so only the profile read goes to the database.
 const loadStaff = cache(async (): Promise<Staff | null> => {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return null;
+  const { data: auth } = await supabase.auth.getClaims();
+  const claims = auth?.claims;
+  if (!claims?.sub) return null;
+  const user: SessionUser = { id: claims.sub, email: typeof claims.email === "string" ? claims.email : undefined };
   const { data } = await supabase
     .from("profiles")
     .select("id, full_name, role, active")

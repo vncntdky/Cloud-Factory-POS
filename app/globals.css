@@ -2535,3 +2535,10 @@ a.segmented__option { text-decoration: none; }
 .stock-fix__form { display: flex; flex-direction: column; gap: var(--space-3); }
 .contents { display: contents; }
 .pnl-funds { gap: var(--space-2); padding-top: var(--space-2); border-top: 1px solid var(--line); }
+
+/* Tapped nav link while its page loads (after a short delay, so fast loads don't flash) */
+.link-pending { position: absolute; left: 50%; bottom: 4px; width: 20px; height: 3px; margin-left: -10px; border-radius: 2px; background: var(--brand); opacity: 0; pointer-events: none; }
+.link-pending.is-pending { animation: link-pending 0.9s ease-in-out 120ms infinite; }
+.sidenav__link { position: relative; }
+@keyframes link-pending { 0%, 100% { opacity: 0.25; transform: scaleX(0.4); } 50% { opacity: 1; transform: scaleX(1.6); } }
+@media (prefers-reduced-motion: reduce) { .link-pending.is-pending { animation: none; opacity: 1; } }

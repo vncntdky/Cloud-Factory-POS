@@ -6,6 +6,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, type ReactNode } from "react";
 import { Icon, type IconName } from "@/components/Icon";
+import { LinkPending } from "@/components/LinkPending";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { initials } from "@/lib/format";
 import { roleLabel } from "@/lib/permissions";
@@ -100,6 +101,7 @@ export function SideNav({
               <Link className="sidenav__link" href={item.href} aria-current={current ? "page" : undefined}>
                 <Icon name={item.icon} />
                 <span className="sidenav__label">{item.label}</span>
+                <LinkPending />
                 {count > 0 && (
                   <>
                     <span className="count-badge sidenav__count count-badge--attention" aria-hidden="true">
@@ -143,6 +145,7 @@ export function PhoneNav({ user, counts }: { user: ShellUser; counts: ShellCount
             href={item.href}
             aria-current={isCurrent(pathname, item.href) ? "page" : undefined}
           >
+            <LinkPending />
             <span className="tabbar__icon">
               <Icon name={item.icon} />
               {count > 0 && <span className="attention-dot" aria-hidden="true" />}
