@@ -11,6 +11,7 @@ import { ProductForm, StockForm } from "@/components/inventory/ProductForms";
 import { StockFix } from "@/components/inventory/StockFix";
 import { ProductPhoto } from "@/components/inventory/ProductPhoto";
 import { requireActiveStaff, type ServerSupabase } from "@/lib/auth";
+import { lastBatchOf, loadBatchOptions } from "@/lib/batches";
 import { centsToInput, productLabel, saleNo } from "@/lib/format";
 import { isUuid } from "@/lib/ids";
 import { can } from "@/lib/permissions";
@@ -41,6 +42,7 @@ type Movement = {
   note: string | null;
   unit_cost_cents: number | null;
   created_at: string;
+  batch_id: string | null;
   sale: { id: string; sale_number: number } | null;
   who: { full_name: string } | null;
 };
@@ -97,7 +99,7 @@ export default async function ProductPage({
 
   const owner = can(profile, "deleteRecords");
 
-  const [productRes, categoriesRes, costRes, movesRes, usage, resRes] = await Promise.all([
+  const [productRes, categoriesRes, costRes, movesRes, usage, resRes, batches, lastBatch] = await Promise.all([
     supabase
       .from("products")
       .select("id, brand, name, variant, barcode, price_cents, on_hand, reorder_at, active, category_id, photo_path")
@@ -108,7 +110,7 @@ export default async function ProductPage({
     editor
       ? supabase
           .from("stock_movements")
-          .select("id, kind, delta, on_hand_after, note, unit_cost_cents, created_at, sale:sales(id, sale_number), who:profiles!stock_movements_created_by_fkey(full_name)")
+          .select("id, kind, delta, on_hand_after, note, unit_cost_cents, created_at, batch_id, sale:sales(id, sale_number), who:profiles!stock_movements_created_by_fkey(full_name)")
           .eq("product_id", id)
           .order("created_at", { ascending: false })
           .limit(50)
@@ -120,7 +122,10 @@ export default async function ProductPage({
       .eq("product_id", id)
       .eq("status", "active")
       .order("created_at"),
+    editor ? loadBatchOptions(supabase) : Promise.resolve([]),
+    editor ? lastBatchOf(supabase, id) : Promise.resolve(null),
   ]);
+  const batchName = new Map(batches.map((b) => [b.id, b.label.split(" · ")[0]]));
   if (!productRes.data) notFound();
   const p = productRes.data as Product;
   const categories = (categoriesRes.data ?? []) as { id: string; name: string }[];
@@ -219,7 +224,7 @@ export default async function ProductPage({
 
           {editor ? (
             <>
-              <StockForm id={p.id} />
+              <StockForm id={p.id} batches={batches} defaultBatch={lastBatch} />
               <ProductForm
                 id={p.id}
                 categories={categories}
@@ -262,6 +267,7 @@ export default async function ProductPage({
                           </span>
                           <span className="list-row__meta">
                             {formatManila(m.created_at)}
+                            {m.batch_id && batchName.has(m.batch_id) && ` · ${batchName.get(m.batch_id)}`}
                             {m.who?.full_name && ` · ${m.who.full_name}`}
                             {m.unit_cost_cents !== null && (
                               <>

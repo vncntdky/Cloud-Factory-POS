@@ -5,6 +5,7 @@ import { NotAllowed } from "@/components/NotAllowed";
 import { Topbar } from "@/components/Topbar";
 import { ProductForm } from "@/components/inventory/ProductForms";
 import { requireActiveStaff } from "@/lib/auth";
+import { lastBatchOf, loadBatchOptions } from "@/lib/batches";
 import { centsToInput, productLabel } from "@/lib/format";
 import { isUuid } from "@/lib/ids";
 import { can } from "@/lib/permissions";
@@ -16,7 +17,7 @@ export default async function NewProductPage({ searchParams }: { searchParams: P
   if (!can(profile, "editProducts")) return <NotAllowed title="Add product" what="Adding products" />;
   const { added, photo } = await searchParams;
 
-  const [categories, last, lastCost] = await Promise.all([
+  const [categories, last, lastCost, batches, lastBatch] = await Promise.all([
     supabase.from("categories").select("id, name").eq("active", true).order("sort_order").order("name"),
     isUuid(added)
       ? supabase.from("products").select("brand, name, variant, category_id, price_cents, reorder_at").eq("id", added).maybeSingle()
@@ -24,6 +25,9 @@ export default async function NewProductPage({ searchParams }: { searchParams: P
     isUuid(added)
       ? supabase.from("product_costs").select("cost_cents").eq("product_id", added).maybeSingle()
       : Promise.resolve({ data: null }),
+    loadBatchOptions(supabase),
+    // "Add and enter another" keeps the batch the last product's pieces came in.
+    isUuid(added) ? lastBatchOf(supabase, added) : Promise.resolve(null),
   ]);
   const prev = last.data as {
     brand: string | null;
@@ -62,6 +66,8 @@ export default async function NewProductPage({ searchParams }: { searchParams: P
             key={added ?? "new"}
             id={null}
             categories={(categories.data ?? []) as { id: string; name: string }[]}
+            batches={batches}
+            defaultBatch={lastBatch}
             initial={{
               brand: prev?.brand ?? "",
               name: prev?.name ?? "",

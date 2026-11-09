@@ -4,7 +4,9 @@
 import { useRef, useState } from "react";
 import { adjustStock, saveProduct, type ProductFormState } from "@/app/(staff)/inventory/actions";
 import { Icon } from "@/components/Icon";
+import { BatchSelect } from "@/components/inventory/BatchSelect";
 import { PhotoPicker } from "@/components/inventory/ProductPhoto";
+import type { BatchOption } from "@/lib/batches";
 import { useFormAction } from "@/lib/use-form-action";
 
 export type ProductValues = {
@@ -33,10 +35,15 @@ export function ProductForm({
   id,
   initial,
   categories,
+  batches = [],
+  defaultBatch,
 }: {
   id: string | null;
   initial: ProductValues;
   categories: { id: string; name: string }[];
+  /** New products: the batch their starting pieces came in. */
+  batches?: BatchOption[];
+  defaultBatch?: string | null;
 }) {
   // New products only; an existing product's photo is changed on its page (ProductPhoto).
   const photo = useRef<Blob | null>(null);
@@ -45,6 +52,9 @@ export function ProductForm({
   });
   const [category, setCategory] = useState(initial.category_id || (categories.length === 0 ? "__new" : ""));
   const bad = (f: string) => (state?.field === f ? true : undefined);
+  // Starting pieces come in with a batch; the batch picker shows once there are some.
+  const [opening, setOpening] = useState("0");
+  const hasPieces = !/^\s*0*\s*$/.test(opening);
 
   return (
     <form onSubmit={onSubmit} className="card stack" aria-labelledby="product-form-t">
@@ -221,7 +231,8 @@ export function ProductForm({
                 name="opening_qty"
                 className="input input--num"
                 inputMode="numeric"
-                defaultValue="0"
+                value={opening}
+                onChange={(e) => setOpening(e.target.value)}
                 aria-invalid={bad("opening_qty")}
               />
               <span className="input-affix__suffix">pcs</span>
@@ -235,6 +246,15 @@ export function ProductForm({
               <span className="t-sm muted">Untick to hide it from the register. Its history stays.</span>
             </span>
           </label>
+        )}
+        {id === null && hasPieces && (
+          <BatchSelect
+            id="p-batch"
+            batches={batches}
+            defaultValue={defaultBatch}
+            invalid={bad("batch_id")}
+            hint="The delivery these pieces came in. Their cost and sales count in that batch."
+          />
         )}
       </div>
       <FormError state={state} />
@@ -258,7 +278,7 @@ const KINDS = [
   { value: "waste", label: "Damaged / lost", hint: "Pieces that leaked, broke, expired or went missing. Taken off the shelf." },
 ] as const;
 
-export function StockForm({ id }: { id: string }) {
+export function StockForm({ id, batches, defaultBatch }: { id: string; batches: BatchOption[]; defaultBatch: string | null }) {
   const [state, onSubmit, pending] = useFormAction(adjustStock.bind(null, id), null);
   const [kind, setKind] = useState<(typeof KINDS)[number]["value"]>("restock");
   const current = KINDS.find((k) => k.value === kind)!;
@@ -286,6 +306,21 @@ export function StockForm({ id }: { id: string }) {
       </div>
       <p className="t-sm muted">{current.hint}</p>
       <div className="form-grid form-grid--2">
+        <div className="span-all">
+          <BatchSelect
+            id="stk-batch"
+            batches={batches}
+            defaultValue={defaultBatch}
+            invalid={state?.field === "batch_id"}
+            hint={
+              kind === "restock"
+                ? "The delivery these pieces came in."
+                : kind === "count"
+                  ? "The batch on the shelf you counted. The difference shows in that batch."
+                  : "The batch the lost pieces were from."
+            }
+          />
+        </div>
         <div className="field">
           <label className="field__label" htmlFor="stk-qty">
             {kind === "count" ? "On the shelf now" : kind === "restock" ? "Pieces received" : "Pieces lost"}
@@ -324,7 +359,12 @@ export function StockForm({ id }: { id: string }) {
       </div>
       <FormError state={state} />
       <div className="btn-row">
-        <button type="submit" className={`btn ${kind === "restock" ? "btn--money" : "btn--primary"}`} aria-busy={pending || undefined} disabled={pending}>
+        <button
+          type="submit"
+          className={`btn ${kind === "restock" ? "btn--money" : "btn--primary"}`}
+          aria-busy={pending || undefined}
+          disabled={pending || batches.length === 0}
+        >
           Save {kind === "waste" ? "loss" : current.label.toLowerCase()}
         </button>
       </div>

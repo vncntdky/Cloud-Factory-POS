@@ -18,6 +18,7 @@ export function BatchPnlCard({
   expenses,
   received,
   sold,
+  left,
   owed,
   split,
   isOwner,
@@ -29,6 +30,8 @@ export function BatchPnlCard({
   expenses: Expense[];
   received: number;
   sold: number;
+  /** Still on the shelf, after counts and losses. */
+  left: number;
   owed: number;
   split: { owner: number; manager: number };
   isOwner: boolean;
@@ -39,7 +42,6 @@ export function BatchPnlCard({
   const total = split.owner + split.manager;
   const now = pnl.net === null ? null : splitProfit(pnl.net, split.owner, split.manager);
   const later = pnl.projected === null ? null : splitProfit(pnl.projected, split.owner, split.manager);
-  const left = received - sold;
   return (
     <section className="card stack" id="pnl" aria-labelledby="pnl-t">
       <div className="card__head">

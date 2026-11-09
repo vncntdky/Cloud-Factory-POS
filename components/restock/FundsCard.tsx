@@ -163,8 +163,8 @@ export function FundsCard({
         <p className="t-sm muted">Some restocked pieces have no cost per piece, so &ldquo;Stock bought&rdquo; is a little low.</p>
       )}
       <p className="t-sm muted">
-        New batches are paid from the fund (goods and restocking fees), so what you release is profit after the next batch is
-        covered. Stock from before batches wasn&apos;t bought from the fund.
+        Every batch is paid from the fund, opening stock included: its goods plus shipping, tax, MOOE and other restocking
+        fees. What you release is profit after the next batch is covered. A batch can be taken out on its page.
       </p>
 
       {isOwner && <ReleaseForm available={f.available_cents} split={split} />}

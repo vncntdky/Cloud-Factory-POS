@@ -73,6 +73,8 @@ export type BatchRow = {
   /** What the pieces received cost; received_uncosted pieces had no cost. */
   received_cost_cents: number;
   received_uncosted: number;
+  /** Count corrections and losses recorded in this batch for the product (negative = fewer). */
+  adjusted: number;
   first_in: string;
   first_sold_at: string | null;
   last_sold_at: string | null;
@@ -114,9 +116,18 @@ export function restockCosts(b: Batch) {
   return b.shipping_cents + b.tax_cents + b.mooe_cents + b.other_cents;
 }
 
+/** Pieces of a batch line still on the shelf: received − sold, after its counts and losses. */
+export function piecesLeft(r: BatchRow) {
+  return Math.max(0, r.received - r.sold + (r.adjusted ?? 0));
+}
+
 export type BatchTotals = {
   received: number;
   sold: number;
+  /** Still on the shelf, after counts and losses. */
+  left: number;
+  /** Counts and losses (negative = fewer). */
+  adjusted: number;
   sales: number;
   /** Gross profit, when every sold piece has a cost; null otherwise. */
   profit: number | null;
@@ -147,6 +158,8 @@ export function totals(rows: BatchRow[]): BatchTotals {
   return {
     received,
     sold,
+    left: rows.reduce((n, r) => n + piecesLeft(r), 0),
+    adjusted: rows.reduce((n, r) => n + (r.adjusted ?? 0), 0),
     sales,
     profit: uncosted > 0 ? null : sales - cost,
     owed,
@@ -195,7 +208,7 @@ export function batchPnl(batch: Batch, rows: BatchRow[], expenses: Expense[], pr
   const expenseTotal = mine.reduce((n, e) => n + e.amount_cents, 0);
   const restock = restockCosts(batch);
   const totalCost = t.goodsCost === null ? null : t.goodsCost + restock + expenseTotal;
-  const remainingValue = rows.reduce((n, r) => n + Math.max(0, r.received - r.sold) * (prices.get(r.product_id) ?? 0), 0);
+  const remainingValue = rows.reduce((n, r) => n + piecesLeft(r) * (prices.get(r.product_id) ?? 0), 0);
   const net = totalCost === null ? null : t.sales - totalCost;
   return {
     sales: t.sales,

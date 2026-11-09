@@ -92,6 +92,11 @@ export async function saveProduct(id: string | null, _prev: ProductFormState, fd
   // Only send cost when the form showed it (owners and managers always see it); empty clears it.
   if (fd.has("cost")) p.cost_cents = cost ?? "";
   if (id === null) p.opening_qty = opening ?? 0;
+  if (id === null && (opening ?? 0) > 0) {
+    const batch = str(fd, "batch_id", 40);
+    if (!UUID_RE.test(batch)) return { error: "Pick the batch these pieces came in.", field: "batch_id" };
+    p.batch_id = batch;
+  }
 
   const { data, error } = await staff.supabase.rpc("save_product", { p_id: id, p });
   if (error) {
@@ -165,6 +170,8 @@ export async function adjustStock(id: string, _prev: ProductFormState, fd: FormD
   const q = pieces(str(fd, "qty", 10));
   if (q === null || q === "invalid") return { error: "Enter a whole number of pieces.", field: "qty" };
   if (kind !== "count" && q === 0) return { error: "Enter at least 1 piece.", field: "qty" };
+  const batch = str(fd, "batch_id", 40);
+  if (!UUID_RE.test(batch)) return { error: "Pick the batch this is for.", field: "batch_id" };
   let unitCost: number | null = null;
   const costRaw = str(fd, "unit_cost", 20);
   if (kind === "restock" && costRaw !== "") {
@@ -178,9 +185,11 @@ export async function adjustStock(id: string, _prev: ProductFormState, fd: FormD
     p_qty: q,
     p_unit_cost_cents: unitCost,
     p_note: str(fd, "note", 200) || null,
+    p_batch: batch,
   });
   if (error) return { error: friendlyError(error as DbError) };
   refresh(id);
+  revalidatePath("/restock", "layout");
   redirect(`/inventory/${id}?stock=${kind}`);
 }
 
@@ -233,8 +242,8 @@ export async function editStockChange(
   const { error } = await staff.supabase.rpc("edit_stock_change", { p_movement: id, p_qty: q, p_unit_cost_cents: cost });
   if (error) return { error: friendlyError(error as DbError) };
   refresh(productId);
-  revalidatePath("/restock");
-  redirect(`/inventory/${productId}?fixed=edited`);
+  revalidatePath("/restock", "layout");
+  redirect(`${fixReturn(fd, productId)}fixed=edited`);
 }
 
 export async function removeStockChange(fd: FormData): Promise<void> {
@@ -242,11 +251,17 @@ export async function removeStockChange(fd: FormData): Promise<void> {
   const productId = String(fd.get("product_id") ?? "");
   if (!UUID_RE.test(id) || !UUID_RE.test(productId)) redirect("/inventory");
   const staff = await manager();
-  if ("error" in staff) redirect(`/inventory/${productId}?fixed=error`);
+  if ("error" in staff) redirect(`${fixReturn(fd, productId)}fixed=error`);
   const { error } = await staff.supabase.rpc("remove_stock_change", { p_movement: id });
   refresh(productId);
-  revalidatePath("/restock");
-  redirect(`/inventory/${productId}?fixed=${error ? "error" : "removed"}`);
+  revalidatePath("/restock", "layout");
+  redirect(`${fixReturn(fd, productId)}fixed=${error ? "error" : "removed"}`);
+}
+
+/** Where a stock fix goes back to: its batch's page when fixed from there, else the product. Ends in ? or &. */
+function fixReturn(fd: FormData, productId: string) {
+  const back = String(fd.get("return_to") ?? "");
+  return /^\/restock\/batches\/(before|[0-9a-f-]{36})$/i.test(back) ? `${back}?` : `/inventory/${productId}?`;
 }
 
 /** Hold pieces of a product for a customer. Any active staff member. */

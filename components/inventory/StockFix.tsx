@@ -23,7 +23,18 @@ const QTY_LABEL = {
   waste: "Pieces lost",
 } as const;
 
-export function StockFix({ change, productId }: { change: FixableChange; productId: string }) {
+export function StockFix({
+  change,
+  productId,
+  returnTo,
+  label = "Fix",
+}: {
+  change: FixableChange;
+  productId: string;
+  /** A batch page to come back to after the fix (default: the product). */
+  returnTo?: string;
+  label?: string;
+}) {
   const [open, setOpen] = useState(false);
   const [state, onSubmit, pending] = useFormAction<ProductFormState>(editStockChange.bind(null, change.id, productId), null);
   // What the form asks for, from what was recorded.
@@ -32,13 +43,14 @@ export function StockFix({ change, productId }: { change: FixableChange; product
   if (!open) {
     return (
       <button type="button" className="text-btn stock-fix__open" onClick={() => setOpen(true)} aria-expanded={false}>
-        Fix
+        {label}
       </button>
     );
   }
   return (
     <div className="stock-fix">
       <form onSubmit={onSubmit} className="stock-fix__form" aria-label="Fix this stock change">
+        {returnTo && <input type="hidden" name="return_to" value={returnTo} />}
         <div className="field">
           <label className="field__label" htmlFor={`fix-${change.id}`}>
             {QTY_LABEL[change.kind]}
@@ -99,6 +111,7 @@ export function StockFix({ change, productId }: { change: FixableChange; product
       >
         <input type="hidden" name="id" value={change.id} />
         <input type="hidden" name="product_id" value={productId} />
+        {returnTo && <input type="hidden" name="return_to" value={returnTo} />}
         <button type="submit" className="btn btn--danger-ghost btn--sm">
           <Icon name="trash" />
           Remove it

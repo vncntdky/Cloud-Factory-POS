@@ -49,10 +49,20 @@ select pg_temp.check('owner sees staff emails', (select count(*) = 4 from public
 select pg_temp.expect_error('last owner cannot demote themselves',
   $$update public.profiles set role = 'manager' where id = '11111111-1111-1111-1111-111111111111'$$, 'at least one active owner');
 
-select public.save_product(null, '{"brand": "Relx", "name": "Infinity Pod", "variant": "Mint", "barcode": "4800001", "new_category": "Pods", "price_cents": 35000, "cost_cents": 21000, "opening_qty": 10, "reorder_at": 3}');
-select public.save_product(null, '{"brand": "Relx", "name": "Infinity Pod", "variant": "Mango", "barcode": "4800002", "new_category": "pods", "price_cents": 35000, "cost_cents": 21000, "opening_qty": 2}');
+select pg_temp.expect_error('a new product''s starting pieces need a batch',
+  $$select public.save_product(null, '{"name": "No Batch", "price_cents": 100, "opening_qty": 3}')$$, 'Pick the batch these pieces came in');
+select public.save_product(null, '{"brand": "Relx", "name": "Infinity Pod", "variant": "Mint", "barcode": "4800001", "new_category": "Pods", "price_cents": 35000, "cost_cents": 21000, "reorder_at": 3}');
+select public.save_product(null, '{"brand": "Relx", "name": "Infinity Pod", "variant": "Mango", "barcode": "4800002", "new_category": "pods", "price_cents": 35000, "cost_cents": 21000}');
 select public.save_product(null, '{"name": "Coil 0.8Ω", "new_category": "Accessories", "price_cents": 15000}');
 select pg_temp.check('new_category matches case-insensitively', (select count(*) = 2 from public.categories));
+-- Stock from before batches: opening stock with no batch, as older versions recorded it.
+reset role;
+update public.products set on_hand = case variant when 'Mint' then 10 else 2 end where variant in ('Mint', 'Mango');
+insert into public.stock_movements (product_id, kind, delta, on_hand_after, unit_cost_cents)
+  select id, 'opening', on_hand, on_hand, 21000 from public.products where variant in ('Mint', 'Mango');
+-- A batch for the stock changes below, numbered 0 so the batches made later start at 1.
+insert into public.stock_batches (batch_no, note) values (0, 'Test batch') returning id as b0 \gset
+set role authenticated;
 select pg_temp.check('opening stock is logged', (select count(*) = 2 from public.stock_movements where kind = 'opening'));
 select pg_temp.check('product without opening stock has 0', (select on_hand = 0 from public.products where name = 'Coil 0.8Ω'));
 select pg_temp.expect_error('duplicate barcode refused',
@@ -136,14 +146,17 @@ select pg_temp.check('void puts stock back', (select on_hand = 8 from public.pro
 select pg_temp.expect_error('cannot void twice', format($$select public.void_sale('%s', 'again')$$, :'sale2'::jsonb ->> 'id'), 'already voided');
 select pg_temp.expect_error('void needs a reason', format($$select public.void_sale('%s', '  ')$$, :'sale1'::jsonb ->> 'id'), 'reason');
 
-select public.adjust_stock((select id from public.products where variant = 'Mango'), 'restock', 24, 20000, 'Supplier delivery');
+select pg_temp.expect_error('a stock change needs its batch',
+  $$select public.adjust_stock((select id from public.products where variant = 'Mango'), 'count', 5)$$, 'Pick the batch this is for');
+select public.adjust_stock((select id from public.products where variant = 'Mango'), 'restock', 24, 20000, 'Supplier delivery', :'b0');
 select pg_temp.check('restock adds pieces and updates cost',
   (select p.on_hand = 25 and c.cost_cents = 20000 from public.products p join public.product_costs c on c.product_id = p.id where p.variant = 'Mango'));
-select public.adjust_stock((select id from public.products where variant = 'Mango'), 'waste', 1, null, 'Leaking');
-select public.adjust_stock((select id from public.products where variant = 'Mango'), 'count', 20, null, null);
-select pg_temp.check('count logs the correction',
-  (select delta = -4 and on_hand_after = 20 from public.stock_movements where kind = 'count' order by created_at desc limit 1));
-select pg_temp.expect_error('waste needs at least 1', $$select public.adjust_stock((select id from public.products where variant = 'Mango'), 'waste', 0)$$, 'at least 1');
+select public.adjust_stock((select id from public.products where variant = 'Mango'), 'waste', 1, null, 'Leaking', :'b0');
+select public.adjust_stock((select id from public.products where variant = 'Mango'), 'count', 20, null, null, :'b0');
+select pg_temp.check('count logs the correction in its batch',
+  (select delta = -4 and on_hand_after = 20 and batch_id = :'b0' from public.stock_movements where kind = 'count' order by created_at desc limit 1));
+select pg_temp.expect_error('waste needs at least 1',
+  format($$select public.adjust_stock((select id from public.products where variant = 'Mango'), 'waste', 0, null, null, '%s')$$, :'b0'), 'at least 1');
 
 select public.complete_sale(format('{"client_ref": "aaaaaaaa-0000-0000-0000-000000000003", "payment_method": "maya", "discount_cents": 10000, "age_verified": true, "items": [{"product_id": "%s", "quantity": 2}]}',
   (select id from public.products where variant = 'Mango'))::jsonb) as sale3 \gset
@@ -200,7 +213,11 @@ select pg_temp.expect_error('nothing left to collect', format($$select public.re
 
 -- ───────── Restock: batches, sales by batch, pace, reorder levels (manager) ─────────
 set request.jwt.claim.sub = '33333333-3333-3333-3333-333333333333';
-select public.save_product(null, '{"name": "Batch Pod", "price_cents": 10000, "cost_cents": 5000, "opening_qty": 5}') as bp \gset
+select public.save_product(null, '{"name": "Batch Pod", "price_cents": 10000, "cost_cents": 5000}') as bp \gset
+reset role;
+update public.products set on_hand = 5 where id = :'bp';
+insert into public.stock_movements (product_id, kind, delta, on_hand_after, unit_cost_cents) values (:'bp', 'opening', 5, 5, 5000);
+set role authenticated;
 select public.receive_batch(format('{"supplier": " Cloud Supply ", "note": "", "items": [{"product_id": "%s", "qty": 10, "unit_cost_cents": 6000}, {"product_id": "%s", "qty": 4}]}',
   :'bp', (select id from public.products where variant = 'Mango'))::jsonb) as batch1 \gset
 select pg_temp.check('receive_batch numbers the batch and trims the supplier',
@@ -257,7 +274,7 @@ select pg_temp.expect_error('staff cannot change the reorder plan', $$select pub
 
 -- ───────── Owner clean-up: delete test sales and products ─────────
 set request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
-select public.save_product(null, '{"name": "Junk Pod", "price_cents": 100, "opening_qty": 5}') as junk \gset
+select public.save_product(null, format('{"name": "Junk Pod", "price_cents": 100, "opening_qty": 5, "batch_id": "%s"}', :'batch1')::jsonb) as junk \gset
 select public.complete_sale(format('{"client_ref": "cccccccc-0000-0000-0000-000000000001", "payment_method": "gcash", "age_verified": true, "items": [{"product_id": "%s", "quantity": 1}]}', :'junk')::jsonb) ->> 'id' as junk_sale \gset
 select public.complete_sale(format('{"client_ref": "cccccccc-0000-0000-0000-000000000002", "payment_method": "gcash", "age_verified": true, "items": [{"product_id": "%s", "quantity": 2}, {"product_id": "%s", "quantity": 1}]}', :'junk', :'bp')::jsonb) ->> 'id' as mixed_sale \gset
 select on_hand as bp_before from public.products where id = :'bp' \gset
@@ -292,7 +309,7 @@ select pg_temp.check('product deleted with its sales, stock history and the othe
   and (select on_hand = :bp_before + 1 from public.products where id = :'bp'));
 
 -- Without its sales: they stay, under the product's name.
-select public.save_product(null, '{"name": "Keep Sales Pod", "price_cents": 100, "opening_qty": 2}') as keep \gset
+select public.save_product(null, format('{"name": "Keep Sales Pod", "price_cents": 100, "opening_qty": 2, "batch_id": "%s"}', :'batch1')::jsonb) as keep \gset
 select public.complete_sale(format('{"client_ref": "cccccccc-0000-0000-0000-000000000004", "payment_method": "gcash", "age_verified": true, "items": [{"product_id": "%s", "quantity": 1}]}', :'keep')::jsonb) ->> 'id' as keep_sale \gset
 select public.delete_product(:'keep', false);
 select pg_temp.check('product deleted alone: its sale stays under its name',
@@ -401,20 +418,23 @@ select pg_temp.check('a batch with expenses is kept when its last product goes',
 set request.jwt.claim.sub = '22222222-2222-2222-2222-222222222222';
 select pg_temp.expect_error('staff cannot make batches', $$select public.batch_existing_stock('{}')$$, 'Only owners and managers');
 set request.jwt.claim.sub = '33333333-3333-3333-3333-333333333333';
-select count(*) as loose_before from public.stock_movements where batch_id is null and kind in ('opening', 'restock') and delta > 0 \gset
+reset role;
+insert into public.stock_movements (product_id, kind, delta, on_hand_after) select id, 'count', 0, on_hand from public.products where id = :'bp';
+set role authenticated;
+select count(*) as loose_before from public.stock_movements where batch_id is null and kind in ('opening', 'restock', 'count', 'waste') \gset
 select (select coalesce(sum(sold), 0) from public.batch_sales() where batch_id is null) as loose_sold \gset
 select public.batch_existing_stock('{"supplier": " Old supplier "}') as made \gset
 select pg_temp.check('stock before batches becomes a batch (named, numbered, dated, labelled)',
-  (select supplier = 'Old supplier' and note = 'Opening stock' and batch_no = (select max(batch_no) from public.stock_batches)
+  (select supplier = 'Old supplier' and note = 'Earlier stock' and batch_no = (select max(batch_no) from public.stock_batches)
      and received_on = (select (min(created_at) at time zone 'Asia/Manila')::date from public.stock_movements where batch_id = :'made')
      from public.stock_batches where id = :'made')
   and (select count(*) from public.stock_movements where batch_id = :'made') = :loose_before
-  and not exists (select 1 from public.stock_movements where batch_id is null and kind in ('opening', 'restock') and delta > 0));
+  and not exists (select 1 from public.stock_movements where batch_id is null and kind in ('opening', 'restock', 'count', 'waste')));
 select pg_temp.check('its sales move with it', (select sum(sold) from public.batch_sales() where batch_id = :'made') = :loose_sold
   and not exists (select 1 from public.batch_sales() where batch_id is null));
 select public.add_expense(format('{"batch_id": "%s", "category": "other", "amount_cents": 1000}', :'made')::jsonb);
 select pg_temp.check('it can take expenses now', exists (select 1 from public.expenses where batch_id = :'made'));
-select pg_temp.check('made from restocks: counted as paid from the funds', (select paid_from_funds from public.stock_batches where id = :'made'));
+select pg_temp.check('earlier stock is paid from the funds too', (select paid_from_funds from public.stock_batches where id = :'made'));
 select pg_temp.expect_error('nothing left to batch', $$select public.batch_existing_stock('{}')$$, 'already in a batch');
 
 -- ───────── Reservations (all staff) ─────────
@@ -422,7 +442,7 @@ reset role;
 update public.settings set allow_negative_stock = false;
 set role authenticated;
 set request.jwt.claim.sub = '33333333-3333-3333-3333-333333333333';
-select public.save_product(null, '{"name": "Res Pod", "price_cents": 1000, "opening_qty": 5}') as rp \gset
+select public.save_product(null, format('{"name": "Res Pod", "price_cents": 1000, "opening_qty": 5, "batch_id": "%s"}', :'batch1')::jsonb) as rp \gset
 set request.jwt.claim.sub = '22222222-2222-2222-2222-222222222222';
 select public.reserve_product(format('{"product_id": "%s", "customer_name": "  Juan   Cruz ", "qty": 3, "hold_until": "%s"}', :'rp', public.manila_today() + 2)::jsonb) as r1 \gset
 select pg_temp.check('staff reserve pieces for a customer (name tidied)',
@@ -446,6 +466,10 @@ select pg_temp.check('funds: gross − discounts = net; net − still owed = col
   and (:'f0'::jsonb ->> 'net_cents')::bigint = (:'f0'::jsonb ->> 'gross_cents')::bigint - (:'f0'::jsonb ->> 'discount_cents')::bigint
   and (:'f0'::jsonb ->> 'collected_cents')::bigint = (select sum(total_cents - balance_cents) from public.sales where status = 'completed')
   and (select sum(value::bigint) from jsonb_each_text(:'f0'::jsonb -> 'collected_by_method')) = (:'f0'::jsonb ->> 'collected_cents')::bigint);
+select public.set_batch_paid_from_funds(:'made', false);
+select pg_temp.check('opening stock''s cost counts in the funds (Mint 10 + Mango 2 at 210, Batch Pod 5 at 50)',
+  (public.company_funds() ->> 'goods_cents')::bigint = (:'f0'::jsonb ->> 'goods_cents')::bigint - (12 * 21000 + 5 * 5000));
+select public.set_batch_paid_from_funds(:'made', true);
 select public.save_product(null, '{"name": "Fund Pod", "price_cents": 1000}') as fp \gset
 select public.receive_batch(format('{"shipping_cents": 500, "items": [{"product_id": "%s", "qty": 10, "unit_cost_cents": 300}]}', :'fp')::jsonb) as fb \gset
 select public.company_funds() as f1 \gset
@@ -462,7 +486,7 @@ select public.set_batch_paid_from_funds(:'fb', true);
 select pg_temp.expect_error('manager can''t release profits', $$select public.release_profits(100)$$, 'Only the owner');
 set request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
 -- A big sale so the test shop has profit above the reserve.
-select public.save_product(null, '{"name": "Big Pod", "price_cents": 10000000, "opening_qty": 1}') as bigp \gset
+select public.save_product(null, format('{"name": "Big Pod", "price_cents": 10000000, "opening_qty": 1, "batch_id": "%s"}', :'fb')::jsonb) as bigp \gset
 select public.complete_sale(format('{"client_ref": "eeeeeeee-0000-0000-0000-000000000002", "payment_method": "gcash", "age_verified": true, "items": [{"product_id": "%s", "quantity": 1}]}', :'bigp')::jsonb);
 select (public.company_funds() ->> 'available_cents')::bigint as avail \gset
 select pg_temp.check('a paid sale adds to what''s available', :avail > 4000);
@@ -480,11 +504,16 @@ select pg_temp.expect_error('staff can''t call the internal summary', 'select pu
 
 -- ───────── Fixing stock changes (owners and managers) ─────────
 set request.jwt.claim.sub = '33333333-3333-3333-3333-333333333333';
-select public.save_product(null, '{"name": "Fix Pod", "price_cents": 1000, "opening_qty": 10}') as xp \gset
-select public.adjust_stock(:'xp', 'restock', 5);
-select public.adjust_stock(:'xp', 'waste', 2);
-select public.adjust_stock(:'xp', 'count', 20);
-select id as mv_restock from public.stock_movements where product_id = :'xp' and kind = 'restock' \gset
+select public.save_product(null, format('{"name": "Fix Pod", "price_cents": 1000, "cost_cents": 400, "opening_qty": 10, "batch_id": "%s"}', :'fb')::jsonb) as xp \gset
+select pg_temp.check('a new product''s starting pieces come in with their batch, at its cost',
+  (select count(*) = 1 from public.stock_movements where product_id = :'xp' and kind = 'restock' and batch_id = :'fb' and delta = 10 and unit_cost_cents = 400)
+  and (select on_hand = 10 from public.products where id = :'xp'));
+select public.adjust_stock(:'xp', 'restock', 5, null, null, :'fb');
+select public.adjust_stock(:'xp', 'waste', 2, null, null, :'fb');
+select public.adjust_stock(:'xp', 'count', 20, null, null, :'fb');
+select pg_temp.check('a restock without a cost takes the product''s cost',
+  (select unit_cost_cents = 400 from public.stock_movements where product_id = :'xp' and kind = 'restock' and delta = 5));
+select id as mv_restock from public.stock_movements where product_id = :'xp' and kind = 'restock' and delta = 5 \gset
 select id as mv_waste from public.stock_movements where product_id = :'xp' and kind = 'waste' \gset
 select id as mv_count from public.stock_movements where product_id = :'xp' and kind = 'count' \gset
 select public.edit_stock_change(:'mv_restock', 8);
@@ -499,6 +528,8 @@ select pg_temp.check('removing a count puts the shelf back to before it',
 select public.edit_stock_change(:'mv_waste', 1);
 select pg_temp.check('editing pieces lost', (select delta = -1 and on_hand_after = 17 from public.stock_movements where id = :'mv_waste')
   and (select on_hand = 17 from public.products where id = :'xp'));
+select pg_temp.check('batch sales show the batch''s counts and losses per product',
+  (select received = 18 and sold = 0 and adjusted = -1 from public.batch_sales() where product_id = :'xp' and batch_id = :'fb'));
 select pg_temp.expect_error('sales aren''t fixed here',
   format($$select public.edit_stock_change('%s', 1)$$, (select id from public.stock_movements where kind = 'sale' limit 1)), 'fixed from the sale');
 select pg_temp.expect_error('restock needs at least 1 piece', format($$select public.edit_stock_change('%s', 0)$$, :'mv_restock'), '1 to 100,000');

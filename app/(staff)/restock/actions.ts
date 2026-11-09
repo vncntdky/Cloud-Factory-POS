@@ -277,3 +277,29 @@ export async function setPaidFromFunds(fd: FormData): Promise<void> {
   revalidatePath("/sales/pnl");
   redirect(`/restock/batches/${id}#pnl`);
 }
+
+/** Add pieces of a product to a batch already received (a product left off it, or more of one). */
+export async function addToBatch(batchId: string, _prev: RestockFormState, fd: FormData): Promise<RestockFormState> {
+  if (!UUID_RE.test(batchId)) return { error: "That batch no longer exists." };
+  const staff = await manager();
+  if ("error" in staff) return { error: staff.error };
+  const product = String(fd.get("product_id") ?? "");
+  if (!UUID_RE.test(product)) return { error: "Pick the product.", field: "product_id" };
+  const rawQty = String(fd.get("qty") ?? "").trim();
+  const qty = /^\d{1,6}$/.test(rawQty) ? Number(rawQty) : 0;
+  if (qty < 1 || qty > 100_000) return { error: "Enter at least 1 piece.", field: "qty" };
+  const costRaw = String(fd.get("unit_cost") ?? "").trim();
+  const cost = costRaw === "" ? null : toCents(costRaw);
+  if (costRaw !== "" && (cost === null || cost < 0)) return { error: "Check the cost per piece.", field: "unit_cost" };
+  const { error } = await staff.supabase.rpc("adjust_stock", {
+    p_product: product,
+    p_kind: "restock",
+    p_qty: qty,
+    p_unit_cost_cents: cost,
+    p_note: null,
+    p_batch: batchId,
+  });
+  if (error) return { error: friendlyError(error as DbError) };
+  revalidatePath("/", "layout");
+  redirect(`/restock/batches/${batchId}?added=1#lines-t`);
+}

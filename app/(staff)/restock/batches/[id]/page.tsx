@@ -8,16 +8,18 @@ import { Main } from "@/components/Main";
 import { Money } from "@/components/Money";
 import { NotAllowed } from "@/components/NotAllowed";
 import { Topbar } from "@/components/Topbar";
+import { StockFix, type FixableChange } from "@/components/inventory/StockFix";
+import { AddToBatchForm } from "@/components/restock/AddToBatchForm";
 import { BatchPnlCard } from "@/components/restock/BatchPnlCard";
 import { MakeBatchForm } from "@/components/restock/MakeBatchForm";
 import { requireActiveStaff } from "@/lib/auth";
 import { friendlyError } from "@/lib/db-errors";
-import { productLabel, saleNo } from "@/lib/format";
+import { pesos, productLabel, saleNo } from "@/lib/format";
 import { isUuid } from "@/lib/ids";
 import { can } from "@/lib/permissions";
 import { paceLabel } from "@/lib/restock";
 import { formatManilaDate, manilaToday } from "@/lib/time";
-import { batchPnl, batchTitle, loadBatches, totals, type BatchRow } from "../../data";
+import { batchPnl, batchTitle, loadBatches, piecesLeft, totals, type BatchRow } from "../../data";
 
 export const dynamic = "force-dynamic";
 
@@ -26,6 +28,24 @@ const DAY_MS = 86_400_000;
 /** Days between two timestamps, at least 1. */
 function spanDays(from: string, to: string | Date) {
   return Math.max(1, (new Date(to).getTime() - new Date(from).getTime()) / DAY_MS);
+}
+
+type Move = FixableChange & { product_id: string };
+
+/** One stock change in this batch, in words. */
+function moveLine(m: Move) {
+  const each = m.unit_cost_cents !== null ? ` at ${pesos(m.unit_cost_cents)} each` : "";
+  const pcs = (n: number) => `${n} pc${n === 1 ? "" : "s"}`;
+  switch (m.kind) {
+    case "opening":
+      return `Came in: ${pcs(m.delta)}${each}`;
+    case "restock":
+      return `Received: ${pcs(m.delta)}${each}`;
+    case "count":
+      return `Counted ${m.on_hand_after} on the shelf (${m.delta === 0 ? "matched" : m.delta > 0 ? `${m.delta} more` : `${-m.delta} fewer`})`;
+    case "waste":
+      return `Damaged / lost: ${pcs(-m.delta)}`;
+  }
 }
 
 function soldLine(r: BatchRow) {
@@ -42,7 +62,15 @@ export default async function BatchPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ received?: string; costs?: string; expense?: string; split?: string; made?: string }>;
+  searchParams: Promise<{
+    received?: string;
+    costs?: string;
+    expense?: string;
+    split?: string;
+    made?: string;
+    added?: string;
+    fixed?: string;
+  }>;
 }) {
   const { id } = await params;
   if (id !== "before" && !isUuid(id)) notFound();
@@ -50,12 +78,21 @@ export default async function BatchPage({
   if (!can(profile, "editStock")) return <NotAllowed title="Batch" what="Batches" />;
   const sp = await searchParams;
 
-  const [{ list, expenses, prices, error }, products, owedRes, splitRes] = await Promise.all([
+  const movesQuery = supabase
+    .from("stock_movements")
+    .select("id, product_id, kind, delta, on_hand_after, unit_cost_cents")
+    .in("kind", ["opening", "restock", "count", "waste"])
+    .order("created_at");
+  const [{ list, expenses, prices, error }, products, owedRes, splitRes, movesRes, categoriesRes] = await Promise.all([
     loadBatches(supabase),
-    supabase.from("products").select("id, brand, name, variant, on_hand"),
+    supabase.from("products").select("id, brand, name, variant, on_hand, category_id"),
     supabase.rpc("batch_owed", { p_batch: id === "before" ? null : id }),
     supabase.from("settings").select("split_owner_parts, split_manager_parts").maybeSingle(),
+    id === "before" ? movesQuery.is("batch_id", null) : movesQuery.eq("batch_id", id),
+    supabase.from("categories").select("id, name").order("sort_order").order("name"),
   ]);
+  const moves = new Map<string, Move[]>();
+  for (const m of (movesRes.data ?? []) as Move[]) moves.set(m.product_id, [...(moves.get(m.product_id) ?? []), m]);
   const splitRow = splitRes.data as { split_owner_parts: number; split_manager_parts: number } | null;
   const split = { owner: splitRow?.split_owner_parts ?? 2, manager: splitRow?.split_manager_parts ?? 1 };
   const owedSales = (owedRes.data ?? []) as {
@@ -68,9 +105,23 @@ export default async function BatchPage({
   }[];
   const entry = list.find((b) => (b.batch.id ?? "before") === id);
   if (!error && !entry) notFound();
-  const names = new Map(
-    ((products.data ?? []) as { id: string; brand: string | null; name: string; variant: string | null }[]).map((p) => [p.id, productLabel(p)]),
-  );
+  const productRows = (products.data ?? []) as {
+    id: string;
+    brand: string | null;
+    name: string;
+    variant: string | null;
+    category_id: string | null;
+  }[];
+  const names = new Map(productRows.map((p) => [p.id, productLabel(p)]));
+  const categoryOrder = ((categoriesRes.data ?? []) as { id: string; name: string }[]).map((c) => c.id);
+  const categoryName = new Map(((categoriesRes.data ?? []) as { id: string; name: string }[]).map((c) => [c.id, c.name]));
+  const pickable = productRows
+    .map((p) => ({ id: p.id, label: names.get(p.id)!, category: (p.category_id && categoryName.get(p.category_id)) || "No category", cat: p.category_id }))
+    .sort(
+      (a, b) =>
+        (a.cat ? categoryOrder.indexOf(a.cat) : 1e9) - (b.cat ? categoryOrder.indexOf(b.cat) : 1e9) || a.label.localeCompare(b.label),
+    )
+    .map(({ id, label, category }) => ({ id, label, category }));
 
   if (error || !entry) {
     return (
@@ -91,12 +142,13 @@ export default async function BatchPage({
 
   const { batch, rows } = entry;
   const t = totals(rows);
-  const left = t.received - t.sold;
+  const left = t.left;
   const share = t.received > 0 ? t.sold / t.received : 0;
   const days = spanDays(t.firstIn, t.sold >= t.received && t.lastSoldAt ? t.lastSoldAt : new Date());
   const perDay = t.sold / days;
   const sortedRows = [...rows].sort((a, b) => b.sold / b.received - a.sold / a.received || (names.get(a.product_id) ?? "").localeCompare(names.get(b.product_id) ?? ""));
   const title = batchTitle(batch);
+  const returnTo = `/restock/batches/${id}`;
   const pnl = batchPnl(batch, rows, expenses, prices);
   const buyers = new Set(owedSales.map((s) => (s.customer_name ?? "").trim().toLowerCase())).size;
 
@@ -111,6 +163,25 @@ export default async function BatchPage({
               <div>
                 <p className="notice__title">{title} made from your earlier stock.</p>
                 <p>Add its shipping, tax, MOOE and expenses in the P&amp;L below.</p>
+              </div>
+            </div>
+          )}
+          {(sp.added === "1" || sp.fixed === "edited" || sp.fixed === "removed") && (
+            <div className="notice notice--success" role="status">
+              <Icon name="check" />
+              <div>
+                <p className="notice__title">
+                  {sp.added === "1" ? "Added to the batch." : sp.fixed === "edited" ? "Stock change fixed." : "Stock change removed."}
+                </p>
+                <p>The shelf count and this batch&apos;s numbers are updated.</p>
+              </div>
+            </div>
+          )}
+          {sp.fixed === "error" && (
+            <div className="notice notice--danger" role="alert">
+              <Icon name="alert" />
+              <div>
+                <p className="notice__title">Couldn&apos;t change that. Try again.</p>
               </div>
             </div>
           )}
@@ -223,6 +294,7 @@ export default async function BatchPage({
               expenses={expenses.filter((e) => e.batch_id === batch.id)}
               received={t.received}
               sold={t.sold}
+              left={t.left}
               owed={t.owed}
               split={split}
               isOwner={can(profile, "editSettings")}
@@ -245,7 +317,7 @@ export default async function BatchPage({
                     <span className="list-row__main">
                       <span className="list-row__title">
                         <span>{names.get(r.product_id) ?? "Removed product"}</span>
-                        {r.sold >= r.received && <span className="chip chip--ok">Sold out</span>}
+                        {piecesLeft(r) === 0 && <span className="chip chip--ok">{r.sold >= r.received ? "Sold out" : "None left"}</span>}
                       </span>
                       <span className="list-row__meta">
                         {soldLine(r)} · <Money cents={r.sales_cents} />
@@ -269,13 +341,24 @@ export default async function BatchPage({
                       <span className="t-caption muted">sold</span>
                     </span>
                   </Link>
+                  {(moves.get(r.product_id) ?? []).length > 0 && (
+                    <ul className="batch-moves t-sm" role="list" aria-label={`Stock changes for ${names.get(r.product_id) ?? "this product"}`}>
+                      {(moves.get(r.product_id) ?? []).map((m) => (
+                        <li key={m.id} className="batch-move">
+                          <span className="batch-move__text muted">{moveLine(m)}</span>
+                          <StockFix change={m} productId={r.product_id} returnTo={returnTo} />
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                 </li>
               ))}
             </ul>
+            {batch.id !== null && <AddToBatchForm batchId={batch.id} products={pickable} />}
           </section>
           <p className="t-sm muted">
-            Sales are matched first in, first out: a product&apos;s older pieces sell before this batch&apos;s. Damaged or
-            lost pieces aren&apos;t counted here.
+            Sales are matched first in, first out: a product&apos;s older pieces sell before this batch&apos;s. Counts and
+            losses recorded for this batch change what&apos;s left. Tap Fix to correct pieces or cost entered by mistake.
           </p>
         </div>
       </Main>

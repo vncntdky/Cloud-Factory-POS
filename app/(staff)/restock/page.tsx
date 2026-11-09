@@ -391,7 +391,9 @@ async function BatchesView({ supabase, expense }: { supabase: ServerSupabase; ex
                           {batchTitle(batch)}
                           {batch.supplier && ` · ${batch.supplier}`}
                         </span>
-                        {t.received > 0 && t.sold >= t.received && <span className="chip chip--ok">Sold out</span>}
+                        {t.received > 0 && t.left === 0 && (
+                          <span className="chip chip--ok">{t.sold >= t.received ? "Sold out" : "None left"}</span>
+                        )}
                       </span>
                       <span className="list-row__meta">
                         {when} · {t.sold} of {t.received} pcs sold · <Money cents={t.sales} />
