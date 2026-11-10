@@ -11,7 +11,7 @@ import { requireActiveStaff } from "@/lib/auth";
 import { friendlyError } from "@/lib/db-errors";
 import { productLabel } from "@/lib/format";
 import { can } from "@/lib/permissions";
-import { photoUrl } from "@/lib/photos";
+import { photoThumb } from "@/lib/photos";
 
 export const dynamic = "force-dynamic";
 
@@ -251,7 +251,7 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
                       <ul className="list list--plain cat__list" role="list">
                         {g.items.map((p) => {
                           const cost = costs.get(p.id);
-                          const src = photoUrl(p.photo_path);
+                          const src = photoThumb(p.photo_path, 128);
                           return (
                             <li key={p.id}>
                               <Link className="list-row" href={`/inventory/${p.id}`}>

@@ -22,7 +22,7 @@ import {
   toCents,
   type SaleMethod,
 } from "@/lib/format";
-import { photoUrl } from "@/lib/photos";
+import { photoThumb } from "@/lib/photos";
 
 export type RegisterProduct = {
   id: string;
@@ -360,7 +360,7 @@ export function Register({
           {showPhotos && (
             <span className="thumb cart-line__thumb" aria-hidden="true">
               {l.product.photo_path ? (
-                <img src={photoUrl(l.product.photo_path)!} alt="" decoding="async" />
+                <img src={photoThumb(l.product.photo_path, 128)!} alt="" decoding="async" />
               ) : (
                 <Icon name="image" />
               )}
@@ -511,7 +511,7 @@ export function Register({
                   {showPhotos && (
                     <span className="product-tile__media" aria-hidden="true">
                       {p.photo_path ? (
-                        <img src={photoUrl(p.photo_path)!} alt="" loading="lazy" decoding="async" />
+                        <img src={photoThumb(p.photo_path, 384)!} alt="" loading="lazy" decoding="async" />
                       ) : (
                         <Icon name="image" />
                       )}

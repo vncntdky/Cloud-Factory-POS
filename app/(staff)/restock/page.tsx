@@ -16,7 +16,7 @@ import { requireActiveStaff, type ServerSupabase } from "@/lib/auth";
 import { friendlyError } from "@/lib/db-errors";
 import { productLabel } from "@/lib/format";
 import { can } from "@/lib/permissions";
-import { photoUrl } from "@/lib/photos";
+import { photoThumb } from "@/lib/photos";
 import { PACE_DAYS, daysLeftLabel, paceLabel, type PlanStatus } from "@/lib/restock";
 import { addDays, formatManilaDate, manilaToday } from "@/lib/time";
 import { applyReorderPoints } from "./actions";
@@ -101,7 +101,7 @@ export default async function RestockPage({ searchParams }: { searchParams: Prom
 }
 
 function Thumb({ path }: { path: string | null }) {
-  const src = photoUrl(path);
+  const src = photoThumb(path, 128);
   return (
     <span className="list-row__lead thumb" aria-hidden="true">
       {src ? <img src={src} alt="" loading="lazy" decoding="async" /> : <Icon name="image" />}

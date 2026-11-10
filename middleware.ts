@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { SUPABASE_JWKS } from "@/lib/supabase/jwks";
 
 // Keeps the Supabase session fresh and sends signed-out visitors to /login.
 export async function middleware(request: NextRequest) {
@@ -39,8 +40,8 @@ export async function middleware(request: NextRequest) {
   );
 
   // getClaims refreshes the session cookies when needed, then checks the login token's signature
-  // locally (the project signs tokens with ES256), so most requests make no call to Supabase.
-  const { data } = await supabase.auth.getClaims();
+  // locally against the bundled public key (ES256), so most requests make no call to Supabase.
+  const { data } = await supabase.auth.getClaims(undefined, { jwks: SUPABASE_JWKS });
   const user = data?.claims?.sub ? { id: data.claims.sub } : null;
 
   const path = request.nextUrl.pathname;

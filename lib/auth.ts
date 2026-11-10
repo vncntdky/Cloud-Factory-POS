@@ -3,6 +3,7 @@ import { cache } from "react";
 import { redirect } from "next/navigation";
 import type { User } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
+import { SUPABASE_JWKS } from "@/lib/supabase/jwks";
 
 export type StaffRole = "owner" | "manager" | "cashier";
 
@@ -28,7 +29,7 @@ export type Staff = {
 // the token's signature locally (ES256 keys), so only the profile read goes to the database.
 const loadStaff = cache(async (): Promise<Staff | null> => {
   const supabase = await createClient();
-  const { data: auth } = await supabase.auth.getClaims();
+  const { data: auth } = await supabase.auth.getClaims(undefined, { jwks: SUPABASE_JWKS });
   const claims = auth?.claims;
   if (!claims?.sub) return null;
   const user: SessionUser = { id: claims.sub, email: typeof claims.email === "string" ? claims.email : undefined };
