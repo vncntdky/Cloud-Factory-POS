@@ -358,5 +358,87 @@ export async function setTaxRate(_prev: RestockFormState, fd: FormData): Promise
   const { error } = await staff.supabase.rpc("set_tax_rate", { p_bp: Math.round(pct * 100) });
   if (error) return { error: friendlyError(error as DbError) };
   revalidatePath("/sales/pnl");
-  redirect("/sales/pnl?view=pl&tax=saved#pl");
+  redirect(fd.get("return_to") === "/sales/pnl" ? "/sales/pnl?tax=saved#settings" : "/sales/pnl?view=pl&tax=saved#pl");
+}
+
+function cents(fd: FormData, key = "amount") {
+  return toCents(String(fd.get(key) ?? "").trim());
+}
+function text(fd: FormData, key: string, max = 200) {
+  return String(fd.get(key) ?? "").trim().slice(0, max);
+}
+
+/** Edit an expense: what it was for, the amount, the date, the note, and what it's charged to. */
+export async function updateExpense(id: string, _prev: RestockFormState, fd: FormData): Promise<RestockFormState> {
+  if (!UUID_RE.test(id)) return { error: "That expense no longer exists." };
+  const staff = await manager();
+  if ("error" in staff) return { error: staff.error };
+  const batchId = text(fd, "batch_id", 40);
+  if (batchId && !UUID_RE.test(batchId)) return { error: "Pick the batch, or General.", field: "batch_id" };
+  const category = text(fd, "category", 20);
+  if (!EXPENSE_CATEGORIES.some((c) => c.id === category)) return { error: "Pick what the expense was for.", field: "category" };
+  const amount = cents(fd);
+  if (amount === null || amount <= 0 || amount > 100_000_000) return { error: "Enter the amount in pesos, e.g. 7500.", field: "amount" };
+  const spentOn = text(fd, "spent_on", 10);
+  if (!isIsoDate(spentOn)) return { error: "Pick the date it was paid.", field: "spent_on" };
+  const { error } = await staff.supabase.rpc("update_expense", {
+    p_id: id,
+    p: { batch_id: batchId, category, amount_cents: amount, spent_on: spentOn, note: text(fd, "note") },
+  });
+  if (error) return { error: friendlyError(error as DbError) };
+  revalidatePath("/restock", "layout");
+  revalidatePath("/sales/pnl");
+  redirect(pnlBack(fd, "expense=edited"));
+}
+
+/** Owner: edit money put in. */
+export async function updateCapital(id: string, _prev: RestockFormState, fd: FormData): Promise<RestockFormState> {
+  if (!UUID_RE.test(id)) return { error: "That entry no longer exists." };
+  const staff = await manager();
+  if ("error" in staff) return { error: staff.error };
+  const amount = cents(fd);
+  if (amount === null || amount <= 0) return { error: "Enter the amount put in, e.g. 5000.", field: "amount" };
+  const date = text(fd, "put_in_on", 10);
+  if (!isIsoDate(date)) return { error: "Pick the date.", field: "put_in_on" };
+  const { error } = await staff.supabase.rpc("update_capital", { p_id: id, p_amount_cents: amount, p_note: text(fd, "note"), p_put_in_on: date });
+  if (error) return { error: friendlyError(error as DbError) };
+  revalidatePath("/sales/pnl");
+  redirect("/sales/pnl?view=balance&capital=edited#capital");
+}
+
+/** Owner: edit a distribution's amount, date or note. */
+export async function updateRelease(id: string, _prev: RestockFormState, fd: FormData): Promise<RestockFormState> {
+  if (!UUID_RE.test(id)) return { error: "That distribution no longer exists." };
+  const staff = await manager();
+  if ("error" in staff) return { error: staff.error };
+  const amount = cents(fd);
+  if (amount === null || amount <= 0) return { error: "Enter the amount, e.g. 5000.", field: "amount" };
+  const date = text(fd, "released_on", 10);
+  if (!isIsoDate(date)) return { error: "Pick the date.", field: "released_on" };
+  const { error } = await staff.supabase.rpc("update_fund_release", {
+    p_id: id,
+    p_amount_cents: amount,
+    p_note: text(fd, "note"),
+    p_released_on: date,
+  });
+  if (error) return { error: friendlyError(error as DbError), field: /safe/.test(error.message) ? "amount" : undefined };
+  revalidatePath("/sales/pnl");
+  redirect("/sales/pnl?released=edited#distributions");
+}
+
+/** A batch's supplier, date received and note. */
+export async function updateBatchDetails(batchId: string, _prev: RestockFormState, fd: FormData): Promise<RestockFormState> {
+  if (!UUID_RE.test(batchId)) return { error: "That batch no longer exists." };
+  const staff = await manager();
+  if ("error" in staff) return { error: staff.error };
+  const date = text(fd, "received_on", 10);
+  if (!isIsoDate(date)) return { error: "Pick the date it arrived.", field: "received_on" };
+  const { error } = await staff.supabase.rpc("update_batch_details", {
+    p_batch: batchId,
+    p: { supplier: text(fd, "supplier", 60), received_on: date, note: text(fd, "note") },
+  });
+  if (error) return { error: friendlyError(error as DbError) };
+  revalidatePath("/restock", "layout");
+  revalidatePath("/sales/pnl");
+  redirect(`/restock/batches/${batchId}?details=saved`);
 }

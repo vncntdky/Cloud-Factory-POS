@@ -9,6 +9,7 @@ import { Kpi, KpiGrid } from "@/components/Kpi";
 import { Money } from "@/components/Money";
 import { BatchCostsForm } from "@/components/restock/BatchCostsForm";
 import { ExpenseForm, SplitForm } from "@/components/restock/PnlForms";
+import { EditExpense } from "@/components/finance/EditForms";
 import { EXPENSE_CATEGORIES, shareLabel, splitProfit } from "@/lib/pnl";
 import { addDays, formatManilaDate } from "@/lib/time";
 
@@ -54,6 +55,7 @@ export function BatchPnlCard({
       </div>
       {flash?.expense === "added" && <p className="t-sm notice-inline">Expense saved.</p>}
       {flash?.expense === "removed" && <p className="t-sm notice-inline">Expense removed.</p>}
+      {flash?.expense === "edited" && <p className="t-sm notice-inline">Expense updated.</p>}
       {flash?.split === "saved" && <p className="t-sm notice-inline">Profit split saved.</p>}
       {flash?.costs === "saved" && <p className="t-sm notice-inline">Restock costs saved.</p>}
       {flash?.expense === "error" && (
@@ -197,7 +199,7 @@ export function BatchPnlCard({
         ) : (
           <ul className="list list--plain" role="list">
             {expenses.map((e) => (
-              <li key={e.id} className="list-row list-row--compact">
+              <li key={e.id} className="list-row list-row--compact list-row--wrap">
                 <span className="list-row__main">
                   <span className="list-row__title">
                     <span>{EXPENSE_CATEGORIES.find((x) => x.id === e.category)?.label ?? e.category}</span>
@@ -212,6 +214,7 @@ export function BatchPnlCard({
                     <Money cents={e.amount_cents} />
                   </span>
                 </span>
+                <EditExpense expense={e} returnTo={returnTo} today={today} earliest={addDays(today, -400)} />
                 <form action={deleteBatchExpense}>
                   <input type="hidden" name="id" value={e.id} />
                   <input type="hidden" name="return_to" value={returnTo} />

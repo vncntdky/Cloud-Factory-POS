@@ -2592,3 +2592,7 @@ a.segmented__option { text-decoration: none; }
 .fin-wf__in { fill: var(--mint-edge); }
 .fin-wf__out { fill: var(--alert); }
 .fin-wf__link { stroke: var(--ink-faint); stroke-dasharray: 3 3; }
+
+/* Edit forms that open under their row */
+.edit-open { flex-shrink: 0; }
+.list-row--wrap > .edit-form { flex-basis: 100%; padding: var(--space-3) 0 var(--space-2); }

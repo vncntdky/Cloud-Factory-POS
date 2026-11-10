@@ -1,6 +1,6 @@
 // Restock → Expenses (owners and managers): every expense, general shop costs and those charged to
 // a batch, newest first by month, with totals. ?batch = a batch id or "general" filters the list.
-// Add and remove expenses here; they also show in each batch's P&L and in Sales → P&L.
+// Add and remove expenses here; they also show in each batch's P&L and in Sales → Finance.
 import Link from "next/link";
 import { deleteBatchExpense } from "@/app/(staff)/restock/actions";
 import { CategoryFilter } from "@/components/dashboard/CategoryFilter";
@@ -11,6 +11,7 @@ import { Money } from "@/components/Money";
 import { NotAllowed } from "@/components/NotAllowed";
 import { Topbar } from "@/components/Topbar";
 import { ExpenseForm } from "@/components/restock/PnlForms";
+import { EditExpense } from "@/components/finance/EditForms";
 import { requireActiveStaff } from "@/lib/auth";
 import { friendlyError } from "@/lib/db-errors";
 import { isUuid } from "@/lib/ids";
@@ -90,6 +91,14 @@ export default async function ExpensesPage({ searchParams }: { searchParams: Pro
               </div>
             </div>
           )}
+          {sp.expense === "edited" && (
+            <div className="notice notice--success" role="status">
+              <Icon name="check" />
+              <div>
+                <p className="notice__title">Expense updated.</p>
+              </div>
+            </div>
+          )}
           {sp.expense === "removed" && (
             <div className="notice notice--success" role="status">
               <Icon name="check" />
@@ -146,7 +155,7 @@ export default async function ExpensesPage({ searchParams }: { searchParams: Pro
             </div>
             <p className="t-sm muted">
               Charge it to a batch (shipping fees, courier, salary for that batch) or to the whole shop (rent, utilities). Batch
-              expenses show in that batch&apos;s P&amp;L; general ones come off the shop&apos;s total in Sales → P&amp;L.
+              expenses show in that batch&apos;s P&amp;L; general ones come off the shop&apos;s total in Sales → Finance.
             </p>
             <ExpenseForm
               batches={batches.map((b) => ({ id: b.id as string, label: label(b) }))}
@@ -172,7 +181,7 @@ export default async function ExpensesPage({ searchParams }: { searchParams: Pro
                 </div>
                 <ul className="list" role="list">
                   {list.map((e) => (
-                    <li key={e.id} className="list-row list-row--compact">
+                    <li key={e.id} className="list-row list-row--compact list-row--wrap">
                       <span className="list-row__main">
                         <span className="list-row__title">
                           <span>{EXPENSE_CATEGORIES.find((x) => x.id === e.category)?.label ?? e.category}</span>
@@ -190,6 +199,13 @@ export default async function ExpensesPage({ searchParams }: { searchParams: Pro
                           <Money cents={e.amount_cents} />
                         </span>
                       </span>
+                      <EditExpense
+                        expense={e}
+                        batches={[...batchName].map(([id, l]) => ({ id, label: l }))}
+                        returnTo={returnTo}
+                        today={today}
+                        earliest={addDays(today, -400)}
+                      />
                       <form action={deleteBatchExpense}>
                         <input type="hidden" name="id" value={e.id} />
                         <input type="hidden" name="return_to" value={returnTo} />

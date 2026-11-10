@@ -512,6 +512,23 @@ select pg_temp.check('a release is split by the profit split (3 : 1 here) and co
   (select owner_cents = 3000 and manager_cents = 1000 and note = 'Batch 1 profit' from public.fund_releases where id = :'rel')
   and (public.company_funds() ->> 'available_cents')::bigint = :avail - 4000
   and (public.company_funds() ->> 'owner_released_cents')::bigint = 3000);
+select public.update_fund_release(:'rel', 3000, ' Edited ', public.manila_today() - 1);
+select pg_temp.check('owner edits a distribution: amount, date, note, split redone at today''s split',
+  (select amount_cents = 3000 and owner_cents = 2250 and manager_cents = 750 and note = 'Edited' and released_on = public.manila_today() - 1
+     from public.fund_releases where id = :'rel'));
+select pg_temp.expect_error('an edited distribution must still be safe',
+  format($$select public.update_fund_release('%s', %s, null, public.manila_today())$$, :'rel',
+         3000 + (public.finance_report(current_date, current_date) -> 'now' ->> 'safe_to_distribute')::numeric::bigint + 1), 'safe to distribute');
+set request.jwt.claim.sub = '33333333-3333-3333-3333-333333333333';
+select pg_temp.expect_error('manager can''t edit distributions', format($$select public.update_fund_release('%s', 100, null, public.manila_today())$$, :'rel'), 'Only the owner');
+select public.update_batch_details(:'fb', format('{"supplier": " New Supply ", "received_on": "%s", "note": ""}', public.manila_today() - 1)::jsonb);
+select pg_temp.check('manager edits a batch''s supplier, date and note',
+  (select supplier = 'New Supply' and received_on = public.manila_today() - 1 and note is null from public.stock_batches where id = :'fb'));
+select pg_temp.expect_error('a batch date can''t be in the future',
+  format($$select public.update_batch_details('%s', '{"received_on": "%s"}')$$, :'fb', public.manila_today() + 1), 'last 400 days');
+set request.jwt.claim.sub = '22222222-2222-2222-2222-222222222222';
+select pg_temp.expect_error('staff can''t edit batches', format($$select public.update_batch_details('%s', '{"received_on": "%s"}')$$, :'fb', public.manila_today()), 'Only owners and managers');
+set request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
 select public.delete_fund_release(:'rel');
 select pg_temp.check('owner can undo a release', not exists (select 1 from public.fund_releases where id = :'rel'));
 set request.jwt.claim.sub = '22222222-2222-2222-2222-222222222222';
@@ -599,14 +616,23 @@ select pg_temp.check('owner sets the tax rate (0 = none)',
   (public.finance_report(public.manila_today(), public.manila_today()) -> 'end' ->> 'tax')::numeric = 0);
 select public.set_tax_rate(300);
 select pg_temp.expect_error('tax rate is checked', $$select public.set_tax_rate(5000)$$, '0% to 30%');
+select public.update_capital(:'cap', 200000, ' Edited capital ', public.manila_today() - 2);
+select pg_temp.check('owner edits capital put in',
+  (select amount_cents = 200000 and note = 'Edited capital' and put_in_on = public.manila_today() - 2 from public.capital_contributions where id = :'cap'));
+select public.update_expense(:'fee_exp', format('{"category": "rent", "amount_cents": 1700, "spent_on": "%s", "note": " Shop rent ", "batch_id": ""}', public.manila_today() - 1)::jsonb);
+select pg_temp.check('owner edits an expense: type, amount, date, note',
+  (select category = 'rent' and amount_cents = 1700 and spent_on = public.manila_today() - 1 and note = 'Shop rent' and batch_id is null from public.expenses where id = :'fee_exp'));
+select pg_temp.expect_error('expense edits are checked', format($$select public.update_expense('%s', '{"category": "bribe", "amount_cents": 1, "spent_on": "%s"}')$$, :'fee_exp', public.manila_today()), 'what the expense was for');
 select public.delete_capital(:'cap');
 select pg_temp.check('owner removes a capital entry', not exists (select 1 from public.capital_contributions where id = :'cap'));
 set request.jwt.claim.sub = '33333333-3333-3333-3333-333333333333';
 select pg_temp.check('manager sees the finances', public.finance_report(public.manila_today(), public.manila_today()) is not null);
 select pg_temp.expect_error('manager can''t record capital', $$select public.add_capital(100)$$, 'Only the owner');
+select pg_temp.expect_error('manager can''t edit capital', format($$select public.update_capital('%s', 100, null, current_date)$$, gen_random_uuid()), 'Only the owner');
 select pg_temp.expect_error('manager can''t change the tax rate', $$select public.set_tax_rate(100)$$, 'Only the owner');
 set request.jwt.claim.sub = '22222222-2222-2222-2222-222222222222';
 select pg_temp.expect_error('staff can''t see the finances', $$select public.finance_report(current_date, current_date)$$, 'Only owners and managers');
+select pg_temp.expect_error('staff can''t edit expenses', format($$select public.update_expense('%s', '{}')$$, :'tax_exp'), 'Only owners and managers');
 select pg_temp.check('staff see no capital entries', (select count(*) = 0 from public.capital_contributions));
 select pg_temp.expect_error('staff can''t call the internal totals', $$select public.finance_totals(current_date)$$, 'permission denied');
 

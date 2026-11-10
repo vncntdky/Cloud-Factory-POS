@@ -6,7 +6,7 @@ import { setTaxRate, type RestockFormState } from "@/app/(staff)/restock/actions
 import { Icon } from "@/components/Icon";
 import { useFormAction } from "@/lib/use-form-action";
 
-export function TaxRateForm({ bp }: { bp: number }) {
+export function TaxRateForm({ bp, returnTo }: { bp: number; returnTo?: string }) {
   const [open, setOpen] = useState(false);
   const [state, onSubmit, pending] = useFormAction<RestockFormState>(setTaxRate, null);
   if (!open) {
@@ -18,6 +18,7 @@ export function TaxRateForm({ bp }: { bp: number }) {
   }
   return (
     <form onSubmit={onSubmit} className="stack" aria-label="Tax rate">
+      {returnTo && <input type="hidden" name="return_to" value={returnTo} />}
       <div className="field">
         <label className="field__label" htmlFor="tax-rate">
           Percentage tax on net sales

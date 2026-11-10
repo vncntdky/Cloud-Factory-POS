@@ -10,6 +10,7 @@ import { NotAllowed } from "@/components/NotAllowed";
 import { Topbar } from "@/components/Topbar";
 import { StockFix, type FixableChange } from "@/components/inventory/StockFix";
 import { AddToBatchForm } from "@/components/restock/AddToBatchForm";
+import { BatchDetailsForm } from "@/components/finance/EditForms";
 import { BatchPnlCard } from "@/components/restock/BatchPnlCard";
 import { MakeBatchForm } from "@/components/restock/MakeBatchForm";
 import { requireActiveStaff } from "@/lib/auth";
@@ -18,7 +19,7 @@ import { pesos, productLabel, saleNo } from "@/lib/format";
 import { isUuid } from "@/lib/ids";
 import { can } from "@/lib/permissions";
 import { paceLabel } from "@/lib/restock";
-import { formatManilaDate, manilaToday } from "@/lib/time";
+import { addDays, formatManilaDate, manilaToday } from "@/lib/time";
 import { batchPnl, batchTitle, loadBatches, piecesLeft, totals, type BatchRow } from "../../data";
 
 export const dynamic = "force-dynamic";
@@ -70,6 +71,7 @@ export default async function BatchPage({
     made?: string;
     added?: string;
     fixed?: string;
+    details?: string;
   }>;
 }) {
   const { id } = await params;
@@ -212,6 +214,14 @@ export default async function BatchPage({
             {batch.supplier && ` · ${batch.supplier}`}
             {batch.note && ` · ${batch.note}`}
           </p>
+          {sp.details === "saved" && <p className="t-sm notice-inline">Batch details saved.</p>}
+          {batch.id !== null && batch.received_on && (
+            <BatchDetailsForm
+              batch={{ id: batch.id, supplier: batch.supplier, received_on: batch.received_on, note: batch.note }}
+              today={manilaToday()}
+              earliest={addDays(manilaToday(), -400)}
+            />
+          )}
 
           <KpiGrid aria-label="Batch sales">
             <Kpi

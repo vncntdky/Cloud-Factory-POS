@@ -15,6 +15,7 @@ import { Money } from "@/components/Money";
 import { NotAllowed } from "@/components/NotAllowed";
 import { Topbar } from "@/components/Topbar";
 import { CapitalForm } from "@/components/finance/CapitalForm";
+import { EditCapital, EditRelease } from "@/components/finance/EditForms";
 import { CashBridge } from "@/components/finance/CashBridge";
 import { PeriodSelect } from "@/components/finance/PeriodSelect";
 import { TaxRateForm } from "@/components/finance/TaxRateForm";
@@ -271,6 +272,7 @@ async function StatementsView({
           {sp.released === "1" && <Notice>Distribution recorded.</Notice>}
           {sp.released === "undone" && <Notice>Distribution undone: the money is back in the business.</Notice>}
           {sp.released === "error" && <Notice danger>Couldn&apos;t change that distribution. Try again.</Notice>}
+          {sp.released === "edited" && <Notice>Distribution updated.</Notice>}
           <KpiGrid aria-label="Key numbers">
             <Kpi
               variant="hero"
@@ -334,7 +336,13 @@ async function StatementsView({
               ) : (
                 <p className="t-sm muted">Only the owner records distributions.</p>
               )}
-              <ReleasedList releases={(releasesRes.data ?? []) as Release[]} isOwner={isOwner} />
+              <ReleasedList
+                releases={(releasesRes.data ?? []) as Release[]}
+                isOwner={isOwner}
+                safe={Math.max(0, Number(now.safe_to_distribute))}
+                split={split}
+                today={today}
+              />
             </section>
 
             <div className="stack stack-6">
@@ -376,6 +384,41 @@ async function StatementsView({
               </section>
             </div>
           </div>
+
+          {isOwner && (
+            <section className="card stack" id="settings" aria-labelledby="set-t">
+              <div className="card__head">
+                <h2 className="card__title" id="set-t">
+                  Finance settings
+                </h2>
+                <span className="chip chip--ok">Owner only</span>
+              </div>
+              {sp.tax === "saved" && <p className="t-sm notice-inline">Tax rate saved.</p>}
+              {sp.split === "saved" && <p className="t-sm notice-inline">Profit split saved.</p>}
+              <dl className="cost-list">
+                <dt>
+                  Percentage tax on net sales
+                  <span className="fin-hint">used for the tax estimate and the tax reserve</span>
+                </dt>
+                <dd>{(Number(report.end.tax_rate_bp) / 100).toString()}%</dd>
+                <dt>
+                  Profit split
+                  <span className="fin-hint">how each distribution is shared</span>
+                </dt>
+                <dd>
+                  owner {shareLabel(split.owner, parts)}, manager {shareLabel(split.manager, parts)}
+                </dd>
+              </dl>
+              <div className="stack stack-2">
+                <TaxRateForm bp={Number(report.end.tax_rate_bp)} returnTo="/sales/pnl" />
+                <SplitForm returnTo="/sales/pnl" owner={split.owner} manager={split.manager} />
+              </div>
+              <p className="t-sm muted">
+                Everything else is edited where it lives: distributions and the inventory reserve above, owner capital on
+                Balance, expenses under Restock → Expenses, and each batch&apos;s costs and details on its page.
+              </p>
+            </section>
+          )}
         </>
       )}
 
@@ -449,6 +492,7 @@ async function StatementsView({
         <>
           {sp.capital === "added" && <Notice>Capital recorded.</Notice>}
           {sp.capital === "removed" && <Notice>Capital entry removed.</Notice>}
+          {sp.capital === "edited" && <Notice>Capital entry updated.</Notice>}
           {sp.capital === "error" && <Notice danger>Couldn&apos;t change that capital entry. Try again.</Notice>}
           <section className="card stack" aria-labelledby="bs-t">
             <div className="card__head">
@@ -499,7 +543,7 @@ async function StatementsView({
                 </li>
               ))}
               {((capitalRes.data ?? []) as { id: string; amount_cents: number; note: string | null; put_in_on: string }[]).map((c) => (
-                <li key={c.id} className="list-row list-row--compact">
+                <li key={c.id} className="list-row list-row--compact list-row--wrap">
                   <span className="list-row__main">
                     <span className="list-row__title">
                       <span>
@@ -511,6 +555,7 @@ async function StatementsView({
                       {c.note && ` · ${c.note}`}
                     </span>
                   </span>
+                  {isOwner && <EditCapital entry={c} today={today} />}
                   {isOwner && (
                     <form action={deleteCapital}>
                       <input type="hidden" name="id" value={c.id} />
@@ -558,7 +603,19 @@ function ReserveCard({ funds, spare }: { funds: Funds | null; spare: number }) {
   );
 }
 
-function ReleasedList({ releases, isOwner }: { releases: Release[]; isOwner: boolean }) {
+function ReleasedList({
+  releases,
+  isOwner,
+  safe,
+  split,
+  today,
+}: {
+  releases: Release[];
+  isOwner: boolean;
+  safe: number;
+  split: { owner: number; manager: number };
+  today: string;
+}) {
   const owner = releases.reduce((s, r) => s + r.owner_cents, 0);
   const manager = releases.reduce((s, r) => s + r.manager_cents, 0);
   return (
@@ -569,7 +626,7 @@ function ReleasedList({ releases, isOwner }: { releases: Release[]; isOwner: boo
       ) : (
         <ul className="list list--plain" role="list">
           {releases.map((r) => (
-            <li key={r.id} className="list-row list-row--compact">
+            <li key={r.id} className="list-row list-row--compact list-row--wrap">
               <span className="list-row__main">
                 <span className="list-row__title">
                   <span>
@@ -581,6 +638,9 @@ function ReleasedList({ releases, isOwner }: { releases: Release[]; isOwner: boo
                   {r.note && ` · ${r.note}`}
                 </span>
               </span>
+              {isOwner && (
+                <EditRelease release={r} max={r.amount_cents + safe} split={split} today={today} earliest={addDays(today, -400)} />
+              )}
               {isOwner && (
                 <form action={undoRelease}>
                   <input type="hidden" name="id" value={r.id} />

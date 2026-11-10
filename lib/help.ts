@@ -144,6 +144,7 @@ export const SOPS: Sop[] = [
         ],
       },
       { title: "Missed shipping, tax or MOOE", steps: ["On the batch page, open the P&L card and edit the Restock costs."] },
+      { title: "Wrong supplier, date or note", steps: ["On the batch page, under the date it arrived, tap Edit supplier, date or note."] },
     ],
     check: "The batch's received pieces match the supplier's receipt, and the product's shelf count is right. Later counts stay as they were counted.",
   },
@@ -325,7 +326,7 @@ export const SOPS: Sop[] = [
       {
         steps: [
           "Keep the receipt or take a photo of it.",
-          "Go to Restock → Expenses (or Add expense on a batch page or on Sales → P&L).",
+          "Go to Restock → Expenses (or Add expense on a batch page or on Sales → Finance → Batches).",
           {
             text: "Pick Charge to:",
             sub: [
@@ -349,7 +350,7 @@ export const SOPS: Sop[] = [
         text: "When you pay the percentage tax, record it under Taxes paid. It lowers the tax still owed, not the profit (the tax estimate already counts it).",
       },
     ],
-    check: "The expense shows in the list, and Finance → Profit & loss shows it under its category (Taxes paid show under Cash flow).",
+    check: "The expense shows in the list, and Finance → Profit & loss shows it under its category (Taxes paid show under Cash flow). Wrong amount, type, date or batch? Tap Edit on the expense.",
   },
   {
     no: 12,
@@ -437,7 +438,7 @@ export const SOPS: Sop[] = [
           "Check the split shown: owner 2/3, manager 1/3.",
           "Add a note (for example “Batch 1 profit, week of 10 Nov”) and confirm.",
           "Pay out the shares from the cash or bank the money is in, the same day.",
-          "If a release was entered by mistake, tap undo next to it in the Released list.",
+          "Wrong amount, date or note? Tap Edit next to it in the Distributed list. Entered by mistake? Tap undo.",
         ],
       },
     ],
@@ -445,7 +446,7 @@ export const SOPS: Sop[] = [
   },
   {
     no: 16,
-    title: "Owner capital and the tax rate (owner)",
+    title: "Owner capital, tax rate and profit split (owner)",
     who: "Owner only.",
     when: "When the owners put money or stock into the business; once when the tax setup is confirmed.",
     roles: ["owner"],
@@ -454,7 +455,7 @@ export const SOPS: Sop[] = [
         title: "Money put in",
         steps: [
           "Go to Sales → Finance → Balance.",
-          "Tap Record capital put in, enter the amount, the date and a note, then tap Save capital.",
+          "Tap Record capital put in, enter the amount, the date and a note, then tap Save capital. To correct one later, tap Edit next to it.",
           "Never ring it up as a sale or enter it as anything else: capital is not sales and not profit.",
         ],
       },
@@ -468,7 +469,7 @@ export const SOPS: Sop[] = [
       {
         title: "Tax rate",
         steps: [
-          "Go to Sales → Finance → Profit & loss and tap Change tax rate.",
+          "Go to Sales → Finance. At the bottom of the Overview, Finance settings has the tax rate and the profit split: tap Change tax rate or Change split.",
           "Enter the percentage tax your accountant confirms (3% for most shops that aren't VAT-registered; 0 for no estimate).",
         ],
       },
