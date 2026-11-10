@@ -506,7 +506,7 @@ select public.save_product(null, format('{"name": "Big Pod", "price_cents": 1000
 select public.complete_sale(format('{"client_ref": "eeeeeeee-0000-0000-0000-000000000002", "payment_method": "gcash", "age_verified": true, "items": [{"product_id": "%s", "quantity": 1}]}', :'bigp')::jsonb);
 select (public.company_funds() ->> 'available_cents')::bigint as avail \gset
 select pg_temp.check('a paid sale adds to what''s available', :avail > 4000);
-select pg_temp.expect_error('can''t release more than is available', format($$select public.release_profits(%s)$$, :avail + 1), 'available to release');
+select pg_temp.expect_error('can''t release more than is available', format($$select public.release_profits(%s)$$, :avail + 1), 'safe to distribute');
 select public.release_profits(4000, 'Batch 1 profit') as rel \gset
 select pg_temp.check('a release is split by the profit split (3 : 1 here) and comes off what''s available',
   (select owner_cents = 3000 and manager_cents = 1000 and note = 'Batch 1 profit' from public.fund_releases where id = :'rel')
@@ -553,6 +553,62 @@ select pg_temp.expect_error('sales aren''t fixed here',
 select pg_temp.expect_error('restock needs at least 1 piece', format($$select public.edit_stock_change('%s', 0)$$, :'mv_restock'), '1 to 100,000');
 set request.jwt.claim.sub = '22222222-2222-2222-2222-222222222222';
 select pg_temp.expect_error('staff can''t fix stock', format($$select public.remove_stock_change('%s')$$, :'mv_waste'), 'Only owners and managers');
+
+-- ───────── Finance: statements, owner capital, tax, payout limit ─────────
+set request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
+select public.finance_report(public.manila_today() - 3650, public.manila_today()) as fin \gset
+select pg_temp.check('finance: the balance adds up (cash + receivables + stock = tax owed + capital + profit kept)',
+  ((:'fin'::jsonb -> 'end' ->> 'cash')::numeric + (:'fin'::jsonb -> 'end' ->> 'receivables')::numeric + (:'fin'::jsonb -> 'end' ->> 'inventory')::numeric)
+  = ((:'fin'::jsonb -> 'end' ->> 'tax_payable')::numeric + (:'fin'::jsonb -> 'end' ->> 'capital')::numeric + (:'fin'::jsonb -> 'end' ->> 'retained')::numeric));
+select pg_temp.check('finance: a period from before the first sale starts at zero',
+  (:'fin'::jsonb -> 'start' ->> 'net')::numeric = 0 and (:'fin'::jsonb -> 'start' ->> 'cash')::numeric = 0);
+select pg_temp.check('finance: net sales and receivables match the sales',
+  (:'fin'::jsonb -> 'end' ->> 'net')::bigint = (select sum(total_cents) from public.sales where status = 'completed')
+  and (:'fin'::jsonb -> 'end' ->> 'receivables')::bigint = (select sum(balance_cents) from public.sales where status = 'completed'));
+select pg_temp.check('finance: cash = the old fund balance (no capital put in yet)',
+  (:'fin'::jsonb -> 'end' ->> 'cash')::numeric = (public.company_funds() ->> 'balance_cents')::numeric);
+select pg_temp.check('finance: the earlier-stock batch counts as owner capital',
+  (:'fin'::jsonb -> 'end' ->> 'capital')::numeric = (:'fin'::jsonb -> 'end' ->> 'owner_goods')::numeric + (:'fin'::jsonb -> 'end' ->> 'owner_fees')::numeric
+  and (:'fin'::jsonb -> 'end' ->> 'owner_goods')::numeric > 0);
+select pg_temp.check('finance: tax is 3% of net sales',
+  (:'fin'::jsonb -> 'end' ->> 'tax')::numeric = round((:'fin'::jsonb -> 'end' ->> 'net')::numeric * 0.03));
+select pg_temp.check('finance: receivables listed with their age',
+  jsonb_array_length(:'fin'::jsonb -> 'receivables') = (select count(*) from public.sales where status = 'completed' and balance_cents > 0));
+select public.add_capital(100000, ' Cash top-up ') as cap \gset
+select public.add_expense('{"category": "fees", "amount_cents": 1500}') as fee_exp \gset
+select public.add_expense('{"category": "tax", "amount_cents": 2000}') as tax_exp \gset
+select public.finance_report(public.manila_today() - 3650, public.manila_today()) as fin2 \gset
+select pg_temp.check('capital put in adds to cash and capital, not to sales or profit',
+  (:'fin2'::jsonb -> 'end' ->> 'capital_cash')::numeric = 100000
+  and (:'fin2'::jsonb -> 'end' ->> 'net')::numeric = (:'fin'::jsonb -> 'end' ->> 'net')::numeric
+  and (select note = 'Cash top-up' from public.capital_contributions where id = :'cap'));
+select pg_temp.check('payment fees are an operating expense; taxes paid are not, they lower tax owed',
+  (:'fin2'::jsonb -> 'end' ->> 'opex')::numeric = (:'fin'::jsonb -> 'end' ->> 'opex')::numeric + 1500
+  and (:'fin2'::jsonb -> 'end' ->> 'tax_payable')::numeric = (:'fin'::jsonb -> 'end' ->> 'tax_payable')::numeric - 2000
+  and (:'fin2'::jsonb -> 'end' ->> 'cash')::numeric = (:'fin'::jsonb -> 'end' ->> 'cash')::numeric + 100000 - 1500 - 2000);
+select pg_temp.check('the balance still adds up',
+  ((:'fin2'::jsonb -> 'end' ->> 'cash')::numeric + (:'fin2'::jsonb -> 'end' ->> 'receivables')::numeric + (:'fin2'::jsonb -> 'end' ->> 'inventory')::numeric)
+  = ((:'fin2'::jsonb -> 'end' ->> 'tax_payable')::numeric + (:'fin2'::jsonb -> 'end' ->> 'capital')::numeric + (:'fin2'::jsonb -> 'end' ->> 'retained')::numeric));
+select pg_temp.check('safe to distribute = the lower of profit kept and spare cash (cash − tax owed − inventory reserve)',
+  (:'fin2'::jsonb -> 'now' ->> 'safe_to_distribute')::numeric = greatest(0, least((:'fin2'::jsonb -> 'now' ->> 'retained')::numeric,
+     (:'fin2'::jsonb -> 'now' ->> 'cash')::numeric - (:'fin2'::jsonb -> 'now' ->> 'tax_reserve')::numeric - (:'fin2'::jsonb -> 'now' ->> 'inventory_reserve')::numeric)));
+select (:'fin2'::jsonb -> 'now' ->> 'safe_to_distribute')::numeric::bigint as safe \gset
+select pg_temp.expect_error('can''t distribute more than is safe', format($$select public.release_profits(%s)$$, :safe + 1), 'safe to distribute');
+select public.set_tax_rate(0);
+select pg_temp.check('owner sets the tax rate (0 = none)',
+  (public.finance_report(public.manila_today(), public.manila_today()) -> 'end' ->> 'tax')::numeric = 0);
+select public.set_tax_rate(300);
+select pg_temp.expect_error('tax rate is checked', $$select public.set_tax_rate(5000)$$, '0% to 30%');
+select public.delete_capital(:'cap');
+select pg_temp.check('owner removes a capital entry', not exists (select 1 from public.capital_contributions where id = :'cap'));
+set request.jwt.claim.sub = '33333333-3333-3333-3333-333333333333';
+select pg_temp.check('manager sees the finances', public.finance_report(public.manila_today(), public.manila_today()) is not null);
+select pg_temp.expect_error('manager can''t record capital', $$select public.add_capital(100)$$, 'Only the owner');
+select pg_temp.expect_error('manager can''t change the tax rate', $$select public.set_tax_rate(100)$$, 'Only the owner');
+set request.jwt.claim.sub = '22222222-2222-2222-2222-222222222222';
+select pg_temp.expect_error('staff can''t see the finances', $$select public.finance_report(current_date, current_date)$$, 'Only owners and managers');
+select pg_temp.check('staff see no capital entries', (select count(*) = 0 from public.capital_contributions));
+select pg_temp.expect_error('staff can''t call the internal totals', $$select public.finance_totals(current_date)$$, 'permission denied');
 
 reset role;
 select case when ok then 'ok   ' else 'FAIL ' end || name as result from results;

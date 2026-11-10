@@ -1,6 +1,6 @@
 "use client";
 
-// Release profit from the company funds (owner): up to what's available, split owner : manager.
+// Owner distributions (owner): up to what's safe to distribute, split owner : manager.
 import { useState } from "react";
 import { releaseProfits, type RestockFormState } from "@/app/(staff)/restock/actions";
 import { Icon } from "@/components/Icon";
@@ -26,18 +26,18 @@ export function ReleaseForm({ available, split }: { available: number; split: { 
           disabled={available <= 0}
           aria-expanded={false}
         >
-          Release profits
+          Record distribution
         </button>
-        {available <= 0 && <p className="field__hint">Nothing to release yet: the fund is covering the next batch.</p>}
+        {available <= 0 && <p className="field__hint">Nothing is safe to distribute yet. See the lines above for what holds it back.</p>}
       </div>
     );
   }
   return (
-    <form onSubmit={onSubmit} className="stack" aria-label="Release profits">
+    <form onSubmit={onSubmit} className="stack" aria-label="Record distribution">
       <div className="form-grid form-grid--2">
         <div className="field">
           <label className="field__label" htmlFor="rel-amount">
-            Amount to release
+            Amount to distribute
           </label>
           <div className="input-affix">
             <span className="input-affix__prefix" aria-hidden="true">
@@ -62,7 +62,7 @@ export function ReleaseForm({ available, split }: { available: number; split: { 
           <label className="field__label" htmlFor="rel-note">
             Note <span className="optional">(optional)</span>
           </label>
-          <input id="rel-note" name="note" className="input" maxLength={200} placeholder="Batch 2 profit…" />
+          <input id="rel-note" name="note" className="input" maxLength={200} placeholder="Profit for November…" />
         </div>
       </div>
       {state?.error && (
@@ -73,7 +73,7 @@ export function ReleaseForm({ available, split }: { available: number; split: { 
       )}
       <div className="btn-row">
         <button type="submit" className="btn btn--money btn--sm" disabled={pending} aria-busy={pending || undefined}>
-          Release <Money cents={Math.max(0, cents)} />
+          Distribute <Money cents={Math.max(0, cents)} />
         </button>
         <button type="button" className="btn btn--ghost btn--sm" onClick={() => setOpen(false)} disabled={pending}>
           Cancel

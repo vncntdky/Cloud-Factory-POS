@@ -118,7 +118,7 @@ export default async function SalesPage({ searchParams }: { searchParams: Promis
                 Dashboard
               </Link>
               <Link className="segmented__option" href="/sales/pnl">
-                P&amp;L
+                Finance
               </Link>
             </nav>
           )}

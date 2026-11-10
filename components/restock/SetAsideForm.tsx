@@ -1,6 +1,6 @@
 "use client";
 
-// Company funds → Next restock: decide how much the fund keeps for the next batch. Owners and managers.
+// Finance → Inventory reserve: decide how much the business keeps for the next restock. Owners and managers.
 // Batches paid from the fund that come in after the decision use it up; then this asks again.
 import { useState } from "react";
 import { setRestockSetAside, type RestockFormState } from "@/app/(staff)/restock/actions";
@@ -20,7 +20,7 @@ export type SetAside = {
   note: string | null;
   lastBatchNo: number | null;
   lastBatchCents: number | null;
-  /** What's in the fund now. */
+  /** Spare cash now (cash − tax not yet paid). */
   balance: number;
 };
 
@@ -33,23 +33,22 @@ export function SetAsideForm({ s }: { s: SetAside }) {
 
   const picks = [
     s.lastBatchNo !== null && s.lastBatchCents ? { label: `Same as Batch ${s.lastBatchNo}`, cents: s.lastBatchCents } : null,
-    s.balance > 0 ? { label: "Everything in the fund", cents: s.balance } : null,
+    s.balance > 0 ? { label: "All spare cash", cents: s.balance } : null,
     { label: "Nothing", cents: 0 },
   ].filter((p): p is { label: string; cents: number } => p !== null);
 
   return (
     <div className="stack stack-2" id="next-restock">
-      <h3 className="eyebrow">Next restock</h3>
       {s.needsDecision && (
         <div className="notice notice--info" role="status">
           <Icon name="info" />
           <div>
             <p className="notice__title">
               {s.setAt === null
-                ? "How much should the fund keep for the next restock?"
-                : `Batch ${s.lastBatchNo} came in and was paid from the fund. How much should it keep for the next one?`}
+                ? "How much should the business keep for the next restock?"
+                : `Batch ${s.lastBatchNo} came in and was paid from the company funds. How much should the business keep for the next one?`}
             </p>
-            <p>What you keep stays in the fund. The rest can be released as profit.</p>
+            <p>What you keep is held back from distributions until the next batch is paid for.</p>
           </div>
         </div>
       )}
@@ -119,11 +118,11 @@ export function SetAsideForm({ s }: { s: SetAside }) {
                   "Goods plus shipping and other restocking fees."
                 ) : left >= 0 ? (
                   <>
-                    Leaves <Money cents={left} /> to release.
+                    Leaves <Money cents={left} /> of spare cash.
                   </>
                 ) : (
                   <>
-                    That&apos;s <Money cents={-left} /> more than the fund has now. Nothing can be released until sales
+                    That&apos;s <Money cents={-left} /> more than the spare cash now. Nothing can be distributed until sales
                     cover it.
                   </>
                 )}

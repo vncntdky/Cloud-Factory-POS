@@ -2571,3 +2571,24 @@ a.segmented__option { text-decoration: none; }
 .help-who th:not(:first-child) { text-align: center; }
 .help .cat { scroll-margin-top: 72px; }
 .help .cat__name { text-transform: none; letter-spacing: 0; white-space: normal; overflow: visible; text-overflow: clip; font-size: 16px; }
+
+/* Finance: statements, basis tags, cash bridge */
+.fin-basis { font-size: 12px; }
+.fin-hint { display: block; font-size: 13px; color: var(--ink-muted); font-weight: 400; }
+.fin-sub { color: var(--ink-muted); padding-left: 12px; }
+.fin-pct { margin-left: 8px; font-size: 13px; color: var(--ink-muted); font-weight: 500; }
+.fin-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(340px, 100%), 1fr)); gap: var(--space-5); align-items: start; }
+.fin-period { display: flex; flex-wrap: wrap; gap: var(--space-3); align-items: center; }
+.fin-period__select { max-width: 360px; flex: 1 1 240px; }
+.fin-views { margin-top: calc(var(--space-2) * -1); }
+.fin-rate { max-width: 160px; }
+.fin-wf-wrap { overflow-x: auto; }
+.fin-wf { display: block; width: 100%; min-width: 600px; height: auto; }
+.fin-wf__grid { stroke: var(--line); stroke-width: 1; }
+.fin-wf__zero { stroke: var(--ink-faint); stroke-width: 1; }
+.fin-wf__axis, .fin-wf__label { fill: var(--ink-muted); font-size: 12px; }
+.fin-wf__val { fill: var(--ink); font-size: 12.5px; font-weight: 600; }
+.fin-wf__total { fill: var(--chart-accent); }
+.fin-wf__in { fill: var(--mint-edge); }
+.fin-wf__out { fill: var(--alert); }
+.fin-wf__link { stroke: var(--ink-faint); stroke-dasharray: 3 3; }

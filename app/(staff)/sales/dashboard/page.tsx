@@ -158,7 +158,7 @@ export default async function DashboardPage({
           Dashboard
         </Link>
         <Link className="segmented__option" href="/sales/pnl">
-          P&amp;L
+          Finance
         </Link>
       </nav>
       <div className="filter-row" role="toolbar" aria-label="Range">
@@ -368,9 +368,9 @@ export default async function DashboardPage({
 
           <Link className="card pnl-link" href="/sales/pnl">
             <span className="stack stack-2 grow">
-              <span className="card__title">Profit and loss, by batch</span>
+              <span className="card__title">Finance: profit, cash and balance</span>
               <span className="t-sm muted">
-                Each batch&apos;s sales against its goods, shipping, tax, MOOE and expenses, with the owner / manager split.
+                Profit &amp; loss, where the cash went, what the business holds, and what&apos;s safe to distribute.
               </span>
             </span>
             <Icon name="chevron-right" />

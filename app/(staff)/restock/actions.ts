@@ -158,7 +158,7 @@ function pnlBack(fd: FormData, extra: string) {
   const to = String(fd.get("return_to") ?? "");
   const ok =
     /^\/restock\/batches\/[0-9a-f-]{36}$/.test(to) ||
-    ["/sales/pnl", "/restock/expenses", "/restock?view=batches"].includes(to) ||
+    ["/sales/pnl", "/sales/pnl?view=batches", "/restock/expenses", "/restock?view=batches"].includes(to) ||
     /^\/restock\/expenses\?batch=([0-9a-f-]{36}|general)$/.test(to);
   const base = ok ? to : "/restock/expenses";
   return `${base}${base.includes("?") ? "&" : "?"}${extra}${base.startsWith("/restock/batches/") ? "#pnl" : ""}`;
@@ -254,16 +254,16 @@ export async function releaseProfits(_prev: RestockFormState, fd: FormData): Pro
   });
   if (error) return { error: friendlyError(error as DbError), field: "amount" };
   revalidatePath("/sales/pnl");
-  redirect("/sales/pnl?released=1#funds");
+  redirect("/sales/pnl?released=1#distributions");
 }
 
 export async function undoRelease(fd: FormData): Promise<void> {
   const id = String(fd.get("id") ?? "");
   const staff = await manager();
-  if ("error" in staff || !UUID_RE.test(id)) redirect("/sales/pnl?released=error#funds");
+  if ("error" in staff || !UUID_RE.test(id)) redirect("/sales/pnl?released=error#distributions");
   const { error } = await staff.supabase.rpc("delete_fund_release", { p_id: id });
   revalidatePath("/sales/pnl");
-  redirect(`/sales/pnl?released=${error ? "error" : "undone"}#funds`);
+  redirect(`/sales/pnl?released=${error ? "error" : "undone"}#distributions`);
 }
 
 /** Whether a batch was paid from the company funds (a new batch is, unless switched off). */
@@ -318,5 +318,45 @@ export async function setRestockSetAside(_prev: RestockFormState, fd: FormData):
   });
   if (error) return { error: friendlyError(error as DbError) };
   revalidatePath("/sales/pnl");
-  redirect("/sales/pnl?kept=1#funds");
+  redirect("/sales/pnl?kept=1#next-restock");
+}
+
+/** Owner: record money put into the business. */
+export async function addCapital(_prev: RestockFormState, fd: FormData): Promise<RestockFormState> {
+  const staff = await manager();
+  if ("error" in staff) return { error: staff.error };
+  const amount = toCents(String(fd.get("amount") ?? "").trim());
+  if (amount === null || amount <= 0) return { error: "Enter the amount put in, e.g. 5000.", field: "amount" };
+  const date = String(fd.get("put_in_on") ?? "");
+  const { error } = await staff.supabase.rpc("add_capital", {
+    p_amount_cents: amount,
+    p_note: String(fd.get("note") ?? "").trim().slice(0, 200),
+    p_put_in_on: isIsoDate(date) ? date : null,
+  });
+  if (error) return { error: friendlyError(error as DbError) };
+  revalidatePath("/sales/pnl");
+  redirect("/sales/pnl?view=balance&capital=added#capital");
+}
+
+/** Owner: remove a capital entry recorded by mistake. */
+export async function deleteCapital(fd: FormData): Promise<void> {
+  const staff = await manager();
+  const id = String(fd.get("id") ?? "");
+  if ("error" in staff || !UUID_RE.test(id)) redirect("/sales/pnl?view=balance&capital=error#capital");
+  const { error } = await staff.supabase.rpc("delete_capital", { p_id: id });
+  revalidatePath("/sales/pnl");
+  redirect(`/sales/pnl?view=balance&capital=${error ? "error" : "removed"}#capital`);
+}
+
+/** Owner: the percentage tax rate used for the estimate. */
+export async function setTaxRate(_prev: RestockFormState, fd: FormData): Promise<RestockFormState> {
+  const staff = await manager();
+  if ("error" in staff) return { error: staff.error };
+  const raw = String(fd.get("rate") ?? "").trim().replace("%", "");
+  const pct = /^\d{1,2}(\.\d{1,2})?$/.test(raw) ? Number(raw) : NaN;
+  if (!(pct >= 0 && pct <= 30)) return { error: "Enter a rate from 0 to 30, e.g. 3.", field: "rate" };
+  const { error } = await staff.supabase.rpc("set_tax_rate", { p_bp: Math.round(pct * 100) });
+  if (error) return { error: friendlyError(error as DbError) };
+  revalidatePath("/sales/pnl");
+  redirect("/sales/pnl?view=pl&tax=saved#pl");
 }

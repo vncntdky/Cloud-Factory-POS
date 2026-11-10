@@ -4,6 +4,8 @@ export const EXPENSE_CATEGORIES = [
   { id: "rent", label: "Rent" },
   { id: "utilities", label: "Utilities" },
   { id: "supplies", label: "Supplies" },
+  { id: "fees", label: "Payment fees" },
+  { id: "tax", label: "Taxes paid" },
   { id: "other", label: "Other expenses" },
 ] as const;
 
