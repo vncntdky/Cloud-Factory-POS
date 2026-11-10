@@ -119,6 +119,10 @@ export function SideNav({
       </ul>
       <div className="sidenav__footer">
         <Who user={user} />
+        <Link className="btn btn--ghost btn--sm sidenav__signout" href="/help" aria-current={isCurrent(pathname, "/help") ? "page" : undefined}>
+          <Icon name="help" />
+          <span className="sidenav__label">Help &amp; SOPs</span>
+        </Link>
         <ThemeToggle initial={theme} />
         <form action="/auth/signout" method="post">
           <button type="submit" className="btn btn--ghost btn--sm sidenav__signout">

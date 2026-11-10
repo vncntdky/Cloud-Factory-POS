@@ -2550,3 +2550,24 @@ a.segmented__option { text-decoration: none; }
 .batch-moves .stock-fix { padding-top: var(--space-2); }
 .batch-add { padding: var(--space-4); border-top: 1px solid var(--line); }
 .pick-chips { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+
+/* Help: handbook pictures, words, SOPs */
+.help-pic { display: grid; grid-template-columns: minmax(0, 300px) minmax(0, 1fr); gap: var(--space-5); padding: var(--space-4); align-items: start; }
+.help-pic img { width: 100%; height: auto; border-radius: var(--radius-md); border: 1px solid var(--line); background: var(--surface); }
+@media (max-width: 640px) { .help-pic { grid-template-columns: 1fr; } .help-pic img { max-width: 320px; justify-self: center; } }
+.help-steps { margin: 0; padding-left: 22px; display: flex; flex-direction: column; gap: 6px; }
+.help-steps ul { margin: 6px 0 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; }
+.help-words { margin: 0; display: flex; flex-direction: column; }
+.help-words > div { padding: 10px 0; border-top: 1px solid var(--line); }
+.help-words > div:first-child { border-top: none; padding-top: 0; }
+.help-words dt { font-weight: 600; }
+.help-words dd { margin: 2px 0 0; color: var(--ink-muted); }
+.help-sop { padding: var(--space-4); }
+.help-sop__part { font-size: 15px; font-weight: 600; margin: 0; }
+.help-check { display: flex; gap: 8px; align-items: flex-start; padding: 10px 12px; border-radius: var(--radius-md); background: var(--brand-soft); }
+.help-check > svg { flex-shrink: 0; margin-top: 1px; color: var(--brand); }
+.help-who .table td:first-child { min-width: 0; }
+.help-who__mark { text-align: center; width: 72px; color: var(--brand); }
+.help-who th:not(:first-child) { text-align: center; }
+.help .cat { scroll-margin-top: 72px; }
+.help .cat__name { text-transform: none; letter-spacing: 0; white-space: normal; overflow: visible; text-overflow: clip; font-size: 16px; }

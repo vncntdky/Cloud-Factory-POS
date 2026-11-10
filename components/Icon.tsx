@@ -24,6 +24,12 @@ const ICONS = {
   "chevron-left": <path d="M15 6l-6 6 6 6" />,
   "chevron-right": <path d="M9 6l6 6-6 6" />,
   "chevron-down": <path d="M6 9l6 6 6-6" />,
+  help: (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M9.6 9.4a2.5 2.5 0 1 1 3.4 2.3c-.6.3-1 .8-1 1.4v.6M12 16.8h.01" />
+    </>
+  ),
   "chevron-up": <path d="M6 15l6-6 6 6" />,
   "arrow-right": <path d="M5 12h14M13 6l6 6-6 6" />,
   more: (

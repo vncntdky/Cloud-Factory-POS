@@ -1,4 +1,5 @@
 // Settings & staff: your profile, theme, shop settings (owner edits) and staff accounts (owner).
+import Link from "next/link";
 import { cookies } from "next/headers";
 import { Icon } from "@/components/Icon";
 import { Main } from "@/components/Main";
@@ -99,6 +100,12 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
                   </div>
                 </li>
               )}
+              <li>
+                <Link className="inset-row" href="/help">
+                  <Icon name="help" size={20} />
+                  <span className="inset-row__label">Help &amp; SOPs</span>
+                </Link>
+              </li>
               <li>
                 <div className="inset-row settings__theme">
                   <span className="inset-row__label">Theme</span>
