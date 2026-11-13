@@ -636,6 +636,81 @@ select pg_temp.expect_error('staff can''t edit expenses', format($$select public
 select pg_temp.check('staff see no capital entries', (select count(*) = 0 from public.capital_contributions));
 select pg_temp.expect_error('staff can''t call the internal totals', $$select public.finance_totals(current_date)$$, 'permission denied');
 
+-- ───────── Finance: each batch's running statement, and the register ─────────
+set request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
+select public.save_product(null, '{"name": "Statement Pod", "price_cents": 10000}') as sp \gset
+select public.receive_batch(format('{"supplier": "S", "shipping_cents": 1000, "items": [{"product_id": "%s", "qty": 10, "unit_cost_cents": 4000}]}', :'sp')::jsonb) as sb \gset
+select public.complete_sale(format('{"client_ref": "abababab-0000-0000-0000-000000000001", "payment_method": "gcash", "discount_cents": 2000, "age_verified": true, "items": [{"product_id": "%s", "quantity": 4}]}', :'sp')::jsonb) is not null as sold_st1 \gset
+select public.complete_sale(format('{"client_ref": "abababab-0000-0000-0000-000000000002", "payment_method": "unpaid", "customer_name": "Bea", "age_verified": true, "items": [{"product_id": "%s", "quantity": 1}]}', :'sp')::jsonb) is not null as sold_st2 \gset
+select public.adjust_stock(:'sp', 'waste', 1, null, 'Cracked', :'sb');
+select pg_temp.check('batch statement: pieces received, sold, lost and left',
+  (select received = 10 and sold = 5 and adjusted = -1 and left_pcs = 4 and uncosted = 0 from public.batch_statements() where batch_id = :'sb'));
+select pg_temp.check('batch statement: gross sales − discounts = net sales, and what is still owed',
+  (select gross_cents = 50000 and discount_cents = 2000 and net_cents = 48000 and owed_cents = 10000 from public.batch_statements() where batch_id = :'sb'));
+select pg_temp.check('batch statement: cost of the pieces sold = goods + their share of the restocking fees',
+  (select cogs_goods_cents = 20000 and cogs_fees_cents = 500 and goods_cents = 40000 and fees_cents = 1000 from public.batch_statements() where batch_id = :'sb'));
+select pg_temp.check('batch statement: a lost piece is charged at landed cost; the rest is on the shelf at landed cost and today''s price',
+  (select count_diffs_cents = -4100 and stock_cents = 16400 and left_value_cents = 40000 and left_cost_cents = 16400 from public.batch_statements() where batch_id = :'sb'));
+select public.finance_report(public.manila_today() - 3650, public.manila_today()) as fin3 \gset
+select pg_temp.check('batch statements add up to Finance: cost of goods sold, count differences and stock',
+  (select abs(sum(cogs_goods_cents + cogs_fees_cents) - (:'fin3'::jsonb -> 'end' ->> 'cogs')::numeric) <= count(*)
+      and abs(sum(count_diffs_cents) - (:'fin3'::jsonb -> 'end' ->> 'count_diffs')::numeric) <= count(*)
+      and abs(sum(stock_cents) - (:'fin3'::jsonb -> 'end' ->> 'inventory')::numeric) <= count(*)
+     from public.batch_statements()));
+-- Sales of a product since removed, or of pieces sold beyond the stock count, belong to no batch.
+select pg_temp.check('batch statements never count more sales than Finance, and gross − discounts = net in every batch',
+  (select sum(net_cents) <= (:'fin3'::jsonb -> 'end' ->> 'net')::numeric and sum(net_cents) > 0
+      and bool_and(gross_cents - discount_cents = net_cents and discount_cents >= 0)
+     from public.batch_statements()));
+select pg_temp.check('batch statements: exactly one row per batch',
+  (select count(*) filter (where batch_id is not null) = (select count(*) from public.stock_batches)
+      and count(distinct batch_id) = (select count(*) from public.stock_batches) and count(*) filter (where batch_id is null) <= 1
+     from public.batch_statements()));
+select pg_temp.check('batch statements agree with batch sales on pieces, net sales and what is owed, batch by batch',
+  (select bool_and(s.received = b.received and s.sold = b.sold and abs(s.net_cents - b.sales) <= b.n and abs(s.owed_cents - b.owed) <= b.n)
+     from public.batch_statements() s
+     join (select batch_id, count(*) as n, sum(received) as received, sum(sold) as sold, sum(sales_cents) as sales, sum(owed_cents) as owed
+             from public.batch_sales() group by batch_id) b on b.batch_id is not distinct from s.batch_id));
+-- Stock that came in before batches were recorded has no batch: it gets its own row.
+reset role;
+insert into public.products (id, name, price_cents, on_hand) values ('99999999-0000-4000-8000-000000000001', 'Loose Pod', 5000, 2);
+insert into public.stock_movements (product_id, kind, delta, on_hand_after, unit_cost_cents) values ('99999999-0000-4000-8000-000000000001', 'opening', 2, 2, 2000);
+select pg_temp.check('nobody signed out can call the batch statements', not has_function_privilege('anon', 'public.batch_statements()', 'execute'));
+set role authenticated;
+select public.complete_sale('{"client_ref": "abababab-0000-0000-0000-000000000003", "payment_method": "gcash", "age_verified": true, "items": [{"product_id": "99999999-0000-4000-8000-000000000001", "quantity": 1}]}'::jsonb) is not null as sold_st3 \gset
+select pg_temp.check('batch statements: stock from before batches has one row of its own, with no fees',
+  (select count(*) = 1 and bool_and(received = 2 and sold = 1 and left_pcs = 1 and net_cents = 5000 and cogs_goods_cents = 2000 and cogs_fees_cents = 0
+            and fees_cents = 0 and stock_cents = 2000 and left_cost_cents = 2000 and left_value_cents = 5000)
+     from public.batch_statements() where batch_id is null));
+select public.finance_report(public.manila_today() - 3650, public.manila_today()) as fin3 \gset
+select pg_temp.check('register: cash received + capital − everything paid out = what the register should hold',
+  (select (r ->> 'expected')::numeric = (r ->> 'cash_received')::numeric + (r ->> 'capital_cash')::numeric - (r ->> 'stock')::numeric
+            - (r ->> 'fees')::numeric - (r ->> 'expenses')::numeric - (r ->> 'tax_paid')::numeric - (r ->> 'distributions')::numeric
+     from (select :'fin3'::jsonb -> 'now' -> 'register' as r) x));
+select pg_temp.check('register: money paid by GCash, Maya, card or bank is not in the register',
+  (select (r ->> 'expected')::numeric + (r ->> 'elsewhere')::numeric - (r ->> 'payment_fees')::numeric = (:'fin3'::jsonb -> 'now' ->> 'cash')::numeric
+      and (r ->> 'elsewhere')::numeric > 0 and (r -> 'elsewhere_by_method') ? 'gcash' and not (r -> 'elsewhere_by_method') ? 'cash'
+      and (r ->> 'elsewhere')::numeric = (select sum(value::numeric) from jsonb_each_text(r -> 'elsewhere_by_method'))
+     from (select :'fin3'::jsonb -> 'now' -> 'register' as r) x));
+select (:'fin3'::jsonb -> 'now' -> 'register' ->> 'expected')::numeric as reg0 \gset
+select public.complete_sale(format('{"client_ref": "abababab-0000-0000-0000-000000000004", "payment_method": "cash", "tendered_cents": 10000, "age_verified": true, "items": [{"product_id": "%s", "quantity": 1}]}', :'sp')::jsonb) is not null as sold_st4 \gset
+select pg_temp.check('register: a cash sale adds its total',
+  (public.finance_report(public.manila_today(), public.manila_today()) -> 'now' -> 'register' ->> 'expected')::numeric = :reg0 + 10000);
+select public.complete_sale(format('{"client_ref": "abababab-0000-0000-0000-000000000005", "payment_method": "maya", "age_verified": true, "items": [{"product_id": "%s", "quantity": 1}]}', :'sp')::jsonb) is not null as sold_st5 \gset
+select pg_temp.check('register: a sale paid by Maya leaves it unchanged and shows as money received elsewhere',
+  (select (r ->> 'expected')::numeric = :reg0 + 10000 and (r -> 'elsewhere_by_method' ->> 'maya')::numeric >= 10000
+     from (select public.finance_report(public.manila_today(), public.manila_today()) -> 'now' -> 'register' as r) x));
+select public.add_expense('{"category": "fees", "amount_cents": 300}') is not null as fee_st \gset
+select public.add_expense('{"category": "supplies", "amount_cents": 700}') is not null as sup_st \gset
+select pg_temp.check('register: payment fees come off the e-wallet or bank, other expenses out of the register',
+  (select (n -> 'register' ->> 'expected')::numeric = :reg0 + 10000 - 700 and (n -> 'register' ->> 'payment_fees')::numeric = 300
+      and (n -> 'register' ->> 'expected')::numeric + (n -> 'register' ->> 'elsewhere')::numeric - (n -> 'register' ->> 'payment_fees')::numeric = (n ->> 'cash')::numeric
+     from (select public.finance_report(public.manila_today(), public.manila_today()) -> 'now' as n) x));
+set request.jwt.claim.sub = '33333333-3333-3333-3333-333333333333';
+select pg_temp.check('manager sees the batch statements', (select count(*) > 0 from public.batch_statements()));
+set request.jwt.claim.sub = '22222222-2222-2222-2222-222222222222';
+select pg_temp.check('staff get no batch statements', (select count(*) = 0 from public.batch_statements()));
+
 reset role;
 select case when ok then 'ok   ' else 'FAIL ' end || name as result from results;
 select count(*) filter (where not ok) as failures, count(*) as checks from results;

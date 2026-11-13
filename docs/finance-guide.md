@@ -45,6 +45,43 @@ batches, expenses, owner capital and distributions. Pick **Since opening** or an
 | | | Owner distributions | subtracted |
 | **Total assets** | | **Owed + owners' share** | always equals total assets |
 
+### In the register — Today (Overview)
+
+| Line | Source |
+|---|---|
+| Cash sales and collections | Everything paid in cash since opening, at the till or collected later |
+| + Owner capital put in | Capital entries |
+| − Stock bought, restocking fees | Batches paid from company funds |
+| − Expenses, taxes paid, owner distributions | As in Cash flow, without payment fees (they come off the e-wallet or bank) |
+| **Should be in the register** | Count the drawer against this |
+| Received by GCash, Maya, card, bank | Everything that came in that way since opening; it never reached the drawer |
+
+The app doesn't record which pocket paid for stock, fees or expenses, so it takes all of them as paid in
+cash from the drawer. The count will differ, and the card says so, when something was paid by GCash or bank
+(add it back), when a supplier was paid for stock that hasn't arrived (take it off: the app counts a batch
+when it is received), when cash was taken out to keep or deposit (add it back), and when the drawer started
+with a float that isn't recorded as owner capital (add it). For one day only, use Sales → Daily sales.
+
+### Batches — Accrual, since opening
+
+The running net profit lists every batch, oldest first, with its net profit so far and the running total.
+Under it, each batch has its full statement:
+
+| Line | How it's worked out |
+|---|---|
+| Gross sales, discounts, **net sales** | The batch's pieces sold, first in first out |
+| Goods sold, restocking fees | What the pieces sold cost: unit cost + their share of the batch's fees |
+| **Gross profit** | Net sales − the two lines above |
+| Each expense charged to the batch | One line per expense (date, note) |
+| Stock count differences, percentage tax (est.) | Shown when there are any |
+| **Net profit so far** | What is left |
+| Pieces left at today's prices, what they cost, **net profit when sold out** | For batches still selling |
+| What the batch cost in full | Goods, shipping, tax, MOOE, other, expenses; how much its sales have covered |
+
+The running total closes with general expenses and ends at the shop's net profit, the same figure as
+Profit & loss since opening. Sales of a product since removed, or of pieces sold beyond the stock count,
+belong to no batch and show as their own row ("Not in any batch"). Sold-out batches start folded.
+
 ## The rules
 
 - **Landed cost.** A piece costs what was paid for it plus its share of its batch's shipping, tax, MOOE and

@@ -111,11 +111,6 @@ const NO_BATCH: Batch = {
   paid_from_funds: false,
 };
 
-/** Shipping + tax + MOOE + other. */
-export function restockCosts(b: Batch) {
-  return b.shipping_cents + b.tax_cents + b.mooe_cents + b.other_cents;
-}
-
 /** Pieces of a batch line still on the shelf: received − sold, after its counts and losses. */
 export function piecesLeft(r: BatchRow) {
   return Math.max(0, r.received - r.sold + (r.adjusted ?? 0));
@@ -133,8 +128,6 @@ export type BatchTotals = {
   profit: number | null;
   /** Still owed on the pieces sold. */
   owed: number;
-  /** What the pieces cost; null when some had no cost. */
-  goodsCost: number | null;
   firstIn: string;
   lastSoldAt: string | null;
 };
@@ -146,8 +139,6 @@ export function totals(rows: BatchRow[]): BatchTotals {
   const cost = rows.reduce((n, r) => n + Number(r.cost_cents), 0);
   const uncosted = rows.reduce((n, r) => n + r.uncosted, 0);
   const owed = rows.reduce((n, r) => n + Number(r.owed_cents), 0);
-  const goods = rows.reduce((n, r) => n + Number(r.received_cost_cents), 0);
-  const goodsUncosted = rows.reduce((n, r) => n + r.received_uncosted, 0);
   const firstIn = rows.map((r) => r.first_in).sort()[0] ?? "";
   const lastSoldAt =
     rows
@@ -163,13 +154,11 @@ export function totals(rows: BatchRow[]): BatchTotals {
     sales,
     profit: uncosted > 0 ? null : sales - cost,
     owed,
-    goodsCost: goodsUncosted > 0 ? null : goods,
     firstIn,
     lastSoldAt,
   };
 }
 
-/** Every batch (newest first) with its rows; stock received outside a batch is the last entry (id null). */
 export type Expense = {
   id: string;
   batch_id: string | null;
@@ -179,52 +168,9 @@ export type Expense = {
   note: string | null;
 };
 
-export type BatchPnl = {
-  sales: number;
-  /** What the pieces cost; null when some had no cost. */
-  goods: number | null;
-  restock: number;
-  expenses: number;
-  expensesBy: Map<string, number>;
-  /** Goods + restock costs + expenses; null when goods cost is unknown. */
-  totalCost: number | null;
-  /** Sales so far minus every cost of the batch (negative while it's still paying for itself). */
-  net: number | null;
-  /** Pieces not sold yet, at today's prices. */
-  remainingValue: number;
-  /** Net if the rest sells at today's prices. */
-  projected: number | null;
-};
-
-/**
- * A batch's P&L: everything it cost (goods, restock costs, expenses) charged in full against what
- * its pieces have sold for so far, plus what's left on the shelf at today's prices.
- */
-export function batchPnl(batch: Batch, rows: BatchRow[], expenses: Expense[], prices: Map<string, number>): BatchPnl {
-  const t = totals(rows);
-  const mine = batch.id === null ? [] : expenses.filter((e) => e.batch_id === batch.id);
-  const expensesBy = new Map<string, number>();
-  for (const e of mine) expensesBy.set(e.category, (expensesBy.get(e.category) ?? 0) + e.amount_cents);
-  const expenseTotal = mine.reduce((n, e) => n + e.amount_cents, 0);
-  const restock = restockCosts(batch);
-  const totalCost = t.goodsCost === null ? null : t.goodsCost + restock + expenseTotal;
-  const remainingValue = rows.reduce((n, r) => n + piecesLeft(r) * (prices.get(r.product_id) ?? 0), 0);
-  const net = totalCost === null ? null : t.sales - totalCost;
-  return {
-    sales: t.sales,
-    goods: t.goodsCost,
-    restock,
-    expenses: expenseTotal,
-    expensesBy,
-    totalCost,
-    net,
-    remainingValue,
-    projected: net === null ? null : net + remainingValue,
-  };
-}
-
+/** Every batch (newest first) with its rows; stock received outside a batch is the last entry (id null). */
 export async function loadBatches(supabase: ServerSupabase) {
-  const [batches, rows, expenses, prices] = await Promise.all([
+  const [batches, rows, expenses] = await Promise.all([
     supabase
       .from("stock_batches")
       .select(
@@ -236,7 +182,6 @@ export async function loadBatches(supabase: ServerSupabase) {
       .from("expenses")
       .select("id, batch_id, spent_on, category, amount_cents, note")
       .order("spent_on", { ascending: false }),
-    supabase.from("products").select("id, price_cents"),
   ]);
   const all = (rows.data ?? []) as BatchRow[];
   const list = ((batches.data ?? []) as Batch[]).map((b) => ({ batch: b, rows: all.filter((r) => r.batch_id === b.id) }));
@@ -247,11 +192,149 @@ export async function loadBatches(supabase: ServerSupabase) {
   return {
     list,
     expenses: (expenses.data ?? []) as Expense[],
-    prices: new Map(((prices.data ?? []) as { id: string; price_cents: number }[]).map((p) => [p.id, p.price_cents])),
     error: batches.error ?? rows.error ?? null,
   };
 }
 
 export function batchTitle(b: Batch) {
   return b.batch_no === null ? "Stock before batches" : `Batch ${b.batch_no}`;
+}
+
+/** One batch's figures from batch_statements (centavos); batch_id null = stock from before batches. */
+export type BatchStatementRow = {
+  batch_id: string | null;
+  received: number;
+  sold: number;
+  adjusted: number;
+  left_pcs: number;
+  uncosted: number;
+  gross_cents: number;
+  discount_cents: number;
+  net_cents: number;
+  cogs_goods_cents: number;
+  cogs_fees_cents: number;
+  count_diffs_cents: number;
+  owed_cents: number;
+  goods_cents: number;
+  fees_cents: number;
+  /** Everything of the batch still in stock at landed cost: ties out to Finance's inventory. */
+  stock_cents: number;
+  /** The pieces left, at today's prices and at landed cost (the same pieces in both). */
+  left_value_cents: number;
+  left_cost_cents: number;
+};
+
+/**
+ * A batch's running profit and loss, counted as Finance counts it (when sold, at landed cost), so
+ * the batches add up to Profit & loss.
+ */
+export type BatchStatement = {
+  received: number;
+  sold: number;
+  left: number;
+  /** Pieces sold that had no cost: the cost of goods is too low by those. */
+  uncosted: number;
+  gross: number;
+  discounts: number;
+  net: number;
+  cogsGoods: number;
+  cogsFees: number;
+  grossProfit: number;
+  /** The batch's own expenses, one by one (taxes paid are listed apart: they aren't an expense). */
+  expenses: Expense[];
+  expenseTotal: number;
+  taxesPaid: Expense[];
+  /** Counts and losses at landed cost (negative = pieces missing). */
+  countDiffs: number;
+  /** Percentage tax estimate on this batch's net sales. */
+  tax: number;
+  /** Net sales − cost of the pieces sold − expenses ± count differences − tax estimate. */
+  netProfit: number;
+  owed: number;
+  /** Pieces left at today's prices, and what they cost (landed). */
+  leftValue: number;
+  leftCost: number;
+  /** Net profit if the rest sells at today's prices. */
+  whenSoldOut: number;
+  /** What every piece received cost, and the batch's restocking fees. */
+  goods: number;
+  fees: number;
+  /** Everything the batch cost in full: goods + restocking fees + expenses. */
+  costInFull: number;
+};
+
+const NO_STATEMENT: BatchStatementRow = {
+  batch_id: null,
+  received: 0,
+  sold: 0,
+  adjusted: 0,
+  left_pcs: 0,
+  uncosted: 0,
+  gross_cents: 0,
+  discount_cents: 0,
+  net_cents: 0,
+  cogs_goods_cents: 0,
+  cogs_fees_cents: 0,
+  count_diffs_cents: 0,
+  owed_cents: 0,
+  goods_cents: 0,
+  fees_cents: 0,
+  stock_cents: 0,
+  left_value_cents: 0,
+  left_cost_cents: 0,
+};
+
+export function batchStatement(
+  row: BatchStatementRow | undefined,
+  batch: Batch,
+  expenses: Expense[],
+  taxRateBp: number,
+): BatchStatement {
+  const r = row ?? NO_STATEMENT;
+  const mine = batch.id === null ? [] : expenses.filter((e) => e.batch_id === batch.id);
+  const operating = mine.filter((e) => e.category !== "tax");
+  const expenseTotal = operating.reduce((n, e) => n + e.amount_cents, 0);
+  const net = Number(r.net_cents);
+  const cogsGoods = Number(r.cogs_goods_cents);
+  const cogsFees = Number(r.cogs_fees_cents);
+  const countDiffs = Number(r.count_diffs_cents);
+  const grossProfit = net - cogsGoods - cogsFees;
+  const tax = Math.round((net * taxRateBp) / 10000);
+  const netProfit = grossProfit - expenseTotal + countDiffs - tax;
+  const leftValue = Number(r.left_value_cents);
+  const leftCost = Number(r.left_cost_cents);
+  return {
+    received: r.received,
+    sold: r.sold,
+    left: r.left_pcs,
+    uncosted: r.uncosted,
+    gross: Number(r.gross_cents),
+    discounts: Number(r.discount_cents),
+    net,
+    cogsGoods,
+    cogsFees,
+    grossProfit,
+    expenses: operating,
+    expenseTotal,
+    taxesPaid: mine.filter((e) => e.category === "tax"),
+    countDiffs,
+    tax,
+    netProfit,
+    owed: Number(r.owed_cents),
+    leftValue,
+    leftCost,
+    // Nothing left: selling out adds nothing more.
+    whenSoldOut: r.left_pcs > 0 ? netProfit + leftValue - leftCost - Math.round((leftValue * taxRateBp) / 10000) : netProfit,
+    goods: Number(r.goods_cents),
+    fees: Number(r.fees_cents),
+    costInFull: Number(r.goods_cents) + Number(r.fees_cents) + expenseTotal,
+  };
+}
+
+/** Every batch's statement row, keyed by batch id ("" = stock from before batches). */
+export async function loadBatchStatements(supabase: ServerSupabase) {
+  const { data, error } = await supabase.rpc("batch_statements");
+  const map = new Map<string, BatchStatementRow>();
+  for (const r of (data ?? []) as BatchStatementRow[]) map.set(r.batch_id ?? "", r);
+  return { statements: map, error };
 }

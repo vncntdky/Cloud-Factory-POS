@@ -27,8 +27,14 @@ const txt = (s) => s.replace(/\s+/g, " ");
   await page.locator(".fin-wf").first().waitFor();
   const kpis = (await page.locator(".kpi").allInnerTexts()).map(txt);
   check("overview: safe to distribute = lower of profit kept and spare cash", /SAFE TO DISTRIBUTE ₱1,898/i.test(kpis[0]), kpis[0]);
+  check("overview: what the register should hold today", /SHOULD BE IN THE REGISTER ₱1,586/i.test(kpis[1]), kpis[1]);
   check("overview: net sales, gross margin, net profit, closing cash",
-    /₱9,600/.test(kpis[1]) && /50\.0%/.test(kpis[2]) && /₱3,572/.test(kpis[3]) && /37\.2%/.test(kpis[3]) && /₱2,186/.test(kpis[4]), kpis.slice(1).join(" | "));
+    /₱9,600/.test(kpis[2]) && /50\.0%/.test(kpis[3]) && /₱3,572/.test(kpis[4]) && /37\.2%/.test(kpis[4]) && /₱2,186/.test(kpis[5]), kpis.slice(2).join(" | "));
+  const reg = txt(await page.locator("#register").innerText());
+  check("register card: cash in, less everything paid out; e-wallet money is not in it",
+    /Cash sales and collections.*₱7,720/.test(reg) && /Stock bought.*\(₱4,950\)/.test(reg) && /Restocking fees.*\(₱244\)/.test(reg) && /Expenses \(₱940\)/.test(reg)
+      && /Should be in the register ₱1,586/.test(reg) && /Received by GCash since opening · it went there, not into the drawer ₱600/.test(reg) && /All money drawer, e-wallets and bank · same as Closing cash ₱2,186/.test(reg)
+      && /your count will differ when/.test(reg) && /paid a supplier for stock that hasn't arrived/.test(reg), reg.slice(0, 520));
   check("overview: cash bridge has 9 bars", (await page.locator(".fin-wf rect").count()) === 9);
   check("overview: receivables by age name who owes", /RODS ₱960/.test(await page.locator("#ar-t").locator("xpath=../..").innerText()));
   check("overview: no sideways scroll", await noScroll());
@@ -112,8 +118,13 @@ const txt = (s) => s.replace(/\s+/g, " ");
   // Batches
   await page.locator(".fin-views").getByRole("link", { name: "Batches" }).click();
   await page.waitForURL(/view=batches/, { waitUntil: "commit" });
-  await page.locator(".table--dash").waitFor();
-  check("batches view keeps the per-batch P&L", (await page.locator(".table--dash tbody tr").count()) >= 1);
+  await page.locator(".table--stack").waitFor();
+  check("batches view: running net profit, and a full statement for every batch",
+    (await page.locator(".table--stack tbody tr").count()) >= 1 && (await page.locator(".fin-batch").count()) === (await page.locator(".table--stack tbody tr").count()));
+  const stmt = txt(await page.locator(".fin-batch").first().innerText());
+  check(ROLE === "owner" ? "batches view: no tax line once the rate is 0%" : "batches view: tax estimate line at 3%",
+    ROLE === "owner" ? !/Percentage tax/.test(stmt) && /Net profit so far ₱4,535/.test(stmt) : /Percentage tax \(3%, est\.\) \(₱408\)/.test(stmt), stmt.slice(0, 500));
+  check("batches view: no sideways scroll", await noScroll());
   check("no page errors", errors.length === 0, errors.join("; "));
   check("no unhandled calls", !(await log()).some((l) => l.unhandled), JSON.stringify((await log()).filter((l) => l.unhandled)));
 

@@ -34,6 +34,26 @@ export type FinTotals = {
   retained: number;
 };
 
+/**
+ * What the register should hold today: cash received and capital put in, less everything paid out
+ * (taken as paid in cash, except payment fees, which come off the e-wallet or bank). Money that came
+ * in by GCash, Maya, card or bank is elsewhere.
+ */
+export type RegisterNow = {
+  cash_received: number;
+  capital_cash: number;
+  stock: number;
+  fees: number;
+  /** Operating expenses without payment fees. */
+  expenses: number;
+  payment_fees?: number;
+  tax_paid: number;
+  distributions: number;
+  elsewhere: number;
+  elsewhere_by_method: Record<string, number>;
+  expected: number;
+};
+
 export type FinanceNow = {
   cash: number;
   retained: number;
@@ -41,6 +61,7 @@ export type FinanceNow = {
   inventory_reserve: number;
   spare_cash: number;
   safe_to_distribute: number;
+  register?: RegisterNow;
 };
 
 export type FinanceReport = {

@@ -1,12 +1,13 @@
-// A batch's P&L: what its pieces have sold for so far against everything the batch cost (goods,
-// restock costs and its expenses, charged in full), the owner / manager split, and the batch's
-// expenses with Add / Remove. Owners and managers; only the owner changes the split.
-import { Fragment } from "react";
+// A batch's running profit and loss, line by line (the same statement as Sales → Finance → Batches):
+// sales, discounts, what the pieces sold cost, each expense, net profit so far, and what the rest
+// would add. Below it: the batch's restock costs, the owner / manager split, and the batch's
+// expenses with Add / Edit / Remove. Owners and managers; only the owner changes the split.
 import { deleteBatchExpense, setPaidFromFunds } from "@/app/(staff)/restock/actions";
-import type { Batch, BatchPnl, Expense } from "@/app/(staff)/restock/data";
+import type { Batch, BatchStatement, Expense } from "@/app/(staff)/restock/data";
 import { Icon } from "@/components/Icon";
 import { Kpi, KpiGrid } from "@/components/Kpi";
 import { Money } from "@/components/Money";
+import { BatchStatementLines } from "@/components/finance/BatchStatementLines";
 import { BatchCostsForm } from "@/components/restock/BatchCostsForm";
 import { ExpenseForm, SplitForm } from "@/components/restock/PnlForms";
 import { EditExpense } from "@/components/finance/EditForms";
@@ -15,25 +16,22 @@ import { addDays, formatManilaDate } from "@/lib/time";
 
 export function BatchPnlCard({
   batch,
-  pnl,
+  st,
+  failed,
+  taxRateBp,
   expenses,
-  received,
-  sold,
-  left,
-  owed,
   split,
   isOwner,
   today,
   flash,
 }: {
   batch: Batch & { id: string };
-  pnl: BatchPnl;
+  st: BatchStatement;
+  /** The statement couldn't be loaded: show the forms, not zeros. */
+  failed?: boolean;
+  taxRateBp: number;
+  /** Every expense charged to this batch (taxes paid included), for the list below. */
   expenses: Expense[];
-  received: number;
-  sold: number;
-  /** Still on the shelf, after counts and losses. */
-  left: number;
-  owed: number;
   split: { owner: number; manager: number };
   isOwner: boolean;
   today: string;
@@ -41,8 +39,8 @@ export function BatchPnlCard({
 }) {
   const returnTo = `/restock/batches/${batch.id}`;
   const total = split.owner + split.manager;
-  const now = pnl.net === null ? null : splitProfit(pnl.net, split.owner, split.manager);
-  const later = pnl.projected === null ? null : splitProfit(pnl.projected, split.owner, split.manager);
+  const now = splitProfit(st.netProfit, split.owner, split.manager);
+  const later = splitProfit(st.whenSoldOut, split.owner, split.manager);
   return (
     <section className="card stack" id="pnl" aria-labelledby="pnl-t">
       <div className="card__head">
@@ -50,7 +48,7 @@ export function BatchPnlCard({
           Profit and loss
         </h2>
         <span className="t-caption muted">
-          {sold} of {received} pcs sold
+          {st.sold} of {st.received} pcs sold
         </span>
       </div>
       {flash?.expense === "added" && <p className="t-sm notice-inline">Expense saved.</p>}
@@ -65,81 +63,21 @@ export function BatchPnlCard({
         </p>
       )}
 
-      <dl className="cost-list pnl">
-        <dt>Sales so far</dt>
-        <dd>
-          <Money cents={pnl.sales} />
-        </dd>
-        <dt>Goods ({received} pcs)</dt>
-        <dd>
-          {pnl.goods === null ? (
-            "Some pieces have no cost"
-          ) : (
-            <>
-              − <Money cents={pnl.goods} />
-            </>
+      {failed ? (
+        <p className="field__error" role="alert">
+          <Icon name="alert" />
+          Couldn&apos;t load the profit and loss. Reload to try again.
+        </p>
+      ) : (
+        <>
+          <BatchStatementLines batch={batch} st={st} taxRateBp={taxRateBp} />
+          {st.received > 0 && (
+            <p className="t-sm muted">
+              Cost per piece, all in: <Money cents={Math.round(st.costInFull / st.received)} />.
+            </p>
           )}
-        </dd>
-        <dt>Shipping</dt>
-        <dd>
-          − <Money cents={batch.shipping_cents} />
-        </dd>
-        <dt>Tax</dt>
-        <dd>
-          − <Money cents={batch.tax_cents} />
-        </dd>
-        <dt>MOOE</dt>
-        <dd>
-          − <Money cents={batch.mooe_cents} />
-        </dd>
-        {batch.other_cents > 0 && (
-          <>
-            <dt>{batch.other_label || "Other restock cost"}</dt>
-            <dd>
-              − <Money cents={batch.other_cents} />
-            </dd>
-          </>
-        )}
-        {EXPENSE_CATEGORIES.map((ec) => {
-          const sum = pnl.expensesBy.get(ec.id) ?? 0;
-          if (sum === 0 && ec.id !== "salary") return null;
-          return (
-            <Fragment key={ec.id}>
-              <dt>{ec.label}</dt>
-              <dd>
-                − <Money cents={sum} />
-              </dd>
-            </Fragment>
-          );
-        })}
-        <dt className="cost-list__total">Net so far</dt>
-        <dd className={`cost-list__total${pnl.net !== null && pnl.net < 0 ? " text-alert" : ""}`}>
-          {pnl.net === null ? "–" : <Money cents={pnl.net} />}
-        </dd>
-        {left > 0 && (
-          <>
-            <dt>{left} pcs left, at today&apos;s prices</dt>
-            <dd>
-              + <Money cents={pnl.remainingValue} />
-            </dd>
-            <dt className="cost-list__total">When sold out</dt>
-            <dd className={`cost-list__total${pnl.projected !== null && pnl.projected < 0 ? " text-alert" : ""}`}>
-              {pnl.projected === null ? "–" : <Money cents={pnl.projected} />}
-            </dd>
-          </>
-        )}
-        <dt>Cost per piece, all in</dt>
-        <dd>{pnl.totalCost === null || received === 0 ? "–" : <Money cents={Math.round(pnl.totalCost / received)} />}</dd>
-      </dl>
-      <p className="t-sm muted">
-        Every cost of the batch is counted in full, so &ldquo;Net so far&rdquo; is negative until sales cover them.
-        {owed > 0 && (
-          <>
-            {" "}
-            <Money cents={owed} /> of its sales isn&apos;t paid yet.
-          </>
-        )}
-      </p>
+        </>
+      )}
       <BatchCostsForm id={batch.id} batch={batch} />
       <form action={setPaidFromFunds} className="row row--between row--wrap pnl-funds">
         <input type="hidden" name="id" value={batch.id} />
@@ -154,43 +92,48 @@ export function BatchPnlCard({
         </button>
       </form>
 
-      <div className="pnl-split">
-        <div className="row row--between row--wrap">
-          <h3 className="eyebrow">
-            Split · owner {shareLabel(split.owner, total)}, manager {shareLabel(split.manager, total)}
-          </h3>
-          {isOwner && <SplitForm returnTo={returnTo} owner={split.owner} manager={split.manager} />}
+      {!failed && (
+        <div className="pnl-split">
+          <div className="row row--between row--wrap">
+            <h3 className="eyebrow">
+              Split · owner {shareLabel(split.owner, total)}, manager {shareLabel(split.manager, total)}
+            </h3>
+            {isOwner && <SplitForm returnTo={returnTo} owner={split.owner} manager={split.manager} />}
+          </div>
+          <KpiGrid aria-label="Profit split">
+            <Kpi
+              label="Owner"
+              value={<Money cents={now.owner} />}
+              meta={
+                st.left > 0 ? (
+                  <>
+                    when sold out: <Money cents={later.owner} />
+                  </>
+                ) : (
+                  "of net profit so far"
+                )
+              }
+            />
+            <Kpi
+              label="Manager"
+              value={<Money cents={now.manager} />}
+              meta={
+                st.left > 0 ? (
+                  <>
+                    when sold out: <Money cents={later.manager} />
+                  </>
+                ) : (
+                  "of net profit so far"
+                )
+              }
+            />
+          </KpiGrid>
+          <p className="t-sm muted">
+            This batch&apos;s share before general expenses{st.netProfit < 0 ? "; negative while the batch is at a loss" : ""}. What can be
+            paid out is on Finance → Overview → Safe to distribute.
+          </p>
         </div>
-        <KpiGrid aria-label="Profit split">
-          <Kpi
-            label="Owner"
-            value={now === null ? "–" : <Money cents={now.owner} />}
-            meta={
-              later && left > 0 ? (
-                <>
-                  when sold out: <Money cents={later.owner} />
-                </>
-              ) : (
-                "of net so far"
-              )
-            }
-          />
-          <Kpi
-            label="Manager"
-            value={now === null ? "–" : <Money cents={now.manager} />}
-            meta={
-              later && left > 0 ? (
-                <>
-                  when sold out: <Money cents={later.manager} />
-                </>
-              ) : (
-                "of net so far"
-              )
-            }
-          />
-        </KpiGrid>
-        {pnl.net !== null && pnl.net < 0 && <p className="t-sm muted">Shares are negative until the batch pays for itself.</p>}
-      </div>
+      )}
 
       <div className="stack stack-2">
         <h3 className="eyebrow">Expenses for this batch</h3>

@@ -73,7 +73,7 @@ async function scrollTo(page, loc, offset = 90) {
   await page.goto(`${B}/sales/pnl`);
   await page.locator(".fin-wf").first().waitFor();
   await scrollTo(page, page.locator(".kpi").first(), 150);
-  await annotate(page, [0, 1, 2, 3, 4].map((i) => ({ loc: page.locator(".kpi").nth(i), side: "corner" })));
+  await annotate(page, [0, 1, 2, 3, 4, 5].map((i) => ({ loc: page.locator(".kpi").nth(i), side: "corner" })));
   await shot("finance");
   const dist = page.locator("#distributions");
   await scrollTo(page, dist, 70);

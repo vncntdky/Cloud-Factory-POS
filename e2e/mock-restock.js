@@ -44,11 +44,25 @@ const setAsides = [];
 const capital = [];
 let taxBp = 300;
 function finTotals(upto) {
-  // Live-like shop: Batch 1 paid by the owners (4,800), Batch 2 from the fund (4,950 + 244 fees).
+  // FIN=batches: Profit & loss worked out from the same rows as the batch statements, as the
+  // database does, so the batches tie out to it. Default: a live-like shop with its own totals
+  // (Batch 1 paid by the owners 4,800, Batch 2 from the fund 4,950 + 244 fees).
+  if (upto !== "before" && process.env.FIN === "batches") {
+    const st = batchStatements();
+    const sum = (f) => st.reduce((n, r) => n + f(r), 0);
+    const opexRows = expenses.filter((e) => e.category !== "tax");
+    const byCat = {};
+    for (const e of opexRows) byCat[e.category] = (byCat[e.category] || 0) + e.amount_cents;
+    const net = sum((r) => r.net_cents), owed = sum((r) => r.owed_cents);
+    return { gross: sum((r) => r.gross_cents), discounts: sum((r) => r.discount_cents), net, sales: 63, collected: net - owed, collected_by_method: { cash: net - owed }, cogs: sum((r) => r.cogs_goods_cents + r.cogs_fees_cents), cogs_uncosted: 0, count_diffs: sum((r) => r.count_diffs_cents), opex: opexRows.reduce((s, e) => s + e.amount_cents, 0), opex_by_category: byCat, tax_paid: 0, tax_rate_bp: taxBp, fund_goods: sum((r) => r.goods_cents), owner_goods: 0, fund_fees: sum((r) => r.fees_cents), owner_fees: 0, capital_cash: 0, distributions: 0 };
+  }
   if (upto === "before") return { gross: 0, discounts: 0, net: 0, sales: 0, collected: 0, collected_by_method: {}, cogs: 0, cogs_uncosted: 0, count_diffs: 0, opex: 0, opex_by_category: {}, tax_paid: 0, tax_rate_bp: taxBp, fund_goods: 0, owner_goods: 0, fund_fees: 0, owner_fees: 0, capital_cash: 0, distributions: 0 };
   const capCash = capital.reduce((s, c) => s + c.amount_cents, 0);
   const dist = releases.reduce((s, r) => s + r.amount_cents, 0);
-  return { gross: 960000, discounts: 0, net: 960000, sales: 24, collected: 832000, collected_by_method: { cash: 832000 }, cogs: 480000, cogs_uncosted: 0, count_diffs: 0, opex: 94000, opex_by_category: { supplies: 30000, other: 64000 }, tax_paid: 0, tax_rate_bp: taxBp, fund_goods: 495000, owner_goods: 480000, fund_fees: 24400, owner_fees: 0, capital_cash: capCash, distributions: dist };
+  const added = expenses.filter((e) => e.category !== "tax");
+  const byCat = { supplies: 30000, other: 64000 };
+  for (const e of added) byCat[e.category] = (byCat[e.category] || 0) + e.amount_cents;
+  return { gross: 960000, discounts: 0, net: 960000, sales: 24, collected: 832000, collected_by_method: { cash: 772000, gcash: 60000 }, cogs: 480000, cogs_uncosted: 0, count_diffs: 0, opex: 94000 + added.reduce((s, e) => s + e.amount_cents, 0), opex_by_category: byCat, tax_paid: 0, tax_rate_bp: taxBp, fund_goods: 495000, owner_goods: 480000, fund_fees: 24400, owner_fees: 0, capital_cash: capCash, distributions: dist };
 }
 function finDerive(t) {
   const tax = Math.round((t.net * t.tax_rate_bp) / 10000);
@@ -72,6 +86,27 @@ if (process.env.NOBATCH === "1") {
 }
 const expenses = [];
 const split = { split_owner_parts: 2, split_manager_parts: 1 };
+// batch_statements: each batch's running figures, worked out from the rows above the way the
+// database does (landed cost = unit cost + fees / pieces received). Batch 1 has one discounted sale.
+function batchStatements() {
+  const ids = [...batches.map((b) => b.id), ...(batchRows.some((r) => r.batch_id === null) ? [null] : [])];
+  return ids.map((id) => {
+    const rs = batchRows.filter((r) => r.batch_id === id);
+    const b = batches.find((x) => x.id === id);
+    const fees = b ? b.shipping_cents + b.tax_cents + b.mooe_cents + b.other_cents : 0;
+    const sum = (f) => rs.reduce((n, r) => n + f(r), 0);
+    const received = sum((r) => r.received), sold = sum((r) => r.sold), adjusted = sum((r) => r.adjusted || 0);
+    const net = sum((r) => r.sales_cents), discount = id === B1 ? 40000 : 0;
+    const pp = received ? fees / received : 0;
+    const cogsGoods = sum((r) => r.cost_cents), cogsFees = Math.round(pp * sold);
+    const goods = sum((r) => r.received_cost_cents);
+    const diffs = Math.round(sum((r) => (r.adjusted || 0) * (21000 + pp)));
+    const left = sum((r) => Math.max(0, r.received - r.sold + (r.adjusted || 0)));
+    return { batch_id: id, received, sold, adjusted, left_pcs: left, uncosted: 0, gross_cents: net + discount, discount_cents: discount, net_cents: net,
+      cogs_goods_cents: cogsGoods, cogs_fees_cents: cogsFees, count_diffs_cents: diffs, owed_cents: sum((r) => r.owed_cents),
+      goods_cents: goods, fees_cents: fees, stock_cents: goods + (received ? fees : 0) - cogsGoods - cogsFees + diffs, left_value_cents: left * 35000, left_cost_cents: Math.round(left * (21000 + pp)) };
+  });
+}
 
 function send(res, status, body) {
   if (body === undefined) {
@@ -104,6 +139,7 @@ http
         if (fn === "sales_pace")
           return send(res, 200, products.map((x, i) => ({ product_id: x.id, sold: stats[i][0], days: 11, last_sold_at: stats[i][0] ? ago(1) : null })));
         if (fn === "batch_sales") return send(res, 200, batchRows);
+        if (fn === "batch_statements") return send(res, 200, batchStatements());
         if (fn === "batch_owed")
           return send(res, 200, batches[0] && body.p_batch === batches[0].id && !process.env.NOBATCH ? [{ sale_id: "66666666-0000-4000-8000-000000000001", sale_number: 4, business_date: batches[0].received_on, customer_name: "Ana", pcs: 2, owed_cents: 68000 }] : []);
         if (fn === "reserve_product") {
@@ -205,7 +241,9 @@ http
           const taxRes = Math.max(0, end.tax_payable);
           const spare = end.cash - taxRes - kept;
           return send(res, 200, { from: body.p_from, to: body.p_to, start, end, first_day: "2026-10-27",
-            now: { cash: end.cash, retained: end.retained, tax_reserve: taxRes, inventory_reserve: kept, spare_cash: spare, safe_to_distribute: Math.max(0, Math.min(end.retained, spare)) },
+            now: { cash: end.cash, retained: end.retained, tax_reserve: taxRes, inventory_reserve: kept, spare_cash: spare, safe_to_distribute: Math.max(0, Math.min(end.retained, spare)),
+              register: { cash_received: end.collected_by_method.cash, capital_cash: end.capital_cash, stock: end.fund_goods, fees: end.fund_fees, expenses: end.opex - (end.opex_by_category.fees || 0), payment_fees: end.opex_by_category.fees || 0, tax_paid: end.tax_paid, distributions: end.distributions,
+                elsewhere: end.collected - end.collected_by_method.cash, elsewhere_by_method: end.collected - end.collected_by_method.cash ? { gcash: end.collected - end.collected_by_method.cash } : {}, expected: end.cash - (end.collected - end.collected_by_method.cash) + (end.opex_by_category.fees || 0) } },
             receivables: [{ sale_id: "66666666-0000-4000-8000-000000000001", customer_name: "RODS", cents: 96000, days: 7 }, { sale_id: "66666666-0000-4000-8000-000000000002", customer_name: "PAOLO", cents: 32000, days: 6 }] });
         }
         if (fn === "add_capital") {
@@ -243,7 +281,7 @@ http
         if (table === "profiles") return rows([{ id: USER_ID, full_name: "Test Owner", role, active: true }]);
         if (table === "categories")
           return rows([{ id: "c0000000-0000-4000-8000-00000000000a", name: "TRANSPARENT V2 PODS" }, { id: "c0000000-0000-4000-8000-00000000000b", name: "Black TEO" }]);
-        if (table === "settings") return rows([{ ...settings, ...split }]);
+        if (table === "settings") return rows([{ ...settings, ...split, tax_rate_bp: taxBp }]);
         if (table === "expenses") return rows(expenses);
         if (table === "fund_releases") return rows(releases);
         if (table === "capital_contributions") return rows(capital);

@@ -25,7 +25,7 @@ const B = "http://127.0.0.1:3100";
   await page.getByRole("button", { name: "Turn into a batch" }).click();
   await page.waitForURL(/\/restock\/batches\/[0-9a-f-]{36}\?made=1/, { waitUntil: "commit" });
   await page.getByText("Batch 1 made from your earlier stock.").waitFor();
-  check("stock becomes Batch 1 with its own P&L", (await page.locator(".pnl").count()) === 1 && (await page.locator("#make-batch-t").count()) === 0);
+  check("stock becomes Batch 1 with its own P&L", (await page.locator("#pnl").count()) === 1 && (await page.locator("#make-batch-t").count()) === 0);
   await page.goto(`${B}/restock?view=batches`);
   await page.getByRole("button", { name: "Add expense" }).click();
   const opts2 = await page.locator("#exp-batch option").allInnerTexts();

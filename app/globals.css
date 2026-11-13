@@ -2582,6 +2582,13 @@ a.segmented__option { text-decoration: none; }
 .fin-period__select { max-width: 360px; flex: 1 1 240px; }
 .fin-views { margin-top: calc(var(--space-2) * -1); }
 .fin-rate { max-width: 160px; }
+/* In-page links (register, a batch's statement) stop below the sticky top bar. */
+.fin section[id], .fin details[id] { scroll-margin-top: 72px; }
+.fin-notes { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; }
+/* Finance → Batches: one folding card per batch (the Inventory fold, with a normal-case title). */
+.fin .cat__name { text-transform: none; letter-spacing: 0; white-space: normal; overflow: visible; text-overflow: clip; }
+.fin-batch__net { font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.fin-batch__body { padding: var(--space-4); }
 .fin-wf-wrap { overflow-x: auto; }
 .fin-wf { display: block; width: 100%; min-width: 600px; height: auto; }
 .fin-wf__grid { stroke: var(--line); stroke-width: 1; }

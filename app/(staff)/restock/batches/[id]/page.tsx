@@ -20,7 +20,7 @@ import { isUuid } from "@/lib/ids";
 import { can } from "@/lib/permissions";
 import { paceLabel } from "@/lib/restock";
 import { addDays, formatManilaDate, manilaToday } from "@/lib/time";
-import { batchPnl, batchTitle, loadBatches, piecesLeft, totals, type BatchRow } from "../../data";
+import { batchStatement, batchTitle, loadBatches, loadBatchStatements, piecesLeft, totals, type BatchRow } from "../../data";
 
 export const dynamic = "force-dynamic";
 
@@ -85,18 +85,23 @@ export default async function BatchPage({
     .select("id, product_id, kind, delta, on_hand_after, unit_cost_cents")
     .in("kind", ["opening", "restock", "count", "waste"])
     .order("created_at");
-  const [{ list, expenses, prices, error }, products, owedRes, splitRes, movesRes, categoriesRes] = await Promise.all([
+  const [{ list, expenses, error: batchesError }, { statements, error: statementsError }, products, owedRes, splitRes, movesRes, categoriesRes] = await Promise.all([
     loadBatches(supabase),
+    loadBatchStatements(supabase),
     supabase.from("products").select("id, brand, name, variant, on_hand, category_id"),
     supabase.rpc("batch_owed", { p_batch: id === "before" ? null : id }),
-    supabase.from("settings").select("split_owner_parts, split_manager_parts").maybeSingle(),
+    supabase.from("settings").select("split_owner_parts, split_manager_parts, tax_rate_bp").maybeSingle(),
     id === "before" ? movesQuery.is("batch_id", null) : movesQuery.eq("batch_id", id),
     supabase.from("categories").select("id, name").order("sort_order").order("name"),
   ]);
+  // The page still works without the statement (details, costs, expenses, stock fixes).
+  const error = batchesError;
+  const statementFailed = !!statementsError;
   const moves = new Map<string, Move[]>();
   for (const m of (movesRes.data ?? []) as Move[]) moves.set(m.product_id, [...(moves.get(m.product_id) ?? []), m]);
-  const splitRow = splitRes.data as { split_owner_parts: number; split_manager_parts: number } | null;
+  const splitRow = splitRes.data as { split_owner_parts: number; split_manager_parts: number; tax_rate_bp: number } | null;
   const split = { owner: splitRow?.split_owner_parts ?? 2, manager: splitRow?.split_manager_parts ?? 1 };
+  const taxRateBp = Number(splitRow?.tax_rate_bp ?? 0);
   const owedSales = (owedRes.data ?? []) as {
     sale_id: string;
     sale_number: number;
@@ -151,7 +156,7 @@ export default async function BatchPage({
   const sortedRows = [...rows].sort((a, b) => b.sold / b.received - a.sold / a.received || (names.get(a.product_id) ?? "").localeCompare(names.get(b.product_id) ?? ""));
   const title = batchTitle(batch);
   const returnTo = `/restock/batches/${id}`;
-  const pnl = batchPnl(batch, rows, expenses, prices);
+  const st = batchStatement(statements.get(batch.id ?? ""), batch, expenses, taxRateBp);
   const buyers = new Set(owedSales.map((s) => (s.customer_name ?? "").trim().toLowerCase())).size;
 
   return (
@@ -231,7 +236,7 @@ export default async function BatchPage({
               value={<span className="num">{Math.round(share * 100)}%</span>}
               meta={`${t.sold} of ${t.received} pcs · ${left} left`}
             />
-            <Kpi label="Sales" value={<Money cents={t.sales} />} meta="after discounts" />
+            <Kpi label="Net sales" value={<Money cents={t.sales} />} meta="after discounts" />
             <Kpi
               label="Still owed"
               variant={t.owed > 0 ? "alert" : undefined}
@@ -240,15 +245,23 @@ export default async function BatchPage({
             />
             <Kpi
               label="Gross profit"
-              value={t.profit === null ? "–" : <Money cents={t.profit} />}
-              meta={t.profit === null ? "Some pieces have no cost" : t.sales > 0 ? `${Math.round((t.profit / t.sales) * 100)}% margin` : undefined}
+              value={statementFailed ? "–" : <Money cents={st.grossProfit} />}
+              meta={
+                statementFailed
+                  ? undefined
+                  : st.uncosted > 0
+                    ? "Some pieces have no cost"
+                    : st.net > 0
+                      ? `${((st.grossProfit / st.net) * 100).toFixed(1)}% margin · after restocking fees`
+                      : undefined
+              }
             />
-            {batch.id !== null && (
+            {batch.id !== null && !statementFailed && (
               <Kpi
-                label="Net so far"
-                variant={pnl.net !== null && pnl.net < 0 ? "alert" : undefined}
-                value={pnl.net === null ? "–" : <Money cents={pnl.net} />}
-                meta="after all batch costs · see P&L"
+                label="Net profit so far"
+                variant={st.netProfit < 0 ? "alert" : undefined}
+                value={<Money cents={st.netProfit} />}
+                meta="on the pieces sold · see P&L"
                 href="#pnl"
               />
             )}
@@ -308,12 +321,10 @@ export default async function BatchPage({
           {batch.id !== null && (
             <BatchPnlCard
               batch={{ ...batch, id: batch.id }}
-              pnl={pnl}
+              st={st}
+              failed={statementFailed}
+              taxRateBp={taxRateBp}
               expenses={expenses.filter((e) => e.batch_id === batch.id)}
-              received={t.received}
-              sold={t.sold}
-              left={t.left}
-              owed={t.owed}
               split={split}
               isOwner={can(profile, "editSettings")}
               today={manilaToday()}

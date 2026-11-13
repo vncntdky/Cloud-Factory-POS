@@ -33,6 +33,10 @@ the bottom. Commits on `main` hold the code for each step.
     landed cost; owner capital; tax estimate; safe-to-distribute limit; receivables by age; Payment fees and
     Taxes paid expense types. See `docs/finance-guide.md`.
 20. **Owner can edit everything**: expenses, capital, distributions, batch details, tax rate and split.
+21. **Running net profit per batch and the register** (13 Nov): Finance → Batches lists each batch's net
+    profit so far with a running total, then every batch's full statement (gross sales, discounts, cost of
+    the pieces sold, each expense, net profit so far, what's left, the batch's cost in full); the batch
+    page shows the same statement. Finance → Overview shows what the register should hold today.
 
 ## Decisions the owner made
 
@@ -67,6 +71,12 @@ the bottom. Commits on `main` hold the code for each step.
 - Not built yet (need a workflow decided): monthly close, nightly drawer count, cash split by drawer /
   e-wallet / bank, supplier bills (payables), accountant export, VAT (only above ₱3M yearly sales).
 - Editing or undoing a recorded customer payment (suggested next).
+- Money paid to a supplier before the stock arrives isn't recorded: until the batch is received, cash and
+  "Should be in the register" read high by that amount. A "paid, on the way" entry would fix it.
+- The register figure takes every payment as cash from the drawer. Recording how each payment was made
+  (cash, GCash, bank) and cash taken out to deposit would make it exact; a nightly drawer count would too.
+- A recorded loss isn't used up first in, first out: after the product is restocked, the lost pieces can
+  show as "left" in the next batch. Deleting a product also removes what was paid for it from Finance.
 - Distributions recorded before a split change keep their old shares unless edited.
 - SOP 9 assumes buyers who owe are chased after 7 days: the owner hasn't confirmed that limit.
 - The system map artifact's money section still uses the old Company funds labels; the Finance guide replaces it.

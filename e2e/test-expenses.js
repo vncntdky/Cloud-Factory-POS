@@ -49,15 +49,18 @@ const B = "http://127.0.0.1:3100";
   // 3. P&L view: general expenses come off the shop total; add from there
   await page.goto(`${B}/sales/pnl?view=batches`);
   let t = (await page.locator('section[aria-labelledby="pnl-exp-t"] .pnl').innerText()).replace(/\s+/g, " ");
-  const m = t.match(/Batches, net so far (−?₱[\d,.]+) General expenses \(not in a batch\) − ₱8,000 Shop net so far (−?₱[\d,.]+)/);
+  check("P&L view: each general expense is listed, then their total", /Rent [^(]*November rent ₱8,000 General expenses \(not in a batch\) \(₱8,000\)/.test(t), t);
+  const foot = (await page.locator(".table--stack tfoot").innerText()).replace(/\s+/g, " ");
+  const m = foot.match(/General expenses \(not in a batch\) −₱8,000 Not in any batch .* (−?₱[\d,.]+) Shop net profit so far (−?₱[\d,.]+)/);
   const num = (x) => Number(x.replace(/[₱,]/g, "").replace("−", "-"));
-  check("P&L view: shop net = batches net − general expenses", m && Math.abs(num(m[1]) - 8000 - num(m[2])) < 0.01, t);
-  check("totals show shop net", (await page.locator(".kpi", { hasText: /Shop net so far/i }).count()) === 1);
+  check("running total: general expenses come off, down to the shop's net profit", !!m, foot);
+  check("shop net profit is the Profit & loss figure", !!m && Math.abs(num(m[2]) - (3572 - 8000 - 300)) < 0.01, m ? m[2] : foot);
+  check("totals show the shop's net profit so far", (await page.locator('[aria-label="Whole shop"] .kpi', { hasText: /Shop net profit so far/i }).count()) === 1);
   await add("General", "utilities", "1500", "Electricity");
   await page.waitForURL(/\/sales\/pnl\?view=batches&expense=added/, { waitUntil: "commit" });
   await page.getByText("Expense saved.").waitFor();
   t = (await page.locator('section[aria-labelledby="pnl-exp-t"] .pnl').innerText()).replace(/\s+/g, " ");
-  check("expense added from the P&L view", /General expenses \(not in a batch\) − ₱9,500/.test(t), t);
+  check("expense added from the P&L view", /Utilities [^(]*Electricity ₱1,500/.test(t) && /General expenses \(not in a batch\) \(₱9,500\)/.test(t), t);
   await page.screenshot({ path: __dirname + "/shots/exp-pnl.png", fullPage: true });
 
   // 4. Remove from the Expenses page

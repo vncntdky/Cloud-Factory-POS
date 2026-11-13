@@ -4,7 +4,8 @@
 //   Profit & loss  accrual: counted when sold (cost = landed cost of the pieces sold)
 //   Cash flow      cash: counted when money moves
 //   Balance        what the business holds = what it owes + the owners' share; owner capital
-//   Batches        each batch's P&L side by side, expenses
+//   Batches        each batch's running profit and loss line by line, the running total, expenses
+// The Overview also shows what the register should hold today (cash in, less everything paid out).
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { EmptyState } from "@/components/EmptyState";
@@ -14,9 +15,11 @@ import { Main } from "@/components/Main";
 import { Money } from "@/components/Money";
 import { NotAllowed } from "@/components/NotAllowed";
 import { Topbar } from "@/components/Topbar";
+import { BatchStatementLines } from "@/components/finance/BatchStatementLines";
 import { CapitalForm } from "@/components/finance/CapitalForm";
 import { EditCapital, EditRelease } from "@/components/finance/EditForms";
 import { CashBridge } from "@/components/finance/CashBridge";
+import { Line } from "@/components/finance/Line";
 import { PeriodSelect } from "@/components/finance/PeriodSelect";
 import { TaxRateForm } from "@/components/finance/TaxRateForm";
 import { ExpenseForm, SplitForm } from "@/components/restock/PnlForms";
@@ -38,7 +41,7 @@ import { PAYMENT_METHOD_LABELS, type SaleMethod } from "@/lib/format";
 import { can } from "@/lib/permissions";
 import { EXPENSE_CATEGORIES, shareLabel, splitProfit } from "@/lib/pnl";
 import { addDays, formatManilaDate, manilaToday } from "@/lib/time";
-import { batchPnl, batchTitle, loadBatches, totals } from "../../restock/data";
+import { batchStatement, batchTitle, loadBatchStatements, loadBatches, totals } from "../../restock/data";
 
 export const dynamic = "force-dynamic";
 
@@ -81,46 +84,6 @@ const CATEGORY = Object.fromEntries(EXPENSE_CATEGORIES.map((c) => [c.id, c.label
 function Amount({ cents }: { cents: number | null }) {
   if (cents === null) return <>–</>;
   return <span className={cents < 0 ? "text-alert" : undefined}>{<Money cents={cents} />}</span>;
-}
-
-/** One statement line. Costs and money out show in brackets. */
-function Line({
-  label,
-  hint,
-  cents,
-  out,
-  total,
-  sub,
-  extra,
-}: {
-  label: ReactNode;
-  hint?: ReactNode;
-  cents: number;
-  out?: boolean;
-  total?: boolean;
-  sub?: boolean;
-  extra?: ReactNode;
-}) {
-  const cls = total ? "cost-list__total" : sub ? "fin-sub" : undefined;
-  const neg = out ? cents > 0 : cents < 0;
-  return (
-    <>
-      <dt className={cls}>
-        {label}
-        {hint && <span className="fin-hint">{hint}</span>}
-      </dt>
-      <dd className={cls}>
-        {neg ? (
-          <span className={total ? "text-alert" : undefined}>
-            (<Money cents={Math.abs(cents)} />)
-          </span>
-        ) : (
-          <Money cents={Math.abs(cents)} />
-        )}
-        {extra && <span className="fin-pct"> {extra}</span>}
-      </dd>
-    </>
-  );
 }
 
 function Basis({ children }: { children: ReactNode }) {
@@ -244,6 +207,9 @@ async function StatementsView({
   const cf = cashFlow(report);
   const bs = balance(report);
   const now = report.now;
+  const reg = now.register ?? null;
+  const elsewhere = reg ? Object.entries(reg.elsewhere_by_method ?? {}).filter(([, v]) => Number(v) !== 0) : [];
+  const paymentFees = Number(reg?.payment_fees ?? 0);
   const shares = splitProfit(Math.max(0, Number(now.safe_to_distribute)), split.owner, split.manager);
   const toLabel = formatDay(report.to);
   const bridge = [
@@ -286,6 +252,16 @@ async function StatementsView({
               }
               href="#distributions"
             />
+            {reg && (
+              <Kpi
+                wide
+                label="Should be in the register"
+                variant={Number(reg.expected) < 0 ? "alert" : undefined}
+                value={<Money cents={Number(reg.expected)} />}
+                meta="cash only, today · tap to see how"
+                href="#register"
+              />
+            )}
             <Kpi label="Net sales" value={<Money cents={pl.net} />} meta="after discounts" />
             <Kpi label="Gross margin" value={pct(pl.grossMargin)} meta="after landed cost of goods sold" />
             <Kpi
@@ -314,6 +290,65 @@ async function StatementsView({
               company funds).
             </p>
           </section>
+
+          {reg && (
+            <section className="card stack" id="register" aria-labelledby="reg-t">
+              <div className="card__head">
+                <h2 className="card__title" id="reg-t">
+                  Should be in the register
+                </h2>
+                <Basis>Today</Basis>
+              </div>
+              <dl className="cost-list">
+                <Line label="Cash sales and collections" hint="everything paid in cash since opening" cents={Number(reg.cash_received)} />
+                {Number(reg.capital_cash) !== 0 && <Line label="Owner capital put in" cents={Number(reg.capital_cash)} />}
+                <Line label="Stock bought" hint="batches paid from company funds" cents={Number(reg.stock)} out />
+                <Line label="Restocking fees" hint="shipping, tax, MOOE, other" cents={Number(reg.fees)} out />
+                <Line
+                  label="Expenses"
+                  hint={paymentFees !== 0 ? "without payment fees: those come off the e-wallet or bank" : undefined}
+                  cents={Number(reg.expenses)}
+                  out
+                />
+                {Number(reg.tax_paid) !== 0 && <Line label="Taxes paid" cents={Number(reg.tax_paid)} out />}
+                {Number(reg.distributions) !== 0 && <Line label="Owner distributions" cents={Number(reg.distributions)} out />}
+                <Line label="Should be in the register" cents={Number(reg.expected)} total />
+                {(elsewhere.length > 0 || paymentFees !== 0) && (
+                  <>
+                    {elsewhere.map(([m, v]) => (
+                      <Line
+                        key={m}
+                        label={`Received by ${PAYMENT_METHOD_LABELS[m as SaleMethod] ?? m}`}
+                        hint="since opening · it went there, not into the drawer"
+                        cents={Number(v)}
+                        sub
+                      />
+                    ))}
+                    {paymentFees !== 0 && <Line label="Payment fees" cents={paymentFees} out sub />}
+                    <Line label="All money" hint="drawer, e-wallets and bank · same as Closing cash" cents={Number(now.cash)} total />
+                  </>
+                )}
+              </dl>
+              {Number(reg.expected) < 0 && (
+                <p className="t-sm text-alert">
+                  More was paid out than cash came in, so some payments were not made from the drawer. Add those back.
+                </p>
+              )}
+              <p className="t-sm muted">
+                This is the shop&apos;s paper cash since opening, wherever it is kept. It takes every payment as cash from the
+                drawer, so your count will differ when:
+              </p>
+              <ul className="t-sm muted fin-notes">
+                <li>You paid for stock, a fee or an expense by GCash or bank: add that back.</li>
+                <li>You paid a supplier for stock that hasn&apos;t arrived: take that off. The app counts it when you receive the batch.</li>
+                <li>Cash was taken out of the drawer to keep or deposit: add it back.</li>
+                <li>The drawer started with a float not recorded as owner capital: add it.</li>
+              </ul>
+              <p className="t-sm muted">
+                For today only, see <Link href="/sales">Daily sales</Link>.
+              </p>
+            </section>
+          )}
 
           <div className="fin-grid">
             <section className="card stack" id="distributions" aria-labelledby="dist-t">
@@ -663,40 +698,64 @@ function ReleasedList({
 }
 
 async function BatchesView({ supabase, isOwner, sp }: { supabase: ServerSupabase; isOwner: boolean; sp: SP }) {
-  const [{ list, expenses, prices, error }, splitRes] = await Promise.all([
+  const today = manilaToday();
+  const [{ list, expenses, error }, { statements, error: statementsError }, settingsRes, reportRes, stockRes] = await Promise.all([
     loadBatches(supabase),
-    supabase.from("settings").select("split_owner_parts, split_manager_parts").maybeSingle(),
+    loadBatchStatements(supabase),
+    supabase.from("settings").select("split_owner_parts, split_manager_parts, tax_rate_bp").maybeSingle(),
+    supabase.rpc("finance_report", { p_from: "2020-01-01", p_to: today }),
+    supabase.rpc("stock_value"),
   ]);
-  const splitRow = splitRes.data as { split_owner_parts: number; split_manager_parts: number } | null;
-  const split = { owner: splitRow?.split_owner_parts ?? 2, manager: splitRow?.split_manager_parts ?? 1 };
+  const settings = settingsRes.data as { split_owner_parts: number; split_manager_parts: number; tax_rate_bp: number } | null;
+  const split = { owner: settings?.split_owner_parts ?? 2, manager: settings?.split_manager_parts ?? 1 };
   const parts = split.owner + split.manager;
-  const rows = list.map(({ batch, rows: lines }) => {
-    const t = totals(lines);
-    const pnl = batchPnl(batch, lines, expenses, prices);
-    return { batch, t, pnl, now: pnl.net === null ? null : splitProfit(pnl.net, split.owner, split.manager) };
-  });
-  const known = rows.filter((r) => r.pnl.net !== null);
-  const sum = (f: (r: (typeof rows)[number]) => number) => known.reduce((n, r) => n + f(r), 0);
-  const generalExpenses = expenses.filter((e) => !e.batch_id).reduce((n, e) => n + e.amount_cents, 0);
-  const batchesNet = sum((r) => r.pnl.net ?? 0);
-  const totalNet = batchesNet - generalExpenses;
-  const totalProjected = sum((r) => r.pnl.projected ?? 0) - generalExpenses;
-  const totalSplit = splitProfit(totalNet, split.owner, split.manager);
-  const projectedSplit = splitProfit(totalProjected, split.owner, split.manager);
-  const missing = rows.length - known.length;
-  const profile = { isOwner };
+  const taxRateBp = Number(settings?.tax_rate_bp ?? 0);
+  // Oldest first, so the running total reads down the page like a ledger.
+  let running = 0;
+  const ledger = list
+    .map(({ batch, rows: lines }) => {
+      const t = totals(lines);
+      // A batch's arrival date, or when the first piece came in for stock from before batches.
+      return { batch, since: batch.received_on ?? t.firstIn, st: batchStatement(statements.get(batch.id ?? ""), batch, expenses, taxRateBp) };
+    })
+    .sort((a, b) => a.since.slice(0, 10).localeCompare(b.since.slice(0, 10)) || (a.batch.batch_no ?? -1) - (b.batch.batch_no ?? -1))
+    .map((r) => {
+      running += r.st.netProfit;
+      return { ...r, running };
+    });
+  const batchesNet = running;
+  // Taxes paid aren't an expense: they lower the tax still owed, not the profit.
+  const general = expenses.filter((e) => !e.batch_id && e.category !== "tax");
+  const generalTotal = general.reduce((n, e) => n + e.amount_cents, 0);
+  // Profit & loss is the reference. What it counts that no batch does (sales of a product since
+  // removed or of pieces sold beyond the stock count, rounding) gets its own row, so the running
+  // total always ends at the net profit in Profit & loss.
+  const report = reportRes.error ? null : (reportRes.data as FinanceReport | null);
+  const shopNet = report ? Number(report.end.net_profit) : batchesNet - generalTotal;
+  const other = shopNet - (batchesNet - generalTotal);
+  // When everything sells: the whole shelf at today's prices, less what it cost (and the tax on it).
+  const stock = stockRes.error ? null : (stockRes.data as { retail_cents: number } | null);
+  const whenSoldOut =
+    report && stock
+      ? shopNet + Number(stock.retail_cents) - Number(report.end.inventory) - Math.round((Number(stock.retail_cents) * taxRateBp) / 10000)
+      : ledger.reduce((n, r) => n + r.st.whenSoldOut, 0) - generalTotal + other;
+  const totalSplit = splitProfit(shopNet, split.owner, split.manager);
+  const projectedSplit = splitProfit(whenSoldOut, split.owner, split.manager);
+  const anchor = (id: string | null) => `b-${id ?? "before"}`;
+  // Batches still selling, and the newest one, start open; sold-out ones are folded.
+  const newest = ledger.at(-1)?.batch.id ?? null;
 
   return (
     <>
-      {error ? (
+      {error || statementsError ? (
         <div className="notice notice--danger" role="alert">
           <Icon name="alert" />
           <div>
             <p className="notice__title">Couldn&apos;t load the P&amp;L.</p>
-            <p>{friendlyError(error)}</p>
+            <p>{friendlyError(error ?? statementsError)}</p>
           </div>
         </div>
-      ) : rows.length === 0 ? (
+      ) : ledger.length === 0 ? (
         <EmptyState
           title="No batches yet."
           text="Each batch gets its own profit and loss. Receive a batch under Restock, then add its expenses on the batch's page."
@@ -728,20 +787,19 @@ async function BatchesView({ supabase, isOwner, sp }: { supabase: ServerSupabase
           <section className="stack stack-3" aria-labelledby="pnl-total-t" id="pnl">
             <div className="row row--between row--wrap">
               <h2 className="eyebrow" id="pnl-total-t">
-                All batches · owner {shareLabel(split.owner, parts)}, manager {shareLabel(split.manager, parts)}
+                Whole shop · owner {shareLabel(split.owner, parts)}, manager {shareLabel(split.manager, parts)}
               </h2>
-              {profile.isOwner && (
-                <SplitForm returnTo="/sales/pnl?view=batches" owner={split.owner} manager={split.manager} />
-              )}
+              {isOwner && <SplitForm returnTo="/sales/pnl?view=batches" owner={split.owner} manager={split.manager} />}
             </div>
-            <KpiGrid aria-label="All batches">
+            <KpiGrid aria-label="Whole shop">
               <Kpi
                 wide
-                label={generalExpenses > 0 ? "Shop net so far" : "Net so far"}
-                value={<Money cents={totalNet} />}
+                label="Shop net profit so far"
+                variant={shopNet < 0 ? "alert" : undefined}
+                value={<Money cents={shopNet} />}
                 meta={
                   <>
-                    when everything sells: <Money cents={totalProjected} />
+                    when everything sells: <Money cents={whenSoldOut} />
                   </>
                 }
               />
@@ -764,40 +822,129 @@ async function BatchesView({ supabase, isOwner, sp }: { supabase: ServerSupabase
                 }
               />
             </KpiGrid>
-            <p className="t-sm muted">
-              Each batch&apos;s goods, shipping, tax, MOOE and expenses are counted in full, so a new batch shows a loss until
-              its sales cover them. &ldquo;When sold out&rdquo; adds the pieces left at today&apos;s prices.
-              {missing > 0 &&
-                ` ${missing} batch${missing === 1 ? " has" : "es have"} pieces without a cost and ${missing === 1 ? "isn't" : "aren't"} in the totals.`}
-            </p>
+            {report ? (
+              <p className="t-sm muted">
+                Profit on the pieces sold so far, after their cost, fees and expenses. The shop total matches Profit &amp; loss
+                since opening. &ldquo;When sold out&rdquo; adds the pieces left at today&apos;s prices.
+              </p>
+            ) : (
+              <p className="t-sm text-alert">
+                Couldn&apos;t check this against Profit &amp; loss just now, so the shop total here is the batches less general
+                expenses. Reload to try again.
+              </p>
+            )}
+          </section>
+
+          <section className="stack stack-3" aria-labelledby="run-t">
+            <h2 className="eyebrow" id="run-t">
+              Running net profit by batch · oldest first
+            </h2>
+            <div className="table-wrap">
+              <table className="table table--stack" role="table">
+                <thead role="rowgroup">
+                  <tr role="row">
+                    <th role="columnheader" scope="col">
+                      Batch
+                    </th>
+                    <th role="columnheader" scope="col" className="num">
+                      Sold
+                    </th>
+                    <th role="columnheader" scope="col" className="num">
+                      Net sales
+                    </th>
+                    <th role="columnheader" scope="col" className="num">
+                      Net profit so far
+                    </th>
+                    <th role="columnheader" scope="col" className="num">
+                      Running total
+                    </th>
+                  </tr>
+                </thead>
+                <tbody role="rowgroup">
+                  {ledger.map(({ batch, since, st, running: total }) => (
+                    <tr key={batch.id ?? "before"} role="row">
+                      <td role="cell" data-label="" className="cell-primary">
+                        <a href={`#${anchor(batch.id)}`}>
+                          {batchTitle(batch)}
+                          {batch.supplier && ` · ${batch.supplier}`}
+                        </a>
+                        <span className="t-caption muted pnl-when">
+                          {batch.received_on ? formatManilaDate(batch.received_on) : `from ${formatManilaDate(since)}`}
+                        </span>
+                      </td>
+                      <td role="cell" data-label="Sold" className="num">
+                        {st.sold} / {st.received}
+                      </td>
+                      <td role="cell" data-label="Net sales" className="num">
+                        <Money cents={st.net} />
+                      </td>
+                      <td role="cell" data-label="Net profit so far" className="num">
+                        <Amount cents={st.netProfit} />
+                      </td>
+                      <td role="cell" data-label="Running total" className="num">
+                        <Amount cents={total} />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot role="rowgroup">
+                  <tr role="row">
+                    <td role="cell" colSpan={4}>
+                      General expenses (not in a batch)
+                    </td>
+                    <td role="cell" className="num">
+                      <Amount cents={-generalTotal} />
+                    </td>
+                  </tr>
+                  {other !== 0 && (
+                    <tr role="row">
+                      <td role="cell" colSpan={4}>
+                        Not in any batch
+                        <span className="fin-hint">sales of removed products or of pieces sold beyond the count, and rounding</span>
+                      </td>
+                      <td role="cell" className="num">
+                        <Amount cents={other} />
+                      </td>
+                    </tr>
+                  )}
+                  <tr role="row">
+                    <td role="cell" colSpan={4}>
+                      Shop net profit so far
+                    </td>
+                    <td role="cell" className="num">
+                      <Amount cents={shopNet} />
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+            <p className="t-sm muted">Tap a batch for every line behind its number.</p>
           </section>
 
           <section className="card stack" aria-labelledby="pnl-exp-t">
             <div className="card__head">
               <h2 className="card__title" id="pnl-exp-t">
-                Expenses
+                General expenses
               </h2>
               <Link className="text-btn" href="/restock/expenses">
                 See all
               </Link>
             </div>
             <dl className="cost-list pnl">
-              <dt>Batches, net so far</dt>
-              <dd>
-                <Money cents={batchesNet} />
-              </dd>
-              <dt>General expenses (not in a batch)</dt>
-              <dd>
-                − <Money cents={generalExpenses} />
-              </dd>
-              <dt className="cost-list__total">Shop net so far</dt>
-              <dd className={`cost-list__total${totalNet < 0 ? " text-alert" : ""}`}>
-                <Money cents={totalNet} />
-              </dd>
+              {general.map((e) => (
+                <Line
+                  key={e.id}
+                  label={CATEGORY[e.category] ?? e.category}
+                  hint={`${formatManilaDate(e.spent_on)}${e.note ? ` · ${e.note}` : ""}`}
+                  cents={e.amount_cents}
+                  sub
+                />
+              ))}
+              <Line label="General expenses (not in a batch)" cents={generalTotal} out total />
             </dl>
             <p className="t-sm muted">
-              Charge an expense to a batch (it goes into that batch&apos;s P&amp;L) or to the whole shop (it comes off the
-              total above, before the split).
+              Charge an expense to a batch (it shows as its own line in that batch below) or to the whole shop (it comes off
+              the shop total above, before the split).
             </p>
             <ExpenseForm
               batches={list
@@ -807,80 +954,45 @@ async function BatchesView({ supabase, isOwner, sp }: { supabase: ServerSupabase
                   label: `${batchTitle(b.batch)}${b.batch.supplier ? ` · ${b.batch.supplier}` : ""}`,
                 }))}
               returnTo="/sales/pnl?view=batches"
-              today={manilaToday()}
-              earliest={addDays(manilaToday(), -400)}
+              today={today}
+              earliest={addDays(today, -400)}
             />
           </section>
 
-          <div className="table-wrap">
-            <table className="table table--stack table--dash" role="table">
-              <thead role="rowgroup">
-                <tr role="row">
-                  <th role="columnheader" scope="col">
-                    Batch
-                  </th>
-                  <th role="columnheader" scope="col" className="num">
-                    Sold
-                  </th>
-                  <th role="columnheader" scope="col" className="num">
-                    Sales
-                  </th>
-                  <th role="columnheader" scope="col" className="num">
-                    Costs
-                  </th>
-                  <th role="columnheader" scope="col" className="num">
-                    Net so far
-                  </th>
-                  <th role="columnheader" scope="col" className="num">
-                    When sold out
-                  </th>
-                  <th role="columnheader" scope="col" className="num">
-                    Owner
-                  </th>
-                  <th role="columnheader" scope="col" className="num">
-                    Manager
-                  </th>
-                </tr>
-              </thead>
-              <tbody role="rowgroup">
-                {rows.map(({ batch, t, pnl, now }) => (
-                  <tr key={batch.id ?? "before"} role="row">
-                    <td role="cell" data-label="" className="cell-primary">
-                      <Link href={`/restock/batches/${batch.id ?? "before"}${batch.id ? "#pnl" : ""}`}>
-                        {batchTitle(batch)}
-                        {batch.supplier && ` · ${batch.supplier}`}
-                      </Link>
-                      <span className="t-caption muted pnl-when">
-                        {batch.received_on ? formatManilaDate(batch.received_on) : `from ${formatManilaDate(t.firstIn)}`}
-                      </span>
-                    </td>
-                    <td role="cell" data-label="Sold" className="num">
-                      {t.sold} / {t.received}
-                    </td>
-                    <td role="cell" data-label="Sales" className="num">
-                      <Money cents={pnl.sales} />
-                    </td>
-                    <td role="cell" data-label="Costs" className="num">
-                      <Amount cents={pnl.totalCost} />
-                    </td>
-                    <td role="cell" data-label="Net so far" className="num">
-                      <Amount cents={pnl.net} />
-                    </td>
-                    <td role="cell" data-label="When sold out" className="num">
-                      <Amount cents={pnl.projected} />
-                    </td>
-                    <td role="cell" data-label="Owner" className="num">
-                      <Amount cents={now?.owner ?? null} />
-                    </td>
-                    <td role="cell" data-label="Manager" className="num">
-                      <Amount cents={now?.manager ?? null} />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <p className="t-sm muted">Tap a batch to see its full P&amp;L.</p>
+          {[...ledger].reverse().map(({ batch, since, st }) => {
+            const share = splitProfit(st.netProfit, split.owner, split.manager);
+            const title = batchTitle(batch);
+            return (
+              <details key={batch.id ?? "before"} className="cat fin-batch" id={anchor(batch.id)} open={st.left > 0 || batch.id === newest}>
+                <summary className="cat__head">
+                  <span className="cat__main">
+                    <span className="cat__name">
+                      {title}
+                      {batch.supplier && ` · ${batch.supplier}`}
+                    </span>
+                    <span className="cat__meta">
+                      {batch.received_on ? `Arrived ${formatManilaDate(batch.received_on)}` : `From ${formatManilaDate(since)}`} ·{" "}
+                      {st.sold} of {st.received} pcs sold
+                    </span>
+                  </span>
+                  <span className="fin-batch__net">
+                    <Amount cents={st.netProfit} />
+                  </span>
+                  <Icon name="chevron-down" className="cat__chevron" />
+                </summary>
+                <div className="stack fin-batch__body">
+                  <BatchStatementLines batch={batch} st={st} taxRateBp={taxRateBp} />
+                  <p className="t-sm muted">
+                    This batch&apos;s share before general expenses: owner <Money cents={share.owner} />, manager{" "}
+                    <Money cents={share.manager} />. What can be paid out is on Overview → Safe to distribute.
+                  </p>
+                  <Link className="text-btn" href={`/restock/batches/${batch.id ?? "before"}${batch.id ? "#pnl" : ""}`}>
+                    Open batch
+                  </Link>
+                </div>
+              </details>
+            );
+          })}
         </>
       )}
     </>
