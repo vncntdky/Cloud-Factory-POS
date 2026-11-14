@@ -159,26 +159,7 @@ async function scrollTo(page, loc, offset = 90) {
   ]);
   await shot("06-batch-fix");
 
-  // 7. P&L: funds, next restock, release
-  await page.goto(`${B}/sales/pnl`);
-  await page.locator("#funds").waitFor();
-  await scrollTo(page, page.locator("#funds"), 70);
-  await annotate(page, [
-    { loc: page.locator("#funds .kpi").nth(0), side: "corner" },
-    { loc: page.locator("#funds .kpi").nth(1), side: "corner" },
-    { loc: page.locator("#funds .kpi").nth(2), side: "corner" },
-    { loc: page.locator("#funds .kpi").nth(3), side: "corner" },
-    { loc: page.locator("#funds .kpi").nth(4), side: "corner" },
-  ]);
-  await shot("07a-funds");
-  await scrollTo(page, page.locator("#next-restock"), 80);
-  await annotate(page, [
-    { loc: page.locator(".pick-chips"), side: "corner" },
-    { loc: page.locator("#sa-amount"), side: "top", dx: 120 },
-    { loc: page.getByRole("button", { name: "Keep this amount" }), side: "right" },
-    { loc: page.getByRole("button", { name: "Release profits" }), side: "right" },
-  ]);
-  await shot("07b-next-restock");
+  // 7. Finance (finance, distribute, reserve-fund): e2e/shots-finance.js.
 
   // 8. Collectibles
   await page.goto(`${B}/collectibles`);

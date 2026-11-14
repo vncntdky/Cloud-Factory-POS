@@ -40,7 +40,12 @@ const DIR = __dirname;
     await page.locator("#sop-8[open]").waitFor();
     check(`${label}: picture links to its SOP, opened`, true);
     const sops = await page.locator("details[id^=sop-]").count();
-    check(`${label}: SOPs listed (${sops})`, ROLE === "cashier" ? sops === 5 : sops === 16);
+    check(`${label}: SOPs listed (${sops})`, ROLE === "cashier" ? sops === 5 : sops === 17);
+    if (ROLE !== "cashier") {
+      // Owner-only procedures are listed for managers too, marked Owner (the distributions picture links to SOP 15).
+      const chip = (await page.locator("#sop-15 .cat__meta").innerText()).trim();
+      check(`${label}: owner-only SOPs listed and marked Owner`, chip === "Owner" && (await page.locator("#sop-16, #sop-17").count()) === 2, chip);
+    }
     check(`${label}: who-does-what table only for managers`, (await page.locator("#who-t").count()) === (ROLE === "cashier" ? 0 : 1));
     check(`${label}: no sideways scroll on SOPs`, !(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)));
     await page.screenshot({ path: `${DIR}/shots/help-${ROLE}-${label}-sop.png` });

@@ -53,6 +53,15 @@ async function context(browser, viewport) {
     await page.goto(`${BASE}/restock/receive?suggested=1`);
     await page.screenshot({ path: `${DIR}/shots/r-phone-receive.png`, fullPage: true });
     await page.goto(`${BASE}/restock?view=batches`);
+    // Each batch's net profit so far and the owner / manager shares: a line of its own that wraps, never cut off.
+    const lines = await page.locator(".list-row__meta--wrap").evaluateAll((els) =>
+      els.map((el) => ({ text: el.innerText.replace(/\s+/g, " "), cut: el.scrollWidth > el.clientWidth + 1 })),
+    );
+    check("phone: each batch shows its sales, what's owed, its net profit so far and the owner / manager shares, in full",
+      lines.length === 4 && /pcs sold · ₱13,600 · ₱680 owed$/.test(lines[0].text) && /^Net profit so far ₱4,127 · owner ₱2,751\.33 · manager ₱1,375\.67$/.test(lines[1].text)
+        && /23 of 30 pcs sold · ₱8,050$/.test(lines[2].text) && /^Net profit so far ₱2,978\.50 · owner ₱1,985\.67 · manager ₱992\.83$/.test(lines[3].text) && lines.every((l) => !l.cut),
+      JSON.stringify(lines));
+    check("phone: batches list has no sideways scroll", !(await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth)));
     await page.screenshot({ path: `${DIR}/shots/r-phone-batches.png`, fullPage: true });
     await ctx.close();
   }
@@ -120,6 +129,10 @@ async function context(browser, viewport) {
   check("batches newest first, then stock before batches", /Batch 2/.test(rows[0]) && /Batch 1 · Cloud Supply/.test(rows[1]) && /Stock before batches/.test(rows[2]), rows.map((r) => r.split("\n")[0]).join(" / "));
   check("Batch 1: 40 of 120 sold, 33%, ₱680 owed", /40 of 120 pcs sold/.test(rows[1]) && /33%/.test(rows[1]) && /₱680 owed/.test(rows[1]), rows[1].replace(/\s+/g, " "));
   check("batches overview: still owed", /Still owed\s*₱680/i.test(await page.locator(".kpi").nth(1).innerText()));
+  const profits = rows.map((r) => (/Net profit so far.*/.exec(r.replace(/\s+/g, " ")) ?? [""])[0]);
+  check("each batch's net profit so far, owner and manager share (a new batch starts at ₱0)",
+    /^Net profit so far ₱0 · owner ₱0 · manager ₱0/.test(profits[0]) && /^Net profit so far ₱4,127 · owner ₱2,751\.33 · manager ₱1,375\.67/.test(profits[1]) && /^Net profit so far ₱2,978\.50 · owner ₱1,985\.67 · manager ₱992\.83/.test(profits[2]),
+    profits.join(" / "));
   await page.screenshot({ path: `${DIR}/shots/r-desk-batches.png`, fullPage: true });
   await page.getByRole("link", { name: /Batch 1 · Cloud Supply/ }).click();
   await page.waitForURL(/\/restock\/batches\/bbbbbbbb/, { waitUntil: "commit" });

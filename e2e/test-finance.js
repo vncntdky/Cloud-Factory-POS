@@ -34,7 +34,9 @@ const txt = (s) => s.replace(/\s+/g, " ");
   check("register card: cash in, less everything paid out; e-wallet money is not in it",
     /Cash sales and collections.*₱7,720/.test(reg) && /Stock bought.*\(₱4,950\)/.test(reg) && /Restocking fees.*\(₱244\)/.test(reg) && /Expenses \(₱940\)/.test(reg)
       && /Should be in the register ₱1,586/.test(reg) && /Received by GCash since opening · it went there, not into the drawer ₱600/.test(reg) && /All money drawer, e-wallets and bank · same as Closing cash ₱2,186/.test(reg)
-      && /your count will differ when/.test(reg) && /paid a supplier for stock that hasn't arrived/.test(reg), reg.slice(0, 520));
+      && /when you count the drawer, your count is/.test(reg) && /Higher by anything you paid by GCash or bank: stock, restock costs, an expense, a tax or a distribution/.test(reg)
+      && /Higher by a starting float/.test(reg) && /Lower by cash taken out of the drawer/.test(reg) && /Lower by cash from the drawer paid to a supplier for stock that hasn't arrived/.test(reg)
+      && /Lower by owner capital put in by GCash or bank/.test(reg), reg.slice(0, 520));
   check("overview: cash bridge has 9 bars", (await page.locator(".fin-wf rect").count()) === 9);
   check("overview: receivables by age name who owes", /RODS ₱960/.test(await page.locator("#ar-t").locator("xpath=../..").innerText()));
   check("overview: no sideways scroll", await noScroll());

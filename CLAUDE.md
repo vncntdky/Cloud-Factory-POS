@@ -71,15 +71,18 @@ rules. The SOPs and app handbook live in `lib/help.ts` (shown in the app under H
 
 - UI and docs: plain words, short sentences, what the shop owner recognises (Batch, On the shelf, Safe to
   distribute), no jargon without a hint line. Keep the UI simple and functional; phone first; no sideways scroll.
-- Help & SOPs: `lib/help.ts` is the in-app copy of the SOP doc. Change both together; handbook pictures are
+- Help & SOPs: `lib/help.ts` is the in-app copy of the SOP doc. Change both together (`node docs/sop-doc.js`
+  prints lib/help.ts as the doc's markdown sections, to paste into the doc); handbook pictures are
   `public/help/*.webp` (regenerate with `e2e/shots-*.js`).
 - Money: ₱ with commas; costs in brackets in statements.
 
-## Docs made in the original account (private to it; share or recreate)
+## Docs (Claude Docs in the owner's account; private until shared from the doc's Share menu)
 
-- SOPs + App handbook: https://claude.ai/artifact/JopnrD6iEhw99erbLfrG6C
-- Finance guide: https://claude.ai/artifact/JXSvi5AvpM9QTLDvb9te3B
-- System map: https://claude.ai/artifact/AjVFzU2b6UwYdgBNuTukjb
+- SOPs + App handbook (two tabs, the same text and pictures as Help & SOPs, 14 Nov):
+  https://claude.ai/artifact/4AGjBD9f5jYSuAQ1N9wHyC
+- Finance guide (the same text as `docs/finance-guide.md`, 14 Nov): https://claude.ai/artifact/HeShp2BXvro6KcmMWxegsu
+- Made in the original account, now out of date and not readable from the owner's account: the old SOPs
+  (JopnrD6iEhw99erbLfrG6C), Finance guide (JXSvi5AvpM9QTLDvb9te3B) and System map (AjVFzU2b6UwYdgBNuTukjb).
 
 ## Open items
 

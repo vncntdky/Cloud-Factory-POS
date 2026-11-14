@@ -42,7 +42,8 @@ export default async function HelpPage({ searchParams }: { searchParams: Promise
   const tab = sp.tab === "sops" ? "sops" : "guide";
   const manager = profile.role !== "cashier";
   const openSop = Number(sp.sop) || null;
-  const sops = SOPS.filter((s) => s.roles.includes(profile.role));
+  // Managers see every procedure (owner-only ones are marked Owner); staff see the ones they do.
+  const sops = manager ? SOPS : SOPS.filter((s) => s.roles.includes(profile.role));
   const sopHref = (no: number) => `/help?tab=sops&sop=${no}#sop-${no}`;
   const canSee = (x: { managers?: boolean }) => manager || !x.managers;
 

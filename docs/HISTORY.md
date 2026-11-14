@@ -44,6 +44,16 @@ the bottom. Commits on `main` hold the code for each step.
     Safe to distribute. The last column is now "Running net profit". With seven columns the running list
     stays cards until the screen is 1280px wide (`.fin-run` in `app/globals.css` repeats the
     `.table--stack` rules for that range).
+23. **SOPs brought up to date** (14 Nov): every SOP, picture caption, word and problem in Help & SOPs was
+    checked against the app (97 findings, each checked a second time) and rewritten where it had drifted:
+    sign-in and staff accounts, selling (a second tap takes a product out of the cart), receipts, collecting,
+    voiding, end-of-day cash (cash paid out of the drawer), expenses, the restock plan, the inventory reserve,
+    distributions, capital, tax rate and profit split. SOP 2 now covers changing, stopping and deleting a
+    product; new SOP 17 covers shop settings. Managers now see every SOP (owner-only ones marked Owner). The
+    Finance register card says plainly when a drawer count is higher or lower than its figure; expense hints no
+    longer call delivery shipping an expense. Restock → Batches shows each batch's net profit so far with the
+    owner and manager shares. The SOP doc and Finance guide were rebuilt as Claude Docs in the owner's account
+    (links in CLAUDE.md); `docs/sop-doc.js` prints lib/help.ts as the doc's sections.
 
 ## Decisions the owner made
 
@@ -78,16 +88,18 @@ the bottom. Commits on `main` hold the code for each step.
 - Not built yet (need a workflow decided): monthly close, nightly drawer count, cash split by drawer /
   e-wallet / bank, supplier bills (payables), accountant export, VAT (only above ₱3M yearly sales).
 - Editing or undoing a recorded customer payment (suggested next).
-- Money paid to a supplier before the stock arrives isn't recorded: until the batch is received, cash and
-  "Should be in the register" read high by that amount. A "paid, on the way" entry would fix it.
+- Money paid to a supplier before the stock arrives isn't recorded: until the batch is received, Finance cash
+  reads high by that amount (and so does "Should be in the register" when it was paid from the drawer). A
+  "paid, on the way" entry would fix it.
 - The register figure takes every payment as cash from the drawer. Recording how each payment was made
   (cash, GCash, bank) and cash taken out to deposit would make it exact; a nightly drawer count would too.
 - A recorded loss isn't used up first in, first out: after the product is restocked, the lost pieces can
   show as "left" in the next batch. Deleting a product also removes what was paid for it from Finance.
 - Distributions recorded before a split change keep their old shares unless edited.
 - SOP 9 assumes buyers who owe are chased after 7 days: the owner hasn't confirmed that limit.
-- The system map artifact's money section still uses the old Company funds labels; the Finance guide replaces it.
-- The SOPs + handbook and Finance guide pages made in the original account predate items 21 and 22 (the
-  register, each batch's statement and split). The in-app Help & SOPs and `docs/finance-guide.md` are current.
+- The system map exists only in the original account and its money section uses the old Company funds labels;
+  the Finance guide replaces it. Recreate it in the owner's account if it is still wanted.
+- The SOP doc and Finance guide doc are copies: when lib/help.ts or docs/finance-guide.md changes, update the
+  doc too (`node docs/sop-doc.js`).
 - Each page still crosses the Pacific (Philippines ↔ US East); moving Supabase and Vercel to Singapore would
   speed every tap, but it is a project of its own.

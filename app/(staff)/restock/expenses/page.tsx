@@ -154,8 +154,9 @@ export default async function ExpensesPage({ searchParams }: { searchParams: Pro
               </h2>
             </div>
             <p className="t-sm muted">
-              Charge it to a batch (shipping fees, courier, salary for that batch) or to the whole shop (rent, utilities). Batch
-              expenses show in that batch&apos;s P&amp;L; general ones come off the shop&apos;s total in Sales → Finance.
+              Charge it to a batch (salary for the weeks it sells) or to the whole shop (rent, utilities). A delivery&apos;s
+              shipping, tax and MOOE go on the batch under Restock costs, not here. Batch expenses show in that batch&apos;s
+              profit and loss; general ones come off the shop&apos;s total in Sales → Finance.
             </p>
             <ExpenseForm
               batches={batches.map((b) => ({ id: b.id as string, label: label(b) }))}

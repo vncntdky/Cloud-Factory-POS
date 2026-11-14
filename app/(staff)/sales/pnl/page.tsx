@@ -332,18 +332,23 @@ async function StatementsView({
               </dl>
               {Number(reg.expected) < 0 && (
                 <p className="t-sm text-alert">
-                  More was paid out than cash came in, so some payments were not made from the drawer. Add those back.
+                  More was paid out than cash came in, so some payments didn&apos;t come from the drawer. Your count is
+                  higher by those.
                 </p>
               )}
               <p className="t-sm muted">
-                This is the shop&apos;s paper cash since opening, wherever it is kept. It takes every payment as cash from the
-                drawer, so your count will differ when:
+                This is the shop&apos;s paper cash since opening, wherever it is kept. The app takes every payment as cash from
+                the drawer, so when you count the drawer, your count is:
               </p>
               <ul className="t-sm muted fin-notes">
-                <li>You paid for stock, a fee or an expense by GCash or bank: add that back.</li>
-                <li>You paid a supplier for stock that hasn&apos;t arrived: take that off. The app counts it when you receive the batch.</li>
-                <li>Cash was taken out of the drawer to keep or deposit: add it back.</li>
-                <li>The drawer started with a float not recorded as owner capital: add it.</li>
+                <li>Higher by anything you paid by GCash or bank: stock, restock costs, an expense, a tax or a distribution.</li>
+                <li>Higher by a starting float not recorded as owner capital.</li>
+                <li>Lower by cash taken out of the drawer to keep or deposit.</li>
+                <li>
+                  Lower by cash from the drawer paid to a supplier for stock that hasn&apos;t arrived. The app counts it when you
+                  receive the batch.
+                </li>
+                <li>Lower by owner capital put in by GCash or bank.</li>
               </ul>
               <p className="t-sm muted">
                 For today only, see <Link href="/sales">Daily sales</Link>.

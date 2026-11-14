@@ -57,10 +57,11 @@ batches, expenses, owner capital and distributions. Pick **Since opening** or an
 | Received by GCash, Maya, card, bank | Everything that came in that way since opening; it never reached the drawer |
 
 The app doesn't record which pocket paid for stock, fees or expenses, so it takes all of them as paid in
-cash from the drawer. The count will differ, and the card says so, when something was paid by GCash or bank
-(add it back), when a supplier was paid for stock that hasn't arrived (take it off: the app counts a batch
-when it is received), when cash was taken out to keep or deposit (add it back), and when the drawer started
-with a float that isn't recorded as owner capital (add it). For one day only, use Sales → Daily sales.
+cash from the drawer. Count the drawer and compare; the card lists the same reasons. Your count is higher by
+anything paid by GCash or bank (stock, restock costs, an expense, a tax or a distribution) and by a starting
+float not recorded as owner capital. It is lower by cash taken out to keep or deposit, by drawer cash paid
+to a supplier for stock that hasn't arrived (the app counts a batch when it is received), and by owner
+capital put in by GCash or bank. For one day only, use Sales → Daily sales.
 
 ### Batches — Accrual, since opening
 
@@ -85,7 +86,8 @@ belong to no batch and show as their own row ("Not in any batch"). Sold-out batc
 
 A batch's owner and manager shares are before the shop's general expenses, and a batch at a loss shows
 negative shares. They are a guide to how each batch is doing, not a payout: what can be paid out is
-**Safe to distribute** on Overview.
+**Safe to distribute** on Overview. Restock → Batches shows the same net profit so far and shares on each
+batch's row, and each batch's own page has the full statement.
 
 ## The rules
 
@@ -111,7 +113,7 @@ negative shares. They are a guide to how each batch is doing, not a payout: what
 | Owner capital: amount, date, note | Finance → Balance → Edit | Owner |
 | Expenses: type, amount, date, note, batch | Restock → Expenses, or a batch page → Edit | Owner, manager |
 | Batch supplier, date, note | Batch page → Edit supplier, date or note | Owner, manager |
-| Batch restocking costs, paid from company funds | Batch page → P&L | Owner, manager |
+| Batch restocking costs, paid from company funds | Batch page → Profit and loss | Owner, manager |
 | Pieces and cost of each restock, count, loss | Batch or product page → Fix | Owner, manager |
 | Inventory reserve | Finance → Overview | Owner, manager |
 

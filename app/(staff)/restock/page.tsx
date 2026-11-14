@@ -17,10 +17,19 @@ import { friendlyError } from "@/lib/db-errors";
 import { productLabel } from "@/lib/format";
 import { can } from "@/lib/permissions";
 import { photoThumb } from "@/lib/photos";
+import { splitProfit } from "@/lib/pnl";
 import { PACE_DAYS, daysLeftLabel, paceLabel, type PlanStatus } from "@/lib/restock";
 import { addDays, formatManilaDate, manilaToday } from "@/lib/time";
 import { applyReorderPoints } from "./actions";
-import { batchTitle, loadBatches, loadReorderPlan, totals, type RestockProduct } from "./data";
+import {
+  batchStatement,
+  batchTitle,
+  loadBatchStatements,
+  loadBatches,
+  loadReorderPlan,
+  totals,
+  type RestockProduct,
+} from "./data";
 
 export const dynamic = "force-dynamic";
 
@@ -290,8 +299,17 @@ async function ReorderView({ supabase }: { supabase: ServerSupabase }) {
   );
 }
 
+/** A profit figure: red when it's a loss. */
+function Profit({ cents }: { cents: number }) {
+  return <span className={cents < 0 ? "text-alert" : undefined}>{<Money cents={cents} />}</span>;
+}
+
 async function BatchesView({ supabase, expense }: { supabase: ServerSupabase; expense?: string }) {
-  const { list, error } = await loadBatches(supabase);
+  const [{ list, expenses, error }, { statements, error: statementsError }, settingsRes] = await Promise.all([
+    loadBatches(supabase),
+    loadBatchStatements(supabase),
+    supabase.from("settings").select("split_owner_parts, split_manager_parts, tax_rate_bp").maybeSingle(),
+  ]);
   if (error) {
     return (
       <div className="notice notice--danger" role="alert">
@@ -306,6 +324,12 @@ async function BatchesView({ supabase, expense }: { supabase: ServerSupabase; ex
   const hasBatches = list.some((b) => b.batch.id !== null);
   const all = totals(list.flatMap((b) => b.rows));
   const today = manilaToday();
+  // Each batch's net profit so far and the owner / manager shares of it: the same figures as Sales →
+  // Finance → Batches. Left out, not guessed, if the statements or the settings didn't load.
+  const settings = settingsRes.data as { split_owner_parts: number; split_manager_parts: number; tax_rate_bp: number } | null;
+  const profitShown = !statementsError && !settingsRes.error && settings !== null;
+  const split = { owner: settings?.split_owner_parts ?? 2, manager: settings?.split_manager_parts ?? 1 };
+  const taxRateBp = Number(settings?.tax_rate_bp ?? 0);
   return (
     <>
       {expense === "added" && (
@@ -328,7 +352,10 @@ async function BatchesView({ supabase, expense }: { supabase: ServerSupabase; ex
             See all
           </Link>
         </div>
-        <p className="t-sm muted">Shipping fees, courier, salaries, rent: charge them to a batch, or to the whole shop.</p>
+        <p className="t-sm muted">
+          Salaries, rent, utilities, supplies: charge them to a batch, or to the whole shop. A delivery&apos;s shipping, tax
+          and MOOE go on the batch&apos;s restock costs.
+        </p>
         <ExpenseForm
           batches={list
             .filter((b) => b.batch.id !== null)
@@ -376,12 +403,21 @@ async function BatchesView({ supabase, expense }: { supabase: ServerSupabase; ex
           </div>
           <p className="t-sm muted">
             Sales are matched to batches first in, first out: the oldest pieces on the shelf sell first.
+            {profitShown && " Owner and manager are their shares of each batch's net profit so far, before general expenses."}
           </p>
+          {!profitShown && (
+            <p className="field__error" role="alert">
+              <Icon name="alert" />
+              Couldn&apos;t load each batch&apos;s net profit. Reload to try again.
+            </p>
+          )}
           <ul className="list" role="list">
             {list.map(({ batch, rows }) => {
               const t = totals(rows);
               const share = t.received > 0 ? t.sold / t.received : 0;
               const when = batch.received_on ? formatManilaDate(batch.received_on) : `from ${formatManilaDate(t.firstIn)}`;
+              const st = profitShown ? batchStatement(statements.get(batch.id ?? ""), batch, expenses, taxRateBp) : null;
+              const shares = st ? splitProfit(st.netProfit, split.owner, split.manager) : null;
               return (
                 <li key={batch.id ?? "before"}>
                   <Link className="list-row" href={`/restock/batches/${batch.id ?? "before"}`}>
@@ -395,7 +431,7 @@ async function BatchesView({ supabase, expense }: { supabase: ServerSupabase; ex
                           <span className="chip chip--ok">{t.sold >= t.received ? "Sold out" : "None left"}</span>
                         )}
                       </span>
-                      <span className="list-row__meta">
+                      <span className="list-row__meta list-row__meta--wrap">
                         {when} · {t.sold} of {t.received} pcs sold · <Money cents={t.sales} />
                         {t.owed > 0 && (
                           <>
@@ -406,6 +442,12 @@ async function BatchesView({ supabase, expense }: { supabase: ServerSupabase; ex
                           </>
                         )}
                       </span>
+                      {st && shares && (
+                        <span className="list-row__meta list-row__meta--wrap">
+                          Net profit so far <Profit cents={st.netProfit} /> · owner <Profit cents={shares.owner} /> · manager{" "}
+                          <Profit cents={shares.manager} />
+                        </span>
+                      )}
                       <span className="meter" aria-hidden="true">
                         <span style={{ width: `${Math.min(100, share * 100)}%` }} />
                       </span>
