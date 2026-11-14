@@ -1730,6 +1730,7 @@ a.kpi--due::after { background: var(--mint-ink); }
   .table--stack tfoot { display: block; margin-top: var(--space-2); }
   .table--stack tfoot tr { display: flex; justify-content: space-between; padding: var(--space-3) var(--space-4); }
   .table--stack tfoot td { display: inline; width: auto; background: transparent; padding: 0; }
+  .table--stack tfoot td:first-child { text-align: left; }
   .table--stack td > .meter-row { flex: 1 1 auto; max-width: 65%; }
 }
 
@@ -2589,6 +2590,83 @@ a.segmented__option { text-decoration: none; }
 .fin .cat__name { text-transform: none; letter-spacing: 0; white-space: normal; overflow: visible; text-overflow: clip; }
 .fin-batch__net { font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .fin-batch__body { padding: var(--space-4); }
+/* The running net profit by batch has seven columns: too many to sit beside the menu on a tablet or a
+   small laptop once the numbers grow. So until the screen is 1280px wide each row stays a card, as on
+   a phone. These are the rules of the .table--stack block in section 20, for a wider range: keep the
+   two in step. From 1280px it is a plain table; should the numbers ever outgrow that, it scrolls
+   instead of cutting the last column off. */
+@media (min-width: 1280px) {
+  .fin-run { overflow-x: auto; }
+  /* Cells a little closer, and headings that may wrap (evenly), so seven columns sit on one line each
+     at today's amounts and still fit when they grow. */
+  .fin-run thead th { white-space: normal; vertical-align: bottom; text-wrap: balance; }
+  .fin-run th,
+  .fin-run td { padding-inline: var(--space-3); }
+  .fin-run th:first-child,
+  .fin-run td:first-child { padding-left: var(--space-4); }
+  .fin-run th:last-child,
+  .fin-run td:last-child { padding-right: var(--space-4); }
+}
+@media (min-width: 768px) and (max-width: 1279.98px) {
+  .table-wrap.fin-run { background: transparent; box-shadow: none; overflow: visible; }
+  .fin-run thead {
+    position: absolute;
+    width: 1px; height: 1px;
+    overflow: hidden; clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+  .fin-run .table,
+  .fin-run tbody,
+  .fin-run tr,
+  .fin-run td { display: block; width: 100%; }
+  .fin-run tbody { display: flex; flex-direction: column; gap: var(--space-2); }
+  .fin-run tr {
+    padding: var(--space-3) var(--space-4);
+    background: var(--surface);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-card);
+  }
+  .fin-run td {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--space-4);
+    padding: 6px 0;
+    border: 0;
+    text-align: right;
+  }
+  .fin-run td::before {
+    content: attr(data-label);
+    flex-shrink: 0;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--ink-muted);
+    text-align: left;
+  }
+  .fin-run td.cell-primary {
+    justify-content: flex-start;
+    padding: 0 0 var(--space-2);
+    margin-bottom: var(--space-1);
+    border-bottom: 1px solid var(--line);
+    font-size: 17px;
+    text-align: left;
+  }
+  .fin-run td.cell-primary::before,
+  .fin-run td[data-label=""]::before { content: none; }
+  .fin-run tfoot { display: block; margin-top: var(--space-2); }
+  .fin-run tfoot tr { display: flex; justify-content: space-between; padding: var(--space-3) var(--space-4); }
+  .fin-run tfoot td { display: inline; width: auto; background: transparent; padding: 0; }
+  .fin-run tfoot td:first-child { text-align: left; }
+  .fin-run tbody tr:hover td { background: transparent; }
+}
+/* The owner / manager tiles sit inside a card, so they are narrower than the tiles at the top of a
+   page. Always two across (not two of four on a wide screen), a little less padding, and a number
+   that is slightly smaller on a small phone: a five-figure share stays inside its tile. */
+.pnl-split .kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.pnl-split .kpi { padding-inline: var(--space-3); }
+.pnl-split .kpi__value { font-size: clamp(17px, 5.2vw, 20px); line-height: 26px; }
 .fin-wf-wrap { overflow-x: auto; }
 .fin-wf { display: block; width: 100%; min-width: 600px; height: auto; }
 .fin-wf__grid { stroke: var(--line); stroke-width: 1; }

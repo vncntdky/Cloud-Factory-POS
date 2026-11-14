@@ -37,6 +37,13 @@ the bottom. Commits on `main` hold the code for each step.
     profit so far with a running total, then every batch's full statement (gross sales, discounts, cost of
     the pieces sold, each expense, net profit so far, what's left, the batch's cost in full); the batch
     page shows the same statement. Finance → Overview shows what the register should hold today.
+22. **Owner / manager split on each batch** (14 Nov): Finance → Batches shows each batch's owner and
+    manager share of its net profit so far, as two columns in the running net profit and as tiles under
+    each batch's statement (with each share when the batch sells out). Same tiles as the batch page
+    (`components/finance/BatchSplit.tsx`). Shares are before general expenses; payouts still follow
+    Safe to distribute. The last column is now "Running net profit". With seven columns the running list
+    stays cards until the screen is 1280px wide (`.fin-run` in `app/globals.css` repeats the
+    `.table--stack` rules for that range).
 
 ## Decisions the owner made
 
@@ -80,5 +87,7 @@ the bottom. Commits on `main` hold the code for each step.
 - Distributions recorded before a split change keep their old shares unless edited.
 - SOP 9 assumes buyers who owe are chased after 7 days: the owner hasn't confirmed that limit.
 - The system map artifact's money section still uses the old Company funds labels; the Finance guide replaces it.
+- The SOPs + handbook and Finance guide pages made in the original account predate items 21 and 22 (the
+  register, each batch's statement and split). The in-app Help & SOPs and `docs/finance-guide.md` are current.
 - Each page still crosses the Pacific (Philippines ↔ US East); moving Supabase and Vercel to Singapore would
   speed every tap, but it is a project of its own.

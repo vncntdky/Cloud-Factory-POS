@@ -192,7 +192,8 @@ export async function loadBatches(supabase: ServerSupabase) {
   return {
     list,
     expenses: (expenses.data ?? []) as Expense[],
-    error: batches.error ?? rows.error ?? null,
+    // Expenses too: without them every batch's net profit, and the split of it, would read too high.
+    error: batches.error ?? rows.error ?? expenses.error ?? null,
   };
 }
 

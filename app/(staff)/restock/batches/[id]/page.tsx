@@ -94,9 +94,10 @@ export default async function BatchPage({
     id === "before" ? movesQuery.is("batch_id", null) : movesQuery.eq("batch_id", id),
     supabase.from("categories").select("id, name").order("sort_order").order("name"),
   ]);
-  // The page still works without the statement (details, costs, expenses, stock fixes).
+  // The page still works without the statement (details, costs, expenses, stock fixes). Without the
+  // settings the tax rate and the split would be guesses, so the statement isn't shown then either.
   const error = batchesError;
-  const statementFailed = !!statementsError;
+  const statementFailed = !!statementsError || !!splitRes.error;
   const moves = new Map<string, Move[]>();
   for (const m of (movesRes.data ?? []) as Move[]) moves.set(m.product_id, [...(moves.get(m.product_id) ?? []), m]);
   const splitRow = splitRes.data as { split_owner_parts: number; split_manager_parts: number; tax_rate_bp: number } | null;

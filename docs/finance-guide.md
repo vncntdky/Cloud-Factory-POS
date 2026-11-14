@@ -64,8 +64,8 @@ with a float that isn't recorded as owner capital (add it). For one day only, us
 
 ### Batches — Accrual, since opening
 
-The running net profit lists every batch, oldest first, with its net profit so far and the running total.
-Under it, each batch has its full statement:
+The running net profit lists every batch, oldest first, with its net profit so far, the owner's and the
+manager's share of it, and the running total. Under it, each batch has its full statement:
 
 | Line | How it's worked out |
 |---|---|
@@ -77,10 +77,15 @@ Under it, each batch has its full statement:
 | **Net profit so far** | What is left |
 | Pieces left at today's prices, what they cost, **net profit when sold out** | For batches still selling |
 | What the batch cost in full | Goods, shipping, tax, MOOE, other, expenses; how much its sales have covered |
+| **Split**: owner, manager | Net profit so far divided by the profit split (2 : 1 now), and each share when the batch sells out |
 
 The running total closes with general expenses and ends at the shop's net profit, the same figure as
 Profit & loss since opening. Sales of a product since removed, or of pieces sold beyond the stock count,
 belong to no batch and show as their own row ("Not in any batch"). Sold-out batches start folded.
+
+A batch's owner and manager shares are before the shop's general expenses, and a batch at a loss shows
+negative shares. They are a guide to how each batch is doing, not a payout: what can be paid out is
+**Safe to distribute** on Overview.
 
 ## The rules
 

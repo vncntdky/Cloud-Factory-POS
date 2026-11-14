@@ -5,13 +5,13 @@
 import { deleteBatchExpense, setPaidFromFunds } from "@/app/(staff)/restock/actions";
 import type { Batch, BatchStatement, Expense } from "@/app/(staff)/restock/data";
 import { Icon } from "@/components/Icon";
-import { Kpi, KpiGrid } from "@/components/Kpi";
 import { Money } from "@/components/Money";
+import { BatchSplit } from "@/components/finance/BatchSplit";
 import { BatchStatementLines } from "@/components/finance/BatchStatementLines";
 import { BatchCostsForm } from "@/components/restock/BatchCostsForm";
 import { ExpenseForm, SplitForm } from "@/components/restock/PnlForms";
 import { EditExpense } from "@/components/finance/EditForms";
-import { EXPENSE_CATEGORIES, shareLabel, splitProfit } from "@/lib/pnl";
+import { EXPENSE_CATEGORIES, shareLabel } from "@/lib/pnl";
 import { addDays, formatManilaDate } from "@/lib/time";
 
 export function BatchPnlCard({
@@ -39,8 +39,6 @@ export function BatchPnlCard({
 }) {
   const returnTo = `/restock/batches/${batch.id}`;
   const total = split.owner + split.manager;
-  const now = splitProfit(st.netProfit, split.owner, split.manager);
-  const later = splitProfit(st.whenSoldOut, split.owner, split.manager);
   return (
     <section className="card stack" id="pnl" aria-labelledby="pnl-t">
       <div className="card__head">
@@ -100,38 +98,7 @@ export function BatchPnlCard({
             </h3>
             {isOwner && <SplitForm returnTo={returnTo} owner={split.owner} manager={split.manager} />}
           </div>
-          <KpiGrid aria-label="Profit split">
-            <Kpi
-              label="Owner"
-              value={<Money cents={now.owner} />}
-              meta={
-                st.left > 0 ? (
-                  <>
-                    when sold out: <Money cents={later.owner} />
-                  </>
-                ) : (
-                  "of net profit so far"
-                )
-              }
-            />
-            <Kpi
-              label="Manager"
-              value={<Money cents={now.manager} />}
-              meta={
-                st.left > 0 ? (
-                  <>
-                    when sold out: <Money cents={later.manager} />
-                  </>
-                ) : (
-                  "of net profit so far"
-                )
-              }
-            />
-          </KpiGrid>
-          <p className="t-sm muted">
-            This batch&apos;s share before general expenses{st.netProfit < 0 ? "; negative while the batch is at a loss" : ""}. What can be
-            paid out is on Finance → Overview → Safe to distribute.
-          </p>
+          <BatchSplit st={st} split={split} />
         </div>
       )}
 

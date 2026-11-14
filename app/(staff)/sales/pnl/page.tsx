@@ -15,6 +15,7 @@ import { Main } from "@/components/Main";
 import { Money } from "@/components/Money";
 import { NotAllowed } from "@/components/NotAllowed";
 import { Topbar } from "@/components/Topbar";
+import { BatchSplit } from "@/components/finance/BatchSplit";
 import { BatchStatementLines } from "@/components/finance/BatchStatementLines";
 import { CapitalForm } from "@/components/finance/CapitalForm";
 import { EditCapital, EditRelease } from "@/components/finance/EditForms";
@@ -709,6 +710,8 @@ async function BatchesView({ supabase, isOwner, sp }: { supabase: ServerSupabase
   const settings = settingsRes.data as { split_owner_parts: number; split_manager_parts: number; tax_rate_bp: number } | null;
   const split = { owner: settings?.split_owner_parts ?? 2, manager: settings?.split_manager_parts ?? 1 };
   const parts = split.owner + split.manager;
+  const ownerLabel = `Owner (${shareLabel(split.owner, parts)})`;
+  const managerLabel = `Manager (${shareLabel(split.manager, parts)})`;
   const taxRateBp = Number(settings?.tax_rate_bp ?? 0);
   // Oldest first, so the running total reads down the page like a ledger.
   let running = 0;
@@ -721,7 +724,8 @@ async function BatchesView({ supabase, isOwner, sp }: { supabase: ServerSupabase
     .sort((a, b) => a.since.slice(0, 10).localeCompare(b.since.slice(0, 10)) || (a.batch.batch_no ?? -1) - (b.batch.batch_no ?? -1))
     .map((r) => {
       running += r.st.netProfit;
-      return { ...r, running };
+      // The batch's own shares, before the shop's general expenses.
+      return { ...r, running, share: splitProfit(r.st.netProfit, split.owner, split.manager) };
     });
   const batchesNet = running;
   // Taxes paid aren't an expense: they lower the tax still owed, not the profit.
@@ -747,12 +751,12 @@ async function BatchesView({ supabase, isOwner, sp }: { supabase: ServerSupabase
 
   return (
     <>
-      {error || statementsError ? (
+      {error || statementsError || settingsRes.error ? (
         <div className="notice notice--danger" role="alert">
           <Icon name="alert" />
           <div>
             <p className="notice__title">Couldn&apos;t load the P&amp;L.</p>
-            <p>{friendlyError(error ?? statementsError)}</p>
+            <p>{friendlyError(error ?? statementsError ?? settingsRes.error)}</p>
           </div>
         </div>
       ) : ledger.length === 0 ? (
@@ -839,7 +843,7 @@ async function BatchesView({ supabase, isOwner, sp }: { supabase: ServerSupabase
             <h2 className="eyebrow" id="run-t">
               Running net profit by batch · oldest first
             </h2>
-            <div className="table-wrap">
+            <div className="table-wrap fin-run">
               <table className="table table--stack" role="table">
                 <thead role="rowgroup">
                   <tr role="row">
@@ -856,12 +860,18 @@ async function BatchesView({ supabase, isOwner, sp }: { supabase: ServerSupabase
                       Net profit so far
                     </th>
                     <th role="columnheader" scope="col" className="num">
-                      Running total
+                      {ownerLabel}
+                    </th>
+                    <th role="columnheader" scope="col" className="num">
+                      {managerLabel}
+                    </th>
+                    <th role="columnheader" scope="col" className="num">
+                      Running net profit
                     </th>
                   </tr>
                 </thead>
                 <tbody role="rowgroup">
-                  {ledger.map(({ batch, since, st, running: total }) => (
+                  {ledger.map(({ batch, since, st, share, running: total }) => (
                     <tr key={batch.id ?? "before"} role="row">
                       <td role="cell" data-label="" className="cell-primary">
                         <a href={`#${anchor(batch.id)}`}>
@@ -881,7 +891,13 @@ async function BatchesView({ supabase, isOwner, sp }: { supabase: ServerSupabase
                       <td role="cell" data-label="Net profit so far" className="num">
                         <Amount cents={st.netProfit} />
                       </td>
-                      <td role="cell" data-label="Running total" className="num">
+                      <td role="cell" data-label={ownerLabel} className="num">
+                        <Amount cents={share.owner} />
+                      </td>
+                      <td role="cell" data-label={managerLabel} className="num">
+                        <Amount cents={share.manager} />
+                      </td>
+                      <td role="cell" data-label="Running net profit" className="num">
                         <Amount cents={total} />
                       </td>
                     </tr>
@@ -889,7 +905,7 @@ async function BatchesView({ supabase, isOwner, sp }: { supabase: ServerSupabase
                 </tbody>
                 <tfoot role="rowgroup">
                   <tr role="row">
-                    <td role="cell" colSpan={4}>
+                    <td role="cell" colSpan={6}>
                       General expenses (not in a batch)
                     </td>
                     <td role="cell" className="num">
@@ -898,7 +914,7 @@ async function BatchesView({ supabase, isOwner, sp }: { supabase: ServerSupabase
                   </tr>
                   {other !== 0 && (
                     <tr role="row">
-                      <td role="cell" colSpan={4}>
+                      <td role="cell" colSpan={6}>
                         Not in any batch
                         <span className="fin-hint">sales of removed products or of pieces sold beyond the count, and rounding</span>
                       </td>
@@ -908,7 +924,7 @@ async function BatchesView({ supabase, isOwner, sp }: { supabase: ServerSupabase
                     </tr>
                   )}
                   <tr role="row">
-                    <td role="cell" colSpan={4}>
+                    <td role="cell" colSpan={6}>
                       Shop net profit so far
                     </td>
                     <td role="cell" className="num">
@@ -918,7 +934,11 @@ async function BatchesView({ supabase, isOwner, sp }: { supabase: ServerSupabase
                 </tfoot>
               </table>
             </div>
-            <p className="t-sm muted">Tap a batch for every line behind its number.</p>
+            <p className="t-sm muted">
+              Tap a batch for every line behind its number. Owner and manager are their shares of each batch&apos;s net
+              profit so far, before general expenses. A guide, not a payout: what can be paid out is on Overview → Safe to
+              distribute.
+            </p>
           </section>
 
           <section className="card stack" aria-labelledby="pnl-exp-t">
@@ -960,7 +980,6 @@ async function BatchesView({ supabase, isOwner, sp }: { supabase: ServerSupabase
           </section>
 
           {[...ledger].reverse().map(({ batch, since, st }) => {
-            const share = splitProfit(st.netProfit, split.owner, split.manager);
             const title = batchTitle(batch);
             return (
               <details key={batch.id ?? "before"} className="cat fin-batch" id={anchor(batch.id)} open={st.left > 0 || batch.id === newest}>
@@ -982,10 +1001,12 @@ async function BatchesView({ supabase, isOwner, sp }: { supabase: ServerSupabase
                 </summary>
                 <div className="stack fin-batch__body">
                   <BatchStatementLines batch={batch} st={st} taxRateBp={taxRateBp} />
-                  <p className="t-sm muted">
-                    This batch&apos;s share before general expenses: owner <Money cents={share.owner} />, manager{" "}
-                    <Money cents={share.manager} />. What can be paid out is on Overview → Safe to distribute.
-                  </p>
+                  <div className="pnl-split">
+                    <h3 className="eyebrow">
+                      Split · owner {shareLabel(split.owner, parts)}, manager {shareLabel(split.manager, parts)}
+                    </h3>
+                    <BatchSplit st={st} split={split} />
+                  </div>
                   <Link className="text-btn" href={`/restock/batches/${batch.id ?? "before"}${batch.id ? "#pnl" : ""}`}>
                     Open batch
                   </Link>

@@ -23,7 +23,7 @@ Restart the mock between suites. Screenshots go to `e2e/shots/` (git-ignored).
 |---|---|---|
 | test-new.js (reservations, stock fixes, distributions) | mock-restock.js | |
 | test-restock.js (reorder plan, batches) | mock-restock.js | ROLE |
-| test-expenses.js, test-batchpnl.js, test-receive-cat.js | mock-restock.js | ROLE for batchpnl; FIN=batches (mock and suite) makes Profit & loss follow the batch rows, to check the batches tie out to it |
+| test-expenses.js, test-batchpnl.js, test-receive-cat.js | mock-restock.js | ROLE for batchpnl; FIN=batches (mock and suite) makes Profit & loss follow the batch rows, to check the batches tie out to it; SOLDOUT=1 (mock and suite) sells out the stock from before batches, to check a sold-out batch |
 | test-batchfix.js (batch-tagged stock, fix, add to batch) | mock-restock.js | NOBATCH=1 for the no-batch case |
 | test-makebatch.js | mock-restock.js with NOBATCH=1 | |
 | test-finance.js, test-edits.js (Finance, owner edits) | mock-restock.js | ROLE=owner / manager (same on both) |

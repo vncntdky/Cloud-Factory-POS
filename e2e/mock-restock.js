@@ -28,8 +28,8 @@ const settings = { business_name: "Cloud Factory", restock_lead_days: 7, restock
 const batches = [{ id: "bbbbbbbb-0000-4000-8000-000000000001", batch_no: 1, supplier: "Cloud Supply", received_on: new Date(Date.now() - 5 * day).toISOString().slice(0, 10), note: null, created_at: ago(5), shipping_cents: 50000, tax_cents: 12000, mooe_cents: 8000, other_cents: 0, other_label: null }];
 const batchRows = [];
 products.forEach((p, i) => {
-  // Before batches: 3 opening pieces each, mostly sold.
-  const soldOld = Math.min(3, stats[i][0]);
+  // Before batches: 3 opening pieces each, mostly sold (all sold with SOLDOUT=1).
+  const soldOld = process.env.SOLDOUT ? 3 : Math.min(3, stats[i][0]);
   batchRows.push({ batch_id: null, product_id: p.id, received: 3, sold: soldOld, sales_cents: soldOld * 35000, cost_cents: soldOld * 21000, uncosted: 0, owed_cents: 0, received_cost_cents: 3 * 21000, received_uncosted: 0, adjusted: 0, first_in: ago(11), first_sold_at: soldOld ? ago(10) : null, last_sold_at: soldOld ? ago(6) : null });
   if (i < 6) {
     const rec = 20;
