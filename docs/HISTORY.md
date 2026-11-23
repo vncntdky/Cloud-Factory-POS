@@ -57,9 +57,9 @@ the bottom. Commits on `main` hold the code for each step.
 24. **New products** (23 Nov, live, added with `save_product` as the owner, 0 pieces until received):
     category **BLXCK Signature 88000** with 10 flavours (Mango, Strawberry, Watermelon, Yakult, Banana,
     Grapes, Bubblegum, Melon, Mix Berries, Black), brand "BLXCK Signature", ₱340, cost ₱165; and the
-    **XBLACK Transparent Device** (variant V5) in Device, ₱350, cost ₱200. Their photos were not uploaded
-    yet: this session's network can't reach the Supabase project (the owner can upload them on each
-    product page, or allow `pyjhwbfdxrjeitwjztna.supabase.co` in the environment's network settings).
+    **XBLACK Transparent Device** (variant V5) in Device, ₱350, cost ₱200. The 10 BLXCK photos were cut
+    from the supplier's poster and uploaded through the one-off `photo-import-once` edge function (redeployed
+    for this, then retired again to a 410 stub). The device has no photo yet (add it on its product page).
 
 ## Decisions the owner made
 
