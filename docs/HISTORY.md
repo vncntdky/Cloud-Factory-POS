@@ -85,7 +85,11 @@ the bottom. Commits on `main` hold the code for each step.
     the day it was covered), where each peso went, paid and still owed with who owes, flavours, the statements side by
     side and what to do next. Totals are the batch statements (the same as Finance → Batches); the new owner-only
     function `batch_report` adds each day's sales, flavours, who owes and how it was paid
-    (`20261125000000_batch_report.sql`). Pace is pieces sold ÷ days from arrival to the last sale, so a batch with
+    (`20261125000000_batch_report.sql`, then `20261125010000_batch_report_fixes.sql` after an independent review:
+    sales before an edited received date count on day 0, buyers are named as on their oldest open sale, and the
+    split by payment method reads each sale once). The review's other fixes are on the page: readouts for a
+    younger batch, wording for a batch at a loss or with one piece left, tax and counts in the explanations, a
+    centavo of rounding kept off the totals. Pace is pieces sold ÷ days from arrival to the last sale, so a batch with
     its last pieces still on the shelf isn't made to look slower. The page is `app/(staff)/sales/report/page.tsx`,
     the calculations `lib/batch-report.ts`, the charts `components/report/`.
 

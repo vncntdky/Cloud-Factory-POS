@@ -48,10 +48,13 @@ const FIN_VIEWS = [
   { href: "/sales/pnl?view=batches", label: "Batches" },
 ];
 
-/** "9 Nov". */
+/** "9 Nov", kept on one line. */
 function dayMonth(iso: string) {
-  return new Date(`${iso}T00:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "UTC" });
+  return new Date(`${iso}T00:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "UTC" }).replace(" ", "\u00a0");
 }
+
+/** Spaces that keep a short phrase on one line ("day 2", "5 buyers"). */
+const nb = (s: string) => s.replace(/ /g, "\u00a0");
 
 const abs = Math.abs;
 /** To one decimal, as shown: deltas are worked out from the numbers on screen. */
@@ -779,7 +782,7 @@ function Statement({
   const rows: Row[] = [
     ["What came in"],
     ["Pieces received", (f) => String(f.st.received)],
-    ["Pieces sold", (f) => (f.st.left > 0 ? `${f.st.sold} (${f.st.left} left)` : String(f.st.sold))],
+    ["Pieces sold", (f) => (f.st.left > 0 ? `${f.st.sold} (${nb(`${f.st.left} left`)})` : String(f.st.sold))],
     ["Average price per piece", (f) => (f.avgPrice === null ? "–" : pesos(Math.round(f.avgPrice)))],
     ["Cost per piece, with shipping", (f) => (f.landedEach === null ? "–" : pesos(Math.round(f.landedEach), 2))],
     ["Paid for by", (f) => (f.paidFromFunds ? "company funds" : "the owners")],
@@ -800,10 +803,10 @@ function Statement({
     [`Manager (${managerShare})`, (f) => pesos(f.share.manager)],
     ["Cost and payback"],
     ["Batch cost in full", (f) => pesos(f.st.costInFull)],
-    ["Earned back its cost", (f) => (f.paybackDay !== null ? `day ${f.paybackDay} (${dayMonth(f.series[f.paybackDay].date)})` : "not yet")],
+    ["Earned back its cost", (f) => (f.paybackDay !== null ? `${nb(`day ${f.paybackDay}`)} (${dayMonth(f.series[f.paybackDay].date)})` : "not yet")],
     ["Selling pace", (f) => (f.pace === null ? "–" : `${fmtPace(f.pace)} a day`)],
     ["Paid so far", (f) => pesos(f.paidTotal)],
-    ["Still owed by buyers", (f) => (f.st.owed > 0 ? `${pesos(f.st.owed)} (${plural(f.owedBuyers, "buyer")})` : pesos(0))],
+    ["Still owed by buyers", (f) => (f.st.owed > 0 ? `${pesos(f.st.owed)} (${nb(plural(f.owedBuyers, "buyer"))})` : pesos(0))],
   ];
   const bold = new Set(["Net sales", "Gross profit", "Net profit so far"]);
   return (
