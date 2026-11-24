@@ -818,6 +818,52 @@ select pg_temp.check('the owner can import too',
 reset role;
 select pg_temp.check('nobody signed out can import products', not has_function_privilege('anon', 'public.import_products(jsonb, boolean)', 'execute'));
 
+-- ───────── Batch report (owner only) ─────────
+set role authenticated;
+set request.jwt.claim.sub = '33333333-3333-3333-3333-333333333333';
+select public.save_product(null, '{"brand": "Rpt", "name": "Mango", "price_cents": 34000}') as rpt_mango \gset
+select public.save_product(null, '{"brand": "Rpt", "name": "Grape", "price_cents": 34000}') as rpt_grape \gset
+select public.receive_batch(format('{"supplier": "Report Supply", "items": [{"product_id": "%s", "qty": 3, "unit_cost_cents": 16500}, {"product_id": "%s", "qty": 3, "unit_cost_cents": 16500}]}',
+  :'rpt_mango', :'rpt_grape')::jsonb) as rpt_batch \gset
+select public.receive_batch(format('{"items": [{"product_id": "%s", "qty": 2, "unit_cost_cents": 16500}]}', :'rpt_grape')::jsonb) as rpt_empty \gset
+select public.complete_sale(format('{"client_ref": "cccccccc-0000-4000-8000-000000000001", "payment_method": "cash", "tendered_cents": 68000, "age_verified": true, "items": [{"product_id": "%s", "quantity": 2}]}', :'rpt_mango')::jsonb);
+select public.complete_sale(format('{"client_ref": "cccccccc-0000-4000-8000-000000000002", "payment_method": "unpaid", "customer_name": "  Ana  Cruz ", "age_verified": true, "items": [{"product_id": "%s", "quantity": 1}]}', :'rpt_grape')::jsonb) as rpt_owe1 \gset
+select public.complete_sale(format('{"client_ref": "cccccccc-0000-4000-8000-000000000003", "payment_method": "unpaid", "customer_name": "ana cruz", "age_verified": true, "items": [{"product_id": "%s", "quantity": 1}]}', :'rpt_mango')::jsonb);
+select public.record_payment((:'rpt_owe1'::jsonb ->> 'id')::uuid, 10000, 'gcash');
+select pg_temp.expect_error('managers can''t see batch reports', format($$select public.batch_report('%s')$$, :'rpt_batch'), 'Only the owner');
+set request.jwt.claim.sub = '22222222-2222-2222-2222-222222222222';
+select pg_temp.expect_error('staff can''t see batch reports', format($$select public.batch_report('%s')$$, :'rpt_batch'), 'Only the owner');
+set request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
+select public.batch_report(:'rpt_batch') as rpt \gset
+select pg_temp.check('batch report: the batch, and each day''s pieces with the running pieces and net sales',
+  (:'rpt'::jsonb ->> 'batch_no')::int = (select batch_no from public.stock_batches where id = :'rpt_batch')
+  and :'rpt'::jsonb ->> 'supplier' = 'Report Supply' and (:'rpt'::jsonb ->> 'today')::date = public.manila_today()
+  and jsonb_array_length(:'rpt'::jsonb -> 'days') = 1
+  and (:'rpt'::jsonb -> 'days' -> 0) = jsonb_build_object('date', public.manila_today(), 'pcs', 4, 'cum_pcs', 4, 'cum_net_cents', 136000));
+select pg_temp.check('batch report: each flavour''s pieces received, sold and left, and its last sale',
+  (select bool_and(case f ->> 'name'
+                     when 'Mango' then (f ->> 'received')::int = 3 and (f ->> 'sold')::int = 3 and (f ->> 'left')::int = 0
+                                       and (f ->> 'last_sale_on')::date = public.manila_today()
+                     when 'Grape' then (f ->> 'received')::int = 3 and (f ->> 'sold')::int = 1 and (f ->> 'left')::int = 2
+                     else false end) and count(*) = 2
+     from jsonb_array_elements(:'rpt'::jsonb -> 'flavours') f));
+select pg_temp.check('batch report: who still owes, one line per buyer however the name was typed',
+  (:'rpt'::jsonb -> 'owed') = '[{"buyer": "Ana Cruz", "cents": 58000, "sales": 2}]'::jsonb
+  or (:'rpt'::jsonb -> 'owed') = '[{"buyer": "ana cruz", "cents": 58000, "sales": 2}]'::jsonb);
+select pg_temp.check('batch report: what was collected, by method',
+  (select jsonb_object_agg(p ->> 'method', (p ->> 'cents')::int) from jsonb_array_elements(:'rpt'::jsonb -> 'paid') p)
+    = '{"cash": 68000, "gcash": 10000}'::jsonb);
+select pg_temp.check('batch report ties out to the batch''s statement: net sales, still owed, and paid = net − owed',
+  (select net_cents = 136000 and owed_cents = 58000 from public.batch_statements() where batch_id = :'rpt_batch')
+  and (select sum((p ->> 'cents')::int) from jsonb_array_elements(:'rpt'::jsonb -> 'paid') p) = 136000 - 58000);
+select pg_temp.check('batch report: a batch with nothing sold yet has no days, nothing owed and its pieces left',
+  (select (r -> 'days') = '[]'::jsonb and (r -> 'owed') = '[]'::jsonb and (r -> 'paid') = '[]'::jsonb
+          and (r -> 'flavours' -> 0 ->> 'received')::int = 2 and (r -> 'flavours' -> 0 ->> 'left')::int = 2
+     from (select public.batch_report(:'rpt_empty') as r) x));
+select pg_temp.expect_error('batch report: an unknown batch', $$select public.batch_report('00000000-0000-4000-8000-000000000000')$$, 'Batch not found');
+reset role;
+select pg_temp.check('nobody signed out can see batch reports', not has_function_privilege('anon', 'public.batch_report(uuid)', 'execute'));
+
 reset role;
 select case when ok then 'ok   ' else 'FAIL ' end || name as result from results;
 select count(*) filter (where not ok) as failures, count(*) as checks from results;

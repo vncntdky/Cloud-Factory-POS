@@ -99,7 +99,7 @@ npm install
 npm run dev                  # http://localhost:3000
 ```
 
-Database tests (238 checks: roles, checkout rules, stock, voids, reports, unpaid sales and collecting, batches, finance, imports) run on any local Postgres:
+Database tests (248 checks: roles, checkout rules, stock, voids, reports, unpaid sales and collecting, batches, finance, imports, batch reports) run on any local Postgres:
 
 ```bash
 PGHOST=… PGPORT=… PGUSER=postgres supabase/tests/run.sh
