@@ -68,6 +68,8 @@ export type BatchFigures = {
   quietDays: number[];
   /** Days since arrival, today included. */
   age: number;
+  /** Manila date the figures were taken. */
+  today: string;
   /** Net sales ÷ pieces sold. */
   avgPrice: number | null;
   /** What one piece cost with its share of the restocking fees. */
@@ -175,16 +177,33 @@ export function batchFigures(
     paybackDay: payback ? payback.day : null,
     quietDays,
     age,
+    today: rpc.today,
     avgPrice: st.sold > 0 ? st.net / st.sold : null,
     landedEach: st.received > 0 ? (st.goods + st.fees) / st.received : null,
     netMargin: st.net > 0 ? st.netProfit / st.net : null,
     grossMargin: st.net > 0 ? st.grossProfit / st.net : null,
     flavours,
-    owed: rpc.owed.map((o) => ({ buyer: o.buyer?.trim() || "No name", cents: Number(o.cents), sales: o.sales })),
+    owed: fit(
+      rpc.owed.map((o) => ({ buyer: o.buyer?.trim() || "No name", cents: Number(o.cents), sales: o.sales })),
+      st.owed,
+    ),
     owedBuyers: rpc.owed.length,
-    paid: rpc.paid.map((p) => ({ method: p.method, cents: Number(p.cents) })),
+    paid: fit(
+      rpc.paid.map((p) => ({ method: p.method, cents: Number(p.cents) })),
+      paidTotal,
+    ),
     paidTotal,
   };
+}
+
+/**
+ * Puts the rounding difference (a centavo or two: each part is rounded on its own) on the biggest part, so the
+ * parts add up to the total shown next to them. Rows come biggest first.
+ */
+function fit<T extends { cents: number }>(rows: T[], total: number) {
+  const gap = total - rows.reduce((n, r) => n + r.cents, 0);
+  if (rows.length && gap !== 0 && Math.abs(gap) <= rows.length) rows[0] = { ...rows[0], cents: rows[0].cents + gap };
+  return rows;
 }
 
 /** "2.1" pieces a day; whole numbers drop the ".0". */

@@ -2783,8 +2783,8 @@ a.segmented__option { text-decoration: none; }
 /* Flavours: days until each sold out */
 .rpt-colhead { display: flex; align-items: center; gap: 6px; }
 .rpt-fl { display: grid; gap: 6px; }
-.rpt-fl li { display: grid; grid-template-columns: minmax(0, 9.5rem) minmax(0, 1fr) 4.75rem; align-items: center; gap: var(--space-2); font-size: 14px; }
-@media (max-width: 420px) { .rpt-fl li { grid-template-columns: minmax(0, 7.5rem) minmax(0, 1fr) 4.5rem; } }
+.rpt-fl li { display: grid; grid-template-columns: minmax(0, 9.5rem) minmax(0, 1fr) auto; align-items: center; gap: var(--space-2); font-size: 14px; }
+@media (max-width: 420px) { .rpt-fl li { grid-template-columns: minmax(0, 7.5rem) minmax(0, 1fr) auto; } }
 .rpt-fl__name { overflow-wrap: anywhere; line-height: 18px; }
 .rpt-fl__track { height: 8px; border-radius: 4px; background: var(--surface-sunken); overflow: hidden; }
 .rpt-fl__fill { display: block; height: 100%; border-radius: 4px; }

@@ -140,7 +140,7 @@ export default async function BatchReportPage({ searchParams }: { searchParams: 
       const st = (b: RealBatch) => batchStatement(statements.get(b.id), b, expenses, taxRateBp);
       const a = batchFigures(current, st(current), ra.data as BatchReportRpc, split);
       const b = vs && rb.data ? batchFigures(vs, st(vs), rb.data as BatchReportRpc, split) : null;
-      body = <Report a={a} b={b} split={split} taxRateBp={taxRateBp} />;
+      body = <Report a={a} b={b} split={split} taxRateBp={taxRateBp} newestId={batches[0].id} />;
     }
   }
 
@@ -201,18 +201,21 @@ function Report({
   b,
   split,
   taxRateBp,
+  newestId,
 }: {
   a: BatchFigures;
   b: BatchFigures | null;
   split: { owner: number; manager: number };
   taxRateBp: number;
+  /** The newest batch: only it gets "receive the next delivery". */
+  newestId: string;
 }) {
   const parts = split.owner + split.manager;
   const ownerShare = shareLabel(split.owner, parts);
   const managerShare = shareLabel(split.manager, parts);
   const both = b ? [a, b] : [a];
   const xMax = Math.max(...both.map((f) => f.series.length - 1), 1);
-  const asOf = dayMonth(a.series.at(-1)?.date ?? a.receivedOn);
+  const asOf = dayMonth(a.today);
 
   return (
     <>
@@ -236,13 +239,13 @@ function Report({
             label: f.title,
             tone: i === 0 ? "accent" : "muted",
             values: f.series.map((p) => p.cumPcs),
-            end: f.soldOutDay !== null ? `sold out, day ${f.soldOutDay}` : `${f.st.sold} of ${f.st.received}`,
+            end: f.soldOutDay !== null ? "sold out" : `${f.st.sold} of ${f.st.received}`,
           }))}
           tips={Array.from({ length: xMax + 1 }, (_, d) => [
             `Day ${d}`,
             ...both.map((f) => {
               const p = f.series[d];
-              return p ? `${f.title} · ${dayMonth(p.date)}: ${p.cumPcs} sold` : `${f.title}: sold out on day ${f.soldOutDay}`;
+              return p ? `${f.title} · ${dayMonth(p.date)}: ${p.cumPcs} sold` : `${f.title}: ${past(f)}`;
             }),
           ])}
           focusDay={a.series.length - 1}
@@ -268,7 +271,7 @@ function Report({
             `Day ${d}`,
             ...both.map((f) => {
               const p = f.series[d];
-              if (!p) return `${f.title}: sold out on day ${f.soldOutDay}`;
+              if (!p) return `${f.title}: ${past(f)}`;
               const left = f.st.costInFull - p.cumNet;
               return `${f.title} · ${dayMonth(p.date)}: ${pesos(p.cumNet)}, ${left <= 0 ? "cost covered" : `${pesos(left)} to go`}`;
             }),
@@ -282,7 +285,7 @@ function Report({
       <PaidAndOwed a={a} b={b} />
       <Flavours a={a} b={b} xMax={xMax} />
       <Statement a={a} b={b} ownerShare={ownerShare} managerShare={managerShare} taxRateBp={taxRateBp} />
-      <NextSteps a={a} b={b} />
+      <NextSteps a={a} b={b} newestId={newestId} />
 
       <Section id="rpt-how" title="How these numbers are worked out">
         <ul className="rpt-notes">
@@ -293,7 +296,8 @@ function Report({
           <li>
             Net profit so far = net sales − cost of the pieces sold − their share of shipping and restocking fees − the
             batch&apos;s expenses
-            {taxRateBp > 0 ? " − the percentage tax estimate" : ""}. Shares are owner {ownerShare} and manager {managerShare},
+            {taxRateBp > 0 ? " − the percentage tax estimate" : ""}
+            {both.some((f) => f.st.countDiffs !== 0) ? " ± counts and losses" : ""}. Shares are owner {ownerShare} and manager {managerShare},
             before general expenses: a guide, not a payout (what can be paid out is Safe to distribute on Overview).
           </li>
           <li>
@@ -309,6 +313,26 @@ function Report({
   );
 }
 
+/** A day the batch's line doesn't reach: it sold out before it, or the batch is younger than that. */
+function past(f: BatchFigures) {
+  return f.soldOutDay !== null ? `sold out on day ${f.soldOutDay}` : `not there yet (it is on day ${f.age})`;
+}
+
+/** What comes below gross profit: the batch's expenses, the tax estimate, and counts and losses (missing pieces add). */
+function below(f: BatchFigures) {
+  return f.st.expenseTotal + f.st.tax - f.st.countDiffs;
+}
+
+function belowWords(...fs: (BatchFigures | null)[]) {
+  return fs.some((f) => f && (f.st.tax !== 0 || f.st.countDiffs !== 0)) ? "expenses, tax estimate and counts" : "expenses";
+}
+
+/** "1 piece" / "2.1 pieces". */
+function perDay(p: number | null) {
+  const s = fmtPace(p);
+  return `${s} ${s === "1" ? "piece" : "pieces"} a day`;
+}
+
 function dayTable(both: BatchFigures[], xMax: number, cell: (p: BatchFigures["series"][number]) => string) {
   return {
     head: ["Day", ...both.flatMap((f) => [`${f.title} date`, f.title])],
@@ -316,7 +340,7 @@ function dayTable(both: BatchFigures[], xMax: number, cell: (p: BatchFigures["se
       String(d),
       ...both.flatMap((f) => {
         const p = f.series[d];
-        return p ? [dayMonth(p.date), cell(p)] : ["sold out", "–"];
+        return p ? [dayMonth(p.date), cell(p)] : f.soldOutDay !== null ? ["sold out", "–"] : ["–", "–"];
       }),
     ]),
   };
@@ -328,8 +352,8 @@ function paceCaption(a: BatchFigures, b: BatchFigures | null) {
     const first =
       f.firstSaleDay === 0
         ? `${f.title} sold ${plural(f.series[0]?.pcs ?? 0, "piece")} on the day it arrived`
-        : `${f.title} sold nothing on the day it arrived; its first sale was on day ${f.firstSaleDay}`;
-    const end = f.soldOutDay !== null ? `, sold out on day ${f.soldOutDay}` : "";
+        : `${f.title} sold nothing on the day it arrived, made its first sale on day ${f.firstSaleDay}`;
+    const end = f.soldOutDay === 0 ? " and sold out that day" : f.soldOutDay !== null ? `, sold out on day ${f.soldOutDay}` : "";
     const quiet = f.quietDays.length ? `, and had no sales on ${f.quietDays.length === 1 ? "day" : "days"} ${listing(f.quietDays)}` : "";
     return `${first}${end}${quiet}.`;
   };
@@ -356,7 +380,15 @@ function Lead({ a, b }: { a: BatchFigures; b: BatchFigures | null }) {
   const diff = b ? a.st.netProfit - b.st.netProfit : 0;
   const s1 = (
     <>
-      {a.title} has made <strong>{pesos(a.st.netProfit)}</strong> net profit so far
+      {a.st.netProfit < 0 ? (
+        <>
+          {a.title} is <strong>{pesos(-a.st.netProfit)}</strong> short so far (its costs are more than its net sales)
+        </>
+      ) : (
+        <>
+          {a.title} has made <strong>{pesos(a.st.netProfit)}</strong> net profit so far
+        </>
+      )}
       {b && diff !== 0 ? `, ${pesos(abs(diff))} ${diff > 0 ? "more" : "less"} than ${b.title}` : b ? `, the same as ${b.title}` : ""}
       {a.st.left > 0 ? `, with ${plural(a.st.left, "piece")} of its ${a.st.received} still to sell.` : ", and it is sold out."}
     </>
@@ -364,21 +396,22 @@ function Lead({ a, b }: { a: BatchFigures; b: BatchFigures | null }) {
   let s2 = "";
   if (b && b.st.sold > 0 && diff !== 0) {
     const gp = a.st.grossProfit - b.st.grossProfit;
-    const ex = a.st.expenseTotal - b.st.expenseTotal;
+    const ex = below(a) - below(b);
     const scale = Math.max(abs(a.st.grossProfit), abs(b.st.grossProfit), 1);
-    if (abs(gp) <= 0.05 * scale && ex !== 0 && Math.sign(ex) === -Math.sign(diff)) {
-      s2 = ` The difference is expenses: ${pesos(a.st.expenseTotal)} charged to ${a.title} so far, against ${pesos(b.st.expenseTotal)} for ${b.title}. Before expenses the two made about the same.`;
-    } else if (a.st.expenseTotal === 0 && b.st.expenseTotal === 0) {
-      s2 = ` Before expenses it made ${pesos(a.st.grossProfit)}, against ${pesos(b.st.grossProfit)} for ${b.title}; neither has expenses charged to it yet.`;
+    const words = belowWords(a, b);
+    if (abs(gp) <= 0.05 * scale && ex !== 0 && Math.sign(ex) === -Math.sign(diff) && abs(ex) >= 2 * abs(gp)) {
+      s2 = ` The difference is ${words}: ${pesos(below(a))} for ${a.title} so far, against ${pesos(below(b))} for ${b.title}. Before ${words} the two made about the same.`;
+    } else if (below(a) === 0 && below(b) === 0) {
+      s2 = ` Before ${words} it made ${pesos(a.st.grossProfit)}, against ${pesos(b.st.grossProfit)} for ${b.title}; neither has ${words} charged to it yet.`;
     } else {
-      s2 = ` Before expenses it made ${pesos(a.st.grossProfit)} (${b.title}: ${pesos(b.st.grossProfit)}); its expenses so far are ${pesos(a.st.expenseTotal)} (${b.title}: ${pesos(b.st.expenseTotal)}).`;
+      s2 = ` Before ${words} it made ${pesos(a.st.grossProfit)} (${b.title}: ${pesos(b.st.grossProfit)}); its ${words} so far are ${pesos(below(a))} (${b.title}: ${pesos(below(b))}).`;
     }
   }
   const pace =
     a.pace !== null && b?.pace
-      ? `It sold ${a.pace > b.pace ? "faster" : a.pace < b.pace ? "slower" : "as fast"} (${fmtPace(a.pace)} pieces a day against ${fmtPace(b.pace)})`
+      ? `It sold ${round1(a.pace) > round1(b.pace) ? "faster" : round1(a.pace) < round1(b.pace) ? "slower" : "as fast"} (${perDay(a.pace)} against ${fmtPace(b.pace)})`
       : a.pace !== null
-        ? `It sold ${fmtPace(a.pace)} pieces a day`
+        ? `It sold ${perDay(a.pace)}`
         : "";
   const owedPct = a.st.net > 0 ? a.st.owed / a.st.net : 0;
   const owed =
@@ -574,10 +607,14 @@ function WhereEachPeso({ a, b }: { a: BatchFigures; b: BatchFigures | null }) {
   };
   const caption = (() => {
     if (!b || a.grossMargin === null || b.grossMargin === null) {
-      return a.grossMargin === null ? "Nothing sold yet." : `Of every ₱100 of net sales, ${a.title} keeps ₱${((a.netMargin ?? 0) * 100).toFixed(0)} as net profit so far.`;
+      if (a.grossMargin === null) return "Nothing sold yet.";
+      return a.netMargin !== null && a.netMargin < 0
+        ? `${a.title}'s costs so far are more than its net sales.`
+        : `Of every ₱100 of net sales, ${a.title} keeps ₱${((a.netMargin ?? 0) * 100).toFixed(0)} as net profit so far.`;
     }
     const gm = abs(a.grossMargin - b.grossMargin) < 0.01;
-    return `Gross margin ${gm ? "is almost the same" : "differs"} (${fmtPct(b.grossMargin)} for ${b.title}, ${fmtPct(a.grossMargin)} for ${a.title}). Net margin: ${fmtPct(b.netMargin)} against ${fmtPct(a.netMargin)}; expenses were ${pesos(b.st.expenseTotal)} and ${pesos(a.st.expenseTotal)}.`;
+    const words = belowWords(a, b);
+    return `Gross margin ${gm ? "is almost the same" : "differs"}: ${fmtPct(a.grossMargin)} for ${a.title}, ${fmtPct(b.grossMargin)} for ${b.title}. Net margin: ${fmtPct(a.netMargin)} for ${a.title} against ${fmtPct(b.netMargin)} for ${b.title}; ${words} ${pesos(below(a))} and ${pesos(below(b))}.`;
   })();
   const anyLoss = both.some((f) => f.st.netProfit < 0);
   return (
@@ -588,7 +625,7 @@ function WhereEachPeso({ a, b }: { a: BatchFigures; b: BatchFigures | null }) {
       </p>
       <PartsBars
         title="Where each peso of net sales went"
-        rows={both.map(row)}
+        rows={both.filter((f) => f.st.net > 0).map(row)}
         legend={[
           { key: "goods", name: "Cost of the pieces sold" },
           { key: "fees", name: "Shipping and restocking fees" },
@@ -678,7 +715,7 @@ function PaidAndOwed({ a, b }: { a: BatchFigures; b: BatchFigures | null }) {
 function Flavours({ a, b, xMax }: { a: BatchFigures; b: BatchFigures | null; xMax: number }) {
   const both = b ? [a, b] : [a];
   const fastest = (f: BatchFigures) => f.flavours.find((x) => x.soldOutDay !== null);
-  const open = a.flavours.filter((x) => x.soldOutDay === null);
+  const open = a.flavours.filter((x) => x.left > 0);
   return (
     <Section id="rpt-flavours" title="Flavours: days until each sold out">
       <p className="t-sm muted">
@@ -704,11 +741,13 @@ function Flavours({ a, b, xMax }: { a: BatchFigures; b: BatchFigures | null; xMa
                         className={`rpt-fl__fill rpt-fl__fill--${i === 0 ? "accent" : "muted"}`}
                         style={{ width: `${(100 * Math.max(x.soldOutDay, 0.4)) / Math.max(xMax, 1)}%` }}
                       />
-                    ) : (
+                    ) : x.left > 0 ? (
                       <span className={`rpt-fl__fill rpt-fl__fill--open rpt-fl__fill--${i === 0 ? "accent" : "muted"}`} style={{ width: "100%" }} />
-                    )}
+                    ) : null}
                   </span>
-                  <span className="rpt-fl__val">{x.soldOutDay !== null ? `day ${x.soldOutDay}` : `${x.sold} of ${x.received} sold`}</span>
+                  <span className="rpt-fl__val">
+                    {x.soldOutDay !== null ? `day ${x.soldOutDay}` : x.left > 0 ? `${x.sold} of ${x.received} sold` : "none left"}
+                  </span>
                 </li>
               ))}
             </ul>
@@ -817,14 +856,13 @@ function Statement({
   );
 }
 
-function NextSteps({ a, b }: { a: BatchFigures; b: BatchFigures | null }) {
+function NextSteps({ a, b, newestId }: { a: BatchFigures; b: BatchFigures | null; newestId: string }) {
   const steps: ReactNode[] = [];
   if (a.st.owed > 0) {
     steps.push(
       <>
         <strong>Collect the {pesos(a.st.owed)} still owed on {a.title}</strong> from {plural(a.owedBuyers, "buyer")} (Collectibles):{" "}
-        {listing(a.owed.slice(0, 6).map((o) => `${o.buyer} ${pesos(o.cents)}`))}
-        {a.owed.length > 6 ? " and others" : ""}.
+        {listing([...a.owed.slice(0, 6).map((o) => `${o.buyer} ${pesos(o.cents)}`), ...(a.owed.length > 6 ? [`${a.owed.length - 6} more`] : [])])}.
       </>,
     );
   }
@@ -850,8 +888,9 @@ function NextSteps({ a, b }: { a: BatchFigures; b: BatchFigures | null }) {
     const more = b ? a.st.whenSoldOut - b.st.netProfit : 0;
     steps.push(
       <>
-        <strong>Sell the {plural(a.st.left, "piece")} left.</strong> If they sell at today&apos;s prices and no other costs are added,{" "}
-        {a.title}&apos;s net profit is {pesos(a.st.whenSoldOut)} (owner {pesos(a.shareWhenSoldOut.owner)}, manager{" "}
+        <strong>Sell the {plural(a.st.left, "piece")} left.</strong> If {a.st.left === 1 ? "it sells" : "they sell"} at today&apos;s
+        prices and no other costs are added, {a.title}&apos;s net profit would be {pesos(a.st.whenSoldOut)} (owner{" "}
+        {pesos(a.shareWhenSoldOut.owner)}, manager{" "}
         {pesos(a.shareWhenSoldOut.manager)})
         {b && b.soldOutDay !== null && more !== 0 ? `, ${pesos(abs(more))} ${more > 0 ? "more" : "less"} than ${b.title}` : ""}.
       </>,
@@ -869,7 +908,7 @@ function NextSteps({ a, b }: { a: BatchFigures; b: BatchFigures | null }) {
       </>,
     );
   }
-  if (a.st.left > 0 && a.st.left <= Math.max(3, Math.round(a.st.received * 0.1))) {
+  if (a.id === newestId && a.st.sold > 0 && a.st.left > 0 && a.st.left <= Math.max(3, Math.round(a.st.received * 0.1))) {
     steps.push(
       <>
         <strong>Receive the next delivery as a batch as soon as it arrives</strong> (Restock → Receive batch): {a.title} is almost

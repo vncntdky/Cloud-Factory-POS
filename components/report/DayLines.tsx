@@ -24,12 +24,12 @@ export type DayLine = {
 const H = 232;
 const PAD = { top: 28, right: 72, bottom: 42, left: 46 };
 
-/** 0 and 4–5 round steps covering max. */
-function ticks(max: number) {
+/** 0 and 4–5 round steps covering max; whole steps for pieces. */
+function ticks(max: number, unit: "pesos" | "count") {
   if (max <= 0) return [0, 1];
   const raw = max / 4;
   const mag = 10 ** Math.floor(Math.log10(raw));
-  const step = [1, 2, 2.5, 5, 10].map((m) => m * mag).find((s) => s >= raw) ?? raw;
+  const step = Math.max(unit === "count" ? 1 : 0, [1, 2, 2.5, 5, 10].map((m) => m * mag).find((s) => s >= raw) ?? raw);
   const out: number[] = [];
   for (let v = 0; v < max + step * 0.999; v += step) out.push(Math.round(v * 100) / 100);
   return out;
@@ -77,7 +77,7 @@ export function DayLines({
 
   const xMax = Math.max(1, ...lines.map((l) => l.values.length - 1));
   const vMax = Math.max(0, ...lines.flatMap((l) => [...l.values, l.level ?? 0]));
-  const yTicks = ticks(vMax);
+  const yTicks = ticks(vMax, unit);
   const yMax = yTicks[yTicks.length - 1] || 1;
   const innerW = width - PAD.left - PAD.right;
   const innerH = H - PAD.top - PAD.bottom;
