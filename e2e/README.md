@@ -28,6 +28,7 @@ Restart the mock between suites. Screenshots go to `e2e/shots/` (git-ignored).
 | test-makebatch.js | mock-restock.js with NOBATCH=1 | |
 | test-finance.js, test-edits.js (Finance, owner edits) | mock-restock.js | ROLE=owner / manager (same on both) |
 | test-help.js (Help & SOPs) | mock-restock.js | ROLE=owner / manager / cashier (same on all) |
+| test-import.js (Inventory → Import CSV) | mock-restock.js | ROLE=owner / manager / cashier (same on all) |
 | test-dash.js (dashboard) | mock-dash.js | ROLE=cashier for the staff check |
 | test-delete.js (owner deletes) | mock-delete.js | MODE=product / sale, ROLE=manager |
 

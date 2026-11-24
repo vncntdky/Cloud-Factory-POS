@@ -107,6 +107,17 @@ export const SOPS: Sop[] = [
         ],
       },
       {
+        title: "Add many products from a CSV file",
+        steps: [
+          "In Inventory, tap Import (next to Add product).",
+          "Tap Download template and open it in Google Sheets or Excel. Type one row per product or flavour. Product and Selling price are needed; Category, Brand, Flavour / variant, Barcode, Cost per piece, Low-stock alert at (5 if empty) and For sale (yes if empty) are optional. Type prices like 340 or 1,250.50. The two Example rows are skipped.",
+          "In Excel, set the Barcode column to Text before typing barcodes (select the column, then Format Cells, Text). Otherwise Excel turns long barcodes into numbers like 4.8E+12 and drops leading zeros.",
+          "Save or download the sheet as CSV, then tap Choose CSV file and pick it.",
+          "Check the list. New rows will be added; Already in the app rows (same brand, product and flavour) are skipped and never changed; a Fix this row says what to fix. Fix those rows in the sheet and choose the file again: nothing is added until every row is right.",
+          "Tap Add (it shows how many). They start with 0 pieces: receive their stock with SOP 3, and add photos on each product's page.",
+        ],
+      },
+      {
         title: "Change a price, cost or details",
         steps: [
           "In Inventory, open the product and scroll to Product details.",
@@ -630,7 +641,7 @@ export const SCREENS: { screen: string; who: string; what: string; href: string;
     screen: "Inventory",
     who: "Everyone. Anyone can reserve pieces and add a photo; stock and product changes by owner and manager",
     href: "/inventory",
-    what: "Products by category with their shelf count, a Low or Out badge, and filters: For sale, Low stock, Out, Not for sale, Reserved. Owners and managers also see each cost and the stock at cost. A product's page holds its photo, reservations, Change stock, Product details, Stock history with Fix, and Delete product (owner).",
+    what: "Products by category with their shelf count, a Low or Out badge, and filters: For sale, Low stock, Out, Not for sale, Reserved. Owners and managers also see each cost and the stock at cost, Add product, and Import to add many products from a CSV file. A product's page holds its photo, reservations, Change stock, Product details, Stock history with Fix, and Delete product (owner).",
   },
   {
     screen: "Restock",
@@ -891,6 +902,11 @@ export const PROBLEMS: { see: string; doThis: string; managers?: boolean }[] = [
     managers: true,
   },
   { see: "Change stock asks for a batch and none fits", doThis: "Receive the delivery as a batch first (SOP 3).", managers: true },
+  {
+    see: "Import says a row needs fixing, or Nothing was added",
+    doThis: "Fix each row marked Fix this in your sheet, save it as CSV again and choose the file again. Nothing is added until every row is right. A barcode shown like 4.8E+12 was changed by Excel: set the Barcode column to Text and type it again (SOP 2).",
+    managers: true,
+  },
   {
     see: "The page reloaded mid-sale",
     doThis: "Carry on: the products in the cart stay on this phone until you charge or clear them. Enter the buyer, discount and payment again.",

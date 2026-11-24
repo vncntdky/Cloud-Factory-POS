@@ -711,6 +711,113 @@ select pg_temp.check('manager sees the batch statements', (select count(*) > 0 f
 set request.jwt.claim.sub = '22222222-2222-2222-2222-222222222222';
 select pg_temp.check('staff get no batch statements', (select count(*) = 0 from public.batch_statements()));
 
+-- ───────── Import products from a CSV file (owners and managers) ─────────
+select pg_temp.expect_error('staff can''t import products',
+  $$select * from public.import_products('[{"row_no": 2, "name": "Nope", "price": "100"}]'::jsonb)$$, 'Only owners and managers');
+set request.jwt.claim.sub = '33333333-3333-3333-3333-333333333333';
+select public.save_product(null, '{"brand": "Imp", "name": "Existing", "variant": "Mint", "barcode": "IMP-1", "price_cents": 30000}') is not null as imp_existing \gset
+select count(*) as imp_before from public.products \gset
+select $j$[
+  {"row_no": 2, "category": "Imported Pods", "brand": "Imp", "name": "Pod", "variant": "Mango", "barcode": "IMP-2", "price": "₱1,250.50", "cost": "165", "reorder_at": "3", "for_sale": "yes"},
+  {"row_no": 3, "category": "imported pods", "brand": "Imp", "name": "Pod", "variant": "Grape", "price": "340", "for_sale": "no"},
+  {"row_no": 4, "category": "Example", "brand": "Example", "name": "Mango", "price": "340"},
+  {"row_no": 5, "brand": " imp ", "name": "existing", "variant": "MINT", "price": "300"}
+]$j$ as imp_ok \gset
+select pg_temp.check('import preview: new rows, a template example row and a product already in the app',
+  (select string_agg(row_no || ':' || status, ',' order by row_no) = '2:new,3:new,4:example,5:exists'
+      and bool_and(product_id is null) filter (where status <> 'exists') and bool_and(product_id is not null) filter (where status = 'exists')
+     from public.import_products(:'imp_ok'::jsonb)));
+select pg_temp.check('import preview writes nothing',
+  (select count(*) = :imp_before from public.products) and not exists (select 1 from public.categories where lower(name) = 'imported pods'));
+select pg_temp.check('import adds only the new rows and returns their ids',
+  (select count(*) filter (where status = 'new' and product_id is not null) = 2 and count(*) = 4
+     from public.import_products(:'imp_ok'::jsonb, true)));
+select pg_temp.check('imported: one new category for both spellings; price, cost, alert, barcode and For sale as written',
+  (select count(*) = 1 from public.categories where lower(name) = 'imported pods')
+  and (select p.price_cents = 125050 and c.cost_cents = 16500 and p.reorder_at = 3 and p.barcode = 'IMP-2' and p.active and p.on_hand = 0
+         and p.category_id = (select id from public.categories where lower(name) = 'imported pods')
+         from public.products p join public.product_costs c on c.product_id = p.id where p.brand = 'Imp' and p.variant = 'Mango')
+  and (select not p.active and p.reorder_at = 5 and p.price_cents = 34000 and p.barcode is null
+              and not exists (select 1 from public.product_costs c where c.product_id = p.id)
+         from public.products p where p.brand = 'Imp' and p.variant = 'Grape')
+  and (select count(*) = :imp_before + 2 from public.products));
+select pg_temp.check('importing the same file again skips every row',
+  (select bool_and(status in ('exists', 'example')) from public.import_products(:'imp_ok'::jsonb, true))
+  and (select count(*) = :imp_before + 2 from public.products));
+select $j$[
+  {"row_no": 2, "brand": "Imp", "name": "Fresh", "price": "200"},
+  {"row_no": 3, "name": "", "price": "200"},
+  {"row_no": 4, "name": "Bad Price", "price": "abc"},
+  {"row_no": 5, "name": "Negative", "price": "-5"},
+  {"row_no": 6, "name": "Bad Code", "price": "200", "barcode": "bad code!"},
+  {"row_no": 7, "name": "Taken Code", "price": "200", "barcode": "IMP-1"},
+  {"row_no": 8, "brand": "imp", "name": "fresh", "price": "250"},
+  {"row_no": 9, "name": "Sale?", "price": "200", "for_sale": "maybe"},
+  {"row_no": 10, "name": "Alert", "price": "200", "reorder_at": "2.5"},
+  {"row_no": 11, "name": "Cost", "price": "200", "cost": "free"},
+  {"row_no": 12, "name": "Code A", "price": "200", "barcode": "IMP-9"},
+  {"row_no": 13, "name": "Code B", "price": "200", "barcode": "IMP-9"},
+  {"row_no": 14, "name": "Too Dear", "price": "150000"}
+]$j$ as imp_bad \gset
+select pg_temp.check('import preview names what to fix on each row',
+  (select string_agg(row_no || ':' || status, ',' order by row_no)
+            = '2:new,3:error,4:error,5:error,6:error,7:error,8:error,9:error,10:error,11:error,12:new,13:error,14:error'
+      and bool_or(row_no = 3 and message like 'Add the product name%') and bool_or(row_no = 4 and message like 'Enter the selling price%')
+      and bool_or(row_no = 6 and message like 'Barcodes use%') and bool_or(row_no = 7 and message like 'Another product already has barcode IMP-1%')
+      and bool_or(row_no = 8 and message = 'Same product as row 2.') and bool_or(row_no = 9 and message like 'For sale must be yes or no%')
+      and bool_or(row_no = 10 and message like 'Low-stock alert%') and bool_or(row_no = 11 and message like 'Enter the cost%')
+      and bool_or(row_no = 13 and message = 'Barcode IMP-9 is on row 12 too.') and bool_or(row_no = 14 and message like '%too high%')
+     from public.import_products(:'imp_bad'::jsonb)));
+select pg_temp.expect_error('a file with any error adds nothing',
+  format($$select * from public.import_products(%L::jsonb, true)$$, :'imp_bad'), 'Nothing was added');
+select pg_temp.check('nothing from the file with errors was added',
+  (select count(*) = :imp_before + 2 from public.products) and not exists (select 1 from public.products where name = 'Fresh'));
+-- Files as people type them: commas only between thousands, "P340", doubled spaces, Excel barcodes.
+select public.save_product(null, '{"brand": "Imp", "name": "Very Chill", "price_cents": 34000}') is not null as imp_chill \gset
+select count(*) as imp_before2 from public.products \gset
+select $j$[
+  {"row_no": 2, "brand": "Imp", "name": "Comma Decimal", "price": "340,50"},
+  {"row_no": 3, "brand": "Imp", "name": "Thousands", "price": "1,250", "cost": "P165", "reorder_at": "1,000"},
+  {"row_no": 4, "brand": "Imp", "name": "Peso P", "price": "P340", "cost": "p 165"},
+  {"row_no": 5, "brand": "Imp", "name": "Bad Cost", "price": "340", "cost": "165,5"},
+  {"row_no": 6, "brand": "Imp", "name": "Bad Alert", "price": "340", "reorder_at": "5,0"},
+  {"row_no": 7, "brand": "imp", "name": "Very  Chill", "price": "340"},
+  {"row_no": 8, "brand": "Imp", "name": "Excel Code", "price": "340", "barcode": "4.8E+12"},
+  {"row_no": 9, "category": "Imported   Pods", "brand": "Imp", "name": "Two  Spaces", "variant": "Ube\nTaro", "price": "340"}
+]$j$ as imp_typed \gset
+select pg_temp.check('import reads pesos as typed: comma only between thousands, P340; doubled spaces match; Excel barcodes named',
+  (select string_agg(row_no || ':' || status, ',' order by row_no) = '2:error,3:new,4:new,5:error,6:error,7:exists,8:error,9:new'
+      and bool_or(row_no = 2 and message like 'Enter the selling price%') and bool_or(row_no = 5 and message like 'Enter the cost%')
+      and bool_or(row_no = 6 and message like 'Low-stock alert must be a whole number%')
+      and bool_or(row_no = 8 and message = 'Excel changed this barcode to 4.8E+12. Set the Barcode column to Text, type the barcode again and save.')
+     from public.import_products(:'imp_typed'::jsonb)));
+select pg_temp.expect_error('adding a file with errors says how many rows need fixing',
+  format($$select * from public.import_products(%L::jsonb, true)$$, :'imp_typed'), 'Nothing was added: 4 rows need fixing (marked Fix this)');
+select pg_temp.check('the rows without errors can be added',
+  (select count(*) filter (where status = 'new') = 3 and count(*) filter (where status = 'exists') = 1 from public.import_products(
+      (select jsonb_agg(e) from jsonb_array_elements(:'imp_typed'::jsonb) e where (e ->> 'row_no')::int in (3, 4, 7, 9)), true)));
+select pg_temp.check('they are saved with the amounts as typed, single spaces and the existing category',
+  (select p.price_cents = 125000 and c.cost_cents = 16500 and p.reorder_at = 1000
+         from public.products p join public.product_costs c on c.product_id = p.id where p.name = 'Thousands')
+  and (select p.price_cents = 34000 and c.cost_cents = 16500
+         from public.products p join public.product_costs c on c.product_id = p.id where p.name = 'Peso P')
+  and (select p.variant = 'Ube Taro' and p.category_id = (select id from public.categories where lower(name) = 'imported pods')
+         from public.products p where p.name = 'Two Spaces')
+  and (select count(*) = 1 from public.categories where lower(regexp_replace(name, '\s+', ' ', 'g')) = 'imported pods')
+  and (select count(*) = 1 from public.products where lower(regexp_replace(name, '\s+', ' ', 'g')) = 'very chill')
+  and (select count(*) = :imp_before2 + 3 from public.products));
+select pg_temp.expect_error('one row to fix is named in the singular',
+  $$select * from public.import_products('[{"row_no": 2, "name": "Lone", "price": "abc"}]'::jsonb, true)$$, 'Nothing was added: 1 row needs fixing');
+select pg_temp.expect_error('an empty file is refused', $$select * from public.import_products('[]'::jsonb)$$, 'no products');
+select pg_temp.expect_error('more than 500 rows at once is refused',
+  $$select * from public.import_products((select jsonb_agg(jsonb_build_object('row_no', g, 'name', 'P' || g, 'price', '1')) from generate_series(1, 501) g))$$,
+  'up to 500');
+set request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
+select pg_temp.check('the owner can import too',
+  (select count(*) = 1 and bool_and(status = 'new') from public.import_products('[{"row_no": 2, "brand": "Imp", "name": "Owner Pick", "price": "99"}]'::jsonb, true)));
+reset role;
+select pg_temp.check('nobody signed out can import products', not has_function_privilege('anon', 'public.import_products(jsonb, boolean)', 'execute'));
+
 reset role;
 select case when ok then 'ok   ' else 'FAIL ' end || name as result from results;
 select count(*) filter (where not ok) as failures, count(*) as checks from results;

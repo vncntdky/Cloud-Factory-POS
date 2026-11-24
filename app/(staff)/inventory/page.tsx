@@ -63,7 +63,7 @@ function StockChip({ p }: { p: Row }) {
   return null;
 }
 
-type SP = { f?: string; q?: string; deleted?: string };
+type SP = { f?: string; q?: string; deleted?: string; imported?: string };
 
 export default async function InventoryPage({ searchParams }: { searchParams: Promise<SP> }) {
   const { supabase, profile } = await requireActiveStaff();
@@ -129,15 +129,32 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
         title="Inventory"
         actions={
           editor ? (
-            <Link className="btn btn--money btn--sm" href="/inventory/new">
-              <Icon name="plus" />
-              Add product
-            </Link>
+            <>
+              <Link className="btn btn--secondary btn--sm" href="/inventory/import" aria-label="Import products from a CSV file">
+                <Icon name="upload" />
+                Import
+              </Link>
+              <Link className="btn btn--money btn--sm" href="/inventory/new" aria-label="Add product">
+                <Icon name="plus" />
+                Add<span className="hide-narrow"> product</span>
+              </Link>
+            </>
           ) : undefined
         }
       />
       <Main>
         <div className="stack stack-6">
+          {sp.imported !== undefined && (
+            <div className="notice notice--success" role="status">
+              <Icon name="check" />
+              <div>
+                <p className="notice__title">
+                  {Number(sp.imported) === 1 ? "1 product" : `${Number(sp.imported) || 0} products`} added from your file.
+                </p>
+                <p>They start with 0 pieces. Receive their stock with Restock → Receive batch.</p>
+              </div>
+            </div>
+          )}
           {sp.deleted !== undefined && (
             <div className="notice notice--success" role="status">
               <Icon name="check" />

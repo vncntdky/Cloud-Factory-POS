@@ -469,6 +469,10 @@ th.num {
 .grid-2 { display: grid; gap: var(--space-4); grid-template-columns: minmax(0, 1fr); }
 .hide-phone,
 .hide-phone-row { display: none !important; }
+/* Words dropped on narrow phones so a top bar keeps room for its title (inline, unlike .hide-phone). */
+@media (max-width: 419.98px) { .hide-narrow { display: none; } }
+/* Import CSV preview: show each row's full name and flavour. */
+.imp-rows .list-row__title > span:first-child { white-space: normal; }
 
 @media (min-width: 768px) {
   .hide-phone { display: block !important; }

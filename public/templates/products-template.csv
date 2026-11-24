@@ -1,0 +1,3 @@
+Category,Brand,Product,Flavour / variant,Barcode,Selling price,Cost per piece,Low-stock alert at,For sale
+Example,Example,Signature 88000,Mango,4800000000017,340,165,5,yes
+Example,Example,Signature 88000,Grapes,,340,165,5,yes

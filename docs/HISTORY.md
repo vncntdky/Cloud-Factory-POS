@@ -60,6 +60,23 @@ the bottom. Commits on `main` hold the code for each step.
     **XBLACK Transparent Device** (variant V5) in Device, ₱350, cost ₱200. The 10 BLXCK photos were cut
     from the supplier's poster and uploaded through the one-off `photo-import-once` edge function (redeployed
     for this, then retired again to a 410 stub). The device has no photo yet (add it on its product page).
+25. **Import products from a CSV file** (24 Nov): Inventory → Import (owners and managers). Template at
+    `public/templates/products-template.csv` (columns Category, Brand, Product, Flavour / variant, Barcode,
+    Selling price, Cost per piece, Low-stock alert at, For sale; two Example rows that are skipped). The
+    database function `import_products(rows, commit)` checks every row for the preview, then adds all new rows
+    through `save_product`, or nothing if any row has an error; products already in the app (same brand,
+    product and flavour) are skipped, never changed. Pieces are not imported (Receive batch). SOP 2 covers it.
+    An independent review (12 findings, each checked a second time) led to `20261124010000_import_products_checks.sql`
+    and screen fixes: a comma only separates thousands ("340,50" is refused, not read as ₱34,050; in semicolon files
+    from comma-decimal regions it is read as ₱340.50), "P340" is read as ₱340, doubled spaces and line breaks in a
+    cell don't make a second product or category, a barcode Excel turned into 4.8E+12 says how to keep it as text,
+    Windows Excel's plain CSV encoding keeps ñ, a product in the app but Not for sale says so, no connection shows a
+    message instead of an error page, and a change between the check and Add marks the row again.
+26. **End of Batch 2 report** (24 Nov): a one-off page comparing Batch 2 with Batch 1 (net profit, margin, pace,
+    payback, where each peso went, paid and owed, flavours, statement, next steps), sent to the owner as an HTML
+    file. Batch 2: ₱4,399.13 net profit so far on 29 of 30 pieces (Batch 1: ₱3,921 on 30); the lead comes from
+    expenses (₱100 against ₱640), gross profit is about the same; it sold 2.1 pieces a day against 2.7, and ₱2,420
+    of its sales was still owed by 7 buyers (Batch 1: ₱240).
 
 ## Decisions the owner made
 

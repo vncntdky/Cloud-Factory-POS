@@ -25,6 +25,8 @@ const products = flavours.map((f, i) => ({
   barcode: null,
 }));
 const settings = { business_name: "Cloud Factory", restock_lead_days: 7, restock_buffer_days: 3, restock_cover_days: 14 };
+const baseCategories = [{ id: "c0000000-0000-4000-8000-00000000000a", name: "TRANSPARENT V2 PODS" }, { id: "c0000000-0000-4000-8000-00000000000b", name: "Black TEO" }];
+const extraCategories = []; // made by import_products
 const batches = [{ id: "bbbbbbbb-0000-4000-8000-000000000001", batch_no: 1, supplier: "Cloud Supply", received_on: new Date(Date.now() - 5 * day).toISOString().slice(0, 10), note: null, created_at: ago(5), shipping_cents: 50000, tax_cents: 12000, mooe_cents: 8000, other_cents: 0, other_label: null }];
 const batchRows = [];
 products.forEach((p, i) => {
@@ -208,6 +210,58 @@ http
           if (k >= 0) expenses.splice(k, 1);
           return send(res, 204);
         }
+        if (fn === "import_products") {
+          // Same answers as the database function for what the tests use: example rows, missing name or price,
+          // pesos as typed (₱, PHP, P, commas only between thousands), names with extra spaces, products already in
+          // the app (and whether they're for sale), the same product twice, a barcode Excel turned into 4.8E+12, a
+          // barcode already taken; all or nothing. A row with barcode RACE-1 checks fine, but when it is added another
+          // phone has just taken that barcode (as if added between the check and Add).
+          const sq = (x) => (x || "").replace(/\s+/g, " ").trim();
+          const keyOf = (b, n, v) => [b, n, v].map((x) => sq(x).toLowerCase()).join("|");
+          const err = (r, message) => ({ row_no: r.row_no, status: "error", message, product_id: null });
+          const peso = (x) => {
+            const t = (x || "").replace(/php|[₱\s]/gi, "").replace(/^p(?=\d)/i, "");
+            return /^(\d{1,3}(,\d{3})+|\d{1,7})(\.\d{1,2})?$/.test(t) ? Math.round(Number(t.replace(/,/g, "")) * 100) : null;
+          };
+          if (body.p_commit && (body.p_rows || []).some((r) => (r.barcode || "").trim() === "RACE-1") && !products.some((p) => p.barcode === "RACE-1")) {
+            products.push({ id: crypto.randomUUID(), brand: "Other", name: "Phone", variant: null, on_hand: 0, reorder_at: 5, category_id: null, photo_path: null, active: true, price_cents: 100, barcode: "RACE-1" });
+          }
+          const seen = new Map();
+          const out = (Array.isArray(body.p_rows) ? body.p_rows : []).map((r) => {
+            const cat = sq(r.category), brand = sq(r.brand), name = sq(r.name);
+            const variant = sq(r.variant), barcode = (r.barcode || "").trim();
+            if (cat.toLowerCase() === "example" || brand.toLowerCase() === "example") return { row_no: r.row_no, status: "example", message: "Example row: skipped", product_id: null };
+            const price = peso(r.price);
+            if (!name) return err(r, "Add the product name.");
+            if (price === null) return err(r, "Enter the selling price in pesos, e.g. 340.");
+            const k = keyOf(brand, name, variant);
+            const existing = products.find((p) => keyOf(p.brand, p.name, p.variant) === k);
+            if (existing) return { row_no: r.row_no, status: "exists", message: existing.active ? "Already in the app: skipped" : "Already in the app (Not for sale): skipped", product_id: existing.id };
+            if (seen.has(k)) return err(r, `Same product as row ${seen.get(k)}.`);
+            if (/^\d+(\.\d+)?e\+\d+$/i.test(barcode)) return err(r, `Excel changed this barcode to ${barcode}. Set the Barcode column to Text, type the barcode again and save.`);
+            if (barcode && products.some((p) => p.barcode === barcode)) return err(r, `Another product already has barcode ${barcode}.`);
+            seen.set(k, r.row_no);
+            return { row_no: r.row_no, status: "new", message: null, product_id: null,
+              add: { cat, brand, name, variant, barcode, price_cents: price, active: !/^(no|n|false|0)$/i.test((r.for_sale || "").trim()) } };
+          });
+          if (body.p_commit) {
+            const bad = out.filter((o) => o.status === "error").length;
+            if (bad) return send(res, 400, { code: "22023", message: bad === 1 ? "Nothing was added: 1 row needs fixing (marked Fix this). Fix it, then choose the file again." : `Nothing was added: ${bad} rows need fixing (marked Fix this). Fix them, then choose the file again.` });
+            for (const o of out.filter((x) => x.status === "new")) {
+              const a = o.add;
+              let catId = null;
+              if (a.cat) {
+                const found = [...baseCategories, ...extraCategories].find((c) => c.name.toLowerCase() === a.cat.toLowerCase());
+                catId = found ? found.id : crypto.randomUUID();
+                if (!found) extraCategories.push({ id: catId, name: a.cat });
+              }
+              o.product_id = crypto.randomUUID();
+              products.push({ id: o.product_id, brand: a.brand || null, name: a.name, variant: a.variant || null, on_hand: 0, reorder_at: 5,
+                category_id: catId, photo_path: null, active: a.active, price_cents: a.price_cents, barcode: a.barcode || null });
+            }
+          }
+          return send(res, 200, out.map(({ add, ...o }) => o));
+        }
         if (fn === "set_profit_split") {
           split.split_owner_parts = body.p_owner_parts;
           split.split_manager_parts = body.p_manager_parts;
@@ -279,8 +333,7 @@ http
       if (p.startsWith("/rest/v1/")) {
         const table = p.slice("/rest/v1/".length);
         if (table === "profiles") return rows([{ id: USER_ID, full_name: "Test Owner", role, active: true }]);
-        if (table === "categories")
-          return rows([{ id: "c0000000-0000-4000-8000-00000000000a", name: "TRANSPARENT V2 PODS" }, { id: "c0000000-0000-4000-8000-00000000000b", name: "Black TEO" }]);
+        if (table === "categories") return rows([...baseCategories, ...extraCategories]);
         if (table === "settings") return rows([{ ...settings, ...split, tax_rate_bp: taxBp }]);
         if (table === "expenses") return rows(expenses);
         if (table === "fund_releases") return rows(releases);

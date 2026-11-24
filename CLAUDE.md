@@ -53,7 +53,7 @@ rules. The SOPs and app handbook live in `lib/help.ts` (shown in the app under H
 1. **Migration**: `supabase/migrations/YYYYMMDDHHMMSS_name.sql`, then add checks to `supabase/tests/pos_test.sql`.
 2. **Database tests** on a throwaway local Postgres 16 (needs the `postgresql` package; any data dir):
    `PGHOST=<socket dir> PGPORT=<port> PGUSER=postgres bash supabase/tests/run.sh` → prints `failures | checks`
-   (203 checks, 0 failures at hand-off).
+   (238 checks, 0 failures at hand-off).
 3. **Apply live** with the Supabase connector's `apply_migration` (same SQL). Changes that delete or update
    data may ask the owner to confirm.
 4. **Live data checks** as the owner, read-only, in a transaction:

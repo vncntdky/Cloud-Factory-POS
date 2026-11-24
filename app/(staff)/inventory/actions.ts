@@ -7,6 +7,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireActiveStaff, type ServerSupabase } from "@/lib/auth";
+import { MAX_IMPORT_ROWS, type ImportResult, type ImportRow } from "@/lib/csv";
 import { friendlyError, type DbError } from "@/lib/db-errors";
 import { toCents } from "@/lib/format";
 import { UUID_RE } from "@/lib/ids";
@@ -42,6 +43,48 @@ function refresh(id?: string) {
   revalidatePath("/inventory");
   if (id) revalidatePath(`/inventory/${id}`);
   revalidatePath("/", "layout"); // register, low-stock badge
+}
+
+/** A CSV file's rows as plain text, at most MAX_IMPORT_ROWS; null when they aren't usable. */
+function importRows(rows: unknown): ImportRow[] | null {
+  if (!Array.isArray(rows) || rows.length === 0 || rows.length > MAX_IMPORT_ROWS) return null;
+  const s = (v: unknown) => (typeof v === "string" ? v.trim().slice(0, 200) : "");
+  return rows.map((r: Partial<Record<keyof ImportRow, unknown>>) => ({
+    row_no: Number.isInteger(r?.row_no) ? Number(r.row_no) : 0,
+    category: s(r?.category),
+    brand: s(r?.brand),
+    name: s(r?.name),
+    variant: s(r?.variant),
+    barcode: s(r?.barcode),
+    price: s(r?.price),
+    cost: s(r?.cost),
+    reorder_at: s(r?.reorder_at),
+    for_sale: s(r?.for_sale),
+  }));
+}
+
+/** Inventory → Import CSV, step 1: what each row would do. Nothing is written. */
+export async function previewImport(rows: ImportRow[]): Promise<{ results?: ImportResult[]; error?: string }> {
+  const staff = await manager();
+  if ("error" in staff) return { error: staff.error };
+  const clean = importRows(rows);
+  if (!clean) return { error: `That file couldn't be read. It needs 1 to ${MAX_IMPORT_ROWS} products.` };
+  const { data, error } = await staff.supabase.rpc("import_products", { p_rows: clean, p_commit: false });
+  if (error) return { error: friendlyError(error) };
+  return { results: (data ?? []) as ImportResult[] };
+}
+
+/** Step 2: add every new product in one go. The database adds nothing if any row has an error. */
+export async function importProducts(rows: ImportRow[]): Promise<{ error?: string }> {
+  const staff = await manager();
+  if ("error" in staff) return { error: staff.error };
+  const clean = importRows(rows);
+  if (!clean) return { error: `That file couldn't be read. It needs 1 to ${MAX_IMPORT_ROWS} products.` };
+  const { data, error } = await staff.supabase.rpc("import_products", { p_rows: clean, p_commit: true });
+  if (error) return { error: friendlyError(error) };
+  const added = ((data ?? []) as ImportResult[]).filter((r) => r.status === "new").length;
+  refresh();
+  redirect(`/inventory?imported=${added}`);
 }
 
 /** Create (id = null) or edit a product. */

@@ -1,4 +1,5 @@
 // Add a product (owners and managers).
+import Link from "next/link";
 import { Icon } from "@/components/Icon";
 import { Main } from "@/components/Main";
 import { NotAllowed } from "@/components/NotAllowed";
@@ -60,6 +61,15 @@ export default async function NewProductPage({ searchParams }: { searchParams: P
                 <p>Open {productLabel(prev)} in Inventory and tap Upload photo to try again.</p>
               </div>
             </div>
+          )}
+          {!prev && (
+            <p className="t-sm muted">
+              Adding many?{" "}
+              <Link href="/inventory/import">
+                Import them from a CSV file
+              </Link>
+              .
+            </p>
           )}
           <ProductForm
             // A fresh form after each "Add and enter another".
