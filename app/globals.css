@@ -2687,3 +2687,120 @@ a.segmented__option { text-decoration: none; }
 /* Edit forms that open under their row */
 .edit-open { flex-shrink: 0; }
 .list-row--wrap > .edit-form { flex-basis: 100%; padding: var(--space-3) 0 var(--space-2); }
+
+/* ---------- Batch report (Sales → Finance → Report, owner) ----------
+   Two batches side by side: the one reported in --chart-accent, the one compared in --chart-muted.
+   Bar parts: costs in greys (≥ 3:1 on the card), net profit in the money green, still owed in the danger red. */
+:root {
+  --rpt-goods: #55546A;  --rpt-goods-ink: #FFFFFF;
+  --rpt-fees: #7E7C93;   --rpt-fees-ink: #FFFFFF;
+  --rpt-other: #8E8CA2;  --rpt-other-ink: #17161F;
+  --rpt-profit: #0A6B4B; --rpt-profit-ink: #FFFFFF;
+  --rpt-paid: #6E6C84;   --rpt-paid-ink: #FFFFFF;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --rpt-goods: #C9C7DA;  --rpt-goods-ink: #17161F;
+    --rpt-fees: #A9A6BE;   --rpt-fees-ink: #17161F;
+    --rpt-other: #77748C;  --rpt-other-ink: #FFFFFF;
+    --rpt-profit: #5BEFBE; --rpt-profit-ink: #05140E;
+    --rpt-paid: #A9A6BE;   --rpt-paid-ink: #17161F;
+  }
+}
+:root[data-theme="dark"] {
+  --rpt-goods: #C9C7DA;  --rpt-goods-ink: #17161F;
+  --rpt-fees: #A9A6BE;   --rpt-fees-ink: #17161F;
+  --rpt-other: #77748C;  --rpt-other-ink: #FFFFFF;
+  --rpt-profit: #5BEFBE; --rpt-profit-ink: #05140E;
+  --rpt-paid: #A9A6BE;   --rpt-paid-ink: #17161F;
+}
+.rpt-lead { font-size: 16px; line-height: 24px; }
+.rpt-pick { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3); }
+.rpt-pick__field { display: grid; gap: 4px; min-width: 0; }
+.rpt-keyline { display: block; }
+.rpt-vs { display: inline-flex; align-items: center; gap: 6px; }
+.rpt-dotkey { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--chart-muted); vertical-align: 1px; flex: none; }
+.rpt .kpi__meta { display: flex; flex-wrap: wrap; column-gap: var(--space-2); row-gap: 2px; }
+.rpt-delta { font-weight: 600; font-variant-numeric: tabular-nums; }
+.rpt-delta--good { color: var(--mint-ink); }
+.rpt-delta--bad { color: var(--alert); }
+.rpt-delta--flat { color: var(--ink-muted); font-weight: 400; }
+/* Keys in legends and readouts: a short line for a line chart, a square for a bar part. */
+.rpt-key { display: inline-block; width: 14px; height: 2px; border-radius: 1px; flex: none; }
+.rpt-key--accent { background: var(--chart-accent); }
+.rpt-key--muted { background: var(--chart-muted); }
+.rpt-key--dash.rpt-key--accent { background: repeating-linear-gradient(90deg, var(--chart-accent) 0 4px, transparent 4px 7px); }
+.rpt-key--dash.rpt-key--muted { background: repeating-linear-gradient(90deg, var(--chart-muted) 0 4px, transparent 4px 7px); }
+.rpt-ringkey { display: inline-block; width: 10px; height: 10px; border-radius: 50%; border: 2px solid var(--ink-muted); flex: none; }
+.rpt-swatch { display: inline-block; width: 10px; height: 10px; border-radius: 3px; flex: none; }
+.rpt-swatch--accent { background: var(--chart-accent); }
+.rpt-swatch--muted { background: var(--chart-muted); }
+/* Day-by-day lines */
+.rpt-lines__plot { touch-action: pan-y; -webkit-tap-highlight-color: transparent; border-radius: var(--radius-sm); }
+.rpt-lines__plot:focus { outline: none; }
+.rpt-lines__plot:focus-visible { box-shadow: var(--focus-ring); }
+.rpt-line { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.rpt-line--accent { stroke: var(--chart-accent); }
+.rpt-line--muted { stroke: var(--chart-muted); }
+.rpt-level { stroke-width: 1.5; stroke-dasharray: 4 3; }
+.rpt-level--accent { stroke: var(--chart-accent); }
+.rpt-level--muted { stroke: var(--chart-muted); }
+.rpt-dot { stroke: var(--surface); stroke-width: 2; }
+.rpt-dot--accent { fill: var(--chart-accent); }
+.rpt-dot--muted { fill: var(--chart-muted); }
+.rpt-ring { fill: var(--surface); stroke-width: 2; }
+.rpt-ring--accent { stroke: var(--chart-accent); }
+.rpt-ring--muted { stroke: var(--chart-muted); }
+.rpt-cross { stroke: var(--ink-muted); stroke-width: 1; shape-rendering: crispEdges; }
+.rpt-endlabel { fill: var(--ink-muted); font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.rpt-tip { transform: none; width: auto; min-width: 180px; max-width: 260px; }
+.rpt-tip__row { display: flex; align-items: center; gap: 6px; }
+/* Bars split into parts, drawn to scale */
+.rpt-bars__rows { position: relative; display: grid; gap: var(--space-3); }
+.rpt-bars__row { display: grid; grid-template-columns: 4.5rem minmax(0, 1fr); align-items: center; gap: var(--space-2); }
+.rpt-bars__name { font-size: 13px; font-weight: 600; }
+.rpt-bar { display: flex; gap: 2px; height: 28px; min-width: 0; -webkit-tap-highlight-color: transparent; }
+.rpt-part { flex: 0 1 0px; min-width: 2px; border-radius: 4px; overflow: hidden; display: flex; align-items: center;
+  font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.rpt-part:focus { outline: none; }
+.rpt-part:focus-visible { box-shadow: var(--focus-ring); }
+.rpt-part__label { padding-inline: 6px; }
+.rpt-part__label[hidden] { display: none; }
+.rpt-part--goods { background: var(--rpt-goods); color: var(--rpt-goods-ink); }
+.rpt-part--fees { background: var(--rpt-fees); color: var(--rpt-fees-ink); }
+.rpt-part--other { background: var(--rpt-other); color: var(--rpt-other-ink); }
+.rpt-part--profit { background: var(--rpt-profit); color: var(--rpt-profit-ink); }
+.rpt-part--paid { background: var(--rpt-paid); color: var(--rpt-paid-ink); }
+.rpt-part--owed { background: var(--danger-bg); color: var(--on-danger); }
+.rpt-bars__legend { margin: var(--space-3) 0 0; }
+.rpt-alert-ic { color: var(--alert); flex: none; }
+.rpt-bars__tip { top: 100%; left: 0; margin-top: 6px; z-index: 3; }
+.rpt-two { display: grid; gap: var(--space-5); }
+@media (min-width: 768px) { .rpt-two { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.rpt-owed { display: grid; }
+.rpt-owed li { display: flex; justify-content: space-between; gap: var(--space-3); padding: 6px 0; border-bottom: 1px solid var(--line); font-size: 15px; }
+.rpt-action { justify-self: start; }
+/* Flavours: days until each sold out */
+.rpt-colhead { display: flex; align-items: center; gap: 6px; }
+.rpt-fl { display: grid; gap: 6px; }
+.rpt-fl li { display: grid; grid-template-columns: minmax(0, 9.5rem) minmax(0, 1fr) auto; align-items: center; gap: var(--space-2); font-size: 14px; }
+@media (max-width: 420px) { .rpt-fl li { grid-template-columns: minmax(0, 7.5rem) minmax(0, 1fr) auto; } }
+.rpt-fl__name { overflow-wrap: anywhere; line-height: 18px; }
+.rpt-fl__track { height: 8px; border-radius: 4px; background: var(--surface-sunken); overflow: hidden; }
+.rpt-fl__fill { display: block; height: 100%; border-radius: 4px; }
+.rpt-fl__fill--accent { background: var(--chart-accent); }
+.rpt-fl__fill--muted { background: var(--chart-muted); }
+.rpt-fl__fill--open.rpt-fl__fill--accent { background: repeating-linear-gradient(135deg, var(--chart-accent) 0 3px, transparent 3px 6px); }
+.rpt-fl__fill--open.rpt-fl__fill--muted { background: repeating-linear-gradient(135deg, var(--chart-muted) 0 3px, transparent 3px 6px); }
+.rpt-fl__val { font-size: 13px; color: var(--ink-muted); text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+/* Statement side by side */
+.rpt-st { width: 100%; }
+.rpt-st th[scope="row"] { font-weight: 400; }
+.rpt-st td.num { white-space: normal; }
+.rpt-st__sec th { padding-top: var(--space-4); font-size: 13px; font-weight: 700; color: var(--ink-muted); }
+.rpt-st__total th, .rpt-st__total td { font-weight: 650; }
+.rpt-steps { display: grid; gap: var(--space-3); padding-left: 22px; margin: 0; }
+.rpt-notes { display: grid; gap: var(--space-2); padding-left: 20px; margin: 0; font-size: 14px; color: var(--ink-muted); list-style: disc; }
+.rpt-st-wrap { overflow-x: auto; }
+.rpt .rpt-st th, .rpt .rpt-st td { padding: 8px 6px; }
+.rpt .rpt-st th:first-child { padding-left: 0; }

@@ -81,6 +81,14 @@ const movements = [
   { id: "dddddddd-1111-4111-8111-000000000004", product_id: LYCHEE, kind: "restock", delta: 20, on_hand_after: 23, note: null, unit_cost_cents: 21000, created_at: ago(5), batch_id: B1, sale: null, who: null },
   { id: "dddddddd-1111-4111-8111-000000000005", product_id: LYCHEE, kind: "count", delta: -2, on_hand_after: 2, note: null, unit_cost_cents: null, created_at: ago(2), batch_id: B1, sale: null, who: null },
 ];
+// REPORT=1: a second batch, 2 days old and still selling, so the owner's batch report has two batches to compare.
+const B2 = "bbbbbbbb-0000-4000-8000-000000000002";
+if (process.env.REPORT === "1") {
+  batches.push({ id: B2, batch_no: 2, supplier: null, received_on: new Date(Date.now() - 2 * day).toISOString().slice(0, 10), note: null, created_at: ago(2), shipping_cents: 24400, tax_cents: 0, mooe_cents: 0, other_cents: 0, other_label: null, paid_from_funds: true });
+  [5, 3, 2, 1].forEach((sold, k) => {
+    batchRows.push({ batch_id: B2, product_id: products[6 + k].id, received: 12, sold, sales_cents: sold * 35000, cost_cents: sold * 21000, uncosted: 0, owed_cents: k === 0 ? 35000 : 0, received_cost_cents: 12 * 21000, received_uncosted: 0, adjusted: 0, first_in: ago(2), first_sold_at: ago(2), last_sold_at: ago(0) });
+  });
+}
 if (process.env.NOBATCH === "1") {
   // Like the live shop: only stock from before batches.
   batches.length = 0;
@@ -142,6 +150,40 @@ http
           return send(res, 200, products.map((x, i) => ({ product_id: x.id, sold: stats[i][0], days: 11, last_sold_at: stats[i][0] ? ago(1) : null })));
         if (fn === "batch_sales") return send(res, 200, batchRows);
         if (fn === "batch_statements") return send(res, 200, batchStatements());
+        if (fn === "batch_report") {
+          // Like the database: owner only; days, flavours, who owes and how it was paid, adding up to the statement.
+          if (role !== "owner") return send(res, 403, { code: "42501", message: "Only the owner can see batch reports" });
+          const b = batches.find((x) => x.id === body.p_batch);
+          if (!b) return send(res, 404, { code: "P0002", message: "Batch not found" });
+          const st = batchStatements().find((x) => x.batch_id === b.id);
+          const rs = batchRows.filter((r) => r.batch_id === b.id);
+          const today = new Date(Date.now() + 8 * 3600000).toISOString().slice(0, 10);
+          const addD = (iso, n) => new Date(Date.parse(iso + "T00:00:00Z") + n * day).toISOString().slice(0, 10);
+          const age = Math.round((Date.parse(today + "T00:00:00Z") - Date.parse(b.received_on + "T00:00:00Z")) / day);
+          // The batch's pieces sold, spread over its days: most at first, none on the second-to-last day.
+          const weights = Array.from({ length: age + 1 }, (_, d) => (d === age - 1 && age > 2 ? 0 : age + 1 - d));
+          const wsum = weights.reduce((n, w) => n + w, 0);
+          let cumPcs = 0;
+          const days = [];
+          weights.forEach((w, d) => {
+            const target = d === age ? st.sold : Math.min(st.sold, Math.round((st.sold * weights.slice(0, d + 1).reduce((n, x) => n + x, 0)) / wsum));
+            const pcs = target - cumPcs;
+            if (pcs > 0) {
+              cumPcs = target;
+              days.push({ date: addD(b.received_on, d), pcs, cum_pcs: cumPcs, cum_net_cents: cumPcs === st.sold ? st.net_cents : Math.round((st.net_cents * cumPcs) / st.sold) });
+            }
+          });
+          const flavours = rs.map((r) => {
+            const pr = products.find((x) => x.id === r.product_id);
+            const left = Math.max(0, r.received - r.sold + (r.adjusted || 0));
+            return { product_id: r.product_id, brand: pr.brand, name: pr.name, variant: pr.variant, received: r.received, sold: r.sold, left,
+              last_sale_on: r.sold > 0 ? (left === 0 ? days[Math.max(0, days.length - 2)]?.date ?? today : today) : null };
+          });
+          const owed = st.owed_cents > 0 ? [{ buyer: "Ana Cruz", cents: st.owed_cents, sales: 1 }] : [];
+          const paidAll = st.net_cents - st.owed_cents;
+          const paid = paidAll > 50000 ? [{ method: "cash", cents: paidAll - 50000 }, { method: "gcash", cents: 50000 }] : paidAll > 0 ? [{ method: "cash", cents: paidAll }] : [];
+          return send(res, 200, { batch_id: b.id, batch_no: b.batch_no, received_on: b.received_on, supplier: b.supplier, paid_from_funds: b.paid_from_funds ?? false, today, days, flavours, owed, paid });
+        }
         if (fn === "batch_owed")
           return send(res, 200, batches[0] && body.p_batch === batches[0].id && !process.env.NOBATCH ? [{ sale_id: "66666666-0000-4000-8000-000000000001", sale_number: 4, business_date: batches[0].received_on, customer_name: "Ana", pcs: 2, owed_cents: 68000 }] : []);
         if (fn === "reserve_product") {

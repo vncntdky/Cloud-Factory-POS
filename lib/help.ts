@@ -38,7 +38,7 @@ export const WHO_DOES_WHAT: { task: string; owner: boolean; manager: boolean; st
   { task: "Void a sale, see past days", owner: true, manager: true, staff: false },
   { task: "Expenses, dashboard, Finance (view)", owner: true, manager: true, staff: false },
   { task: "Set the inventory reserve for the next restock", owner: true, manager: true, staff: false },
-  { task: "Owner distributions, owner capital, tax rate, profit split", owner: true, manager: false, staff: false },
+  { task: "Batch report, owner distributions, owner capital, tax rate, profit split", owner: true, manager: false, staff: false },
   { task: "Delete test sales or products, shop settings, staff accounts", owner: true, manager: false, staff: false },
 ];
 
@@ -495,6 +495,7 @@ export const SOPS: Sop[] = [
           "Open Balance. Total assets and Owed + owners' share must match. Check the inventory value looks right for what's on the shelf.",
           "Open Batches. It always covers since opening. Read the running net profit: each batch's net profit so far, the owner's and the manager's share of it, and the running total. After general expenses it ends at Shop net profit so far, the same as Net profit on Profit & loss with Since opening picked.",
           "Tap a batch to see every line: sales, discounts, what the pieces sold cost, each expense, how much of the batch's cost is still to earn back, and its owner / manager split. The shares are a guide, not a payout: what can be paid out is Safe to distribute.",
+          "Owner: open Report (after Batches, or Report on a batch's page). It compares the newest batch with the one before: net profit, how fast it sold, the day it earned back its cost, where each peso went, who still owes and how each flavour sold. Pick another batch, or Compare with, at the top.",
           "Open Collectibles and follow up on everyone who owes (SOP 9).",
           "Check that every expense for the week is entered (SOP 11).",
         ],
@@ -635,7 +636,7 @@ export const SCREENS: { screen: string; who: string; what: string; href: string;
     who: "Owner, manager",
     href: "/sales/pnl",
     managers: true,
-    what: "Overview (safe to distribute, what should be in the register, where the cash went, distributions, inventory reserve, who owes, and Finance settings: the owner's tax rate and split), Profit & loss, Cash flow, Balance with owner capital, and Batches: the running net profit with each batch's owner and manager share, and each batch's full statement.",
+    what: "Overview (safe to distribute, what should be in the register, where the cash went, distributions, inventory reserve, who owes, and Finance settings: the owner's tax rate and split), Profit & loss, Cash flow, Balance with owner capital, and Batches: the running net profit with each batch's owner and manager share, and each batch's full statement. Owner: Report compares one batch with another, with charts by day, where each peso went, who still owes, each flavour and the two statements side by side.",
   },
   {
     screen: "Inventory",

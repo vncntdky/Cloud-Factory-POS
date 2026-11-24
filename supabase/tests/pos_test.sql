@@ -848,8 +848,7 @@ select pg_temp.check('batch report: each flavour''s pieces received, sold and le
                      else false end) and count(*) = 2
      from jsonb_array_elements(:'rpt'::jsonb -> 'flavours') f));
 select pg_temp.check('batch report: who still owes, one line per buyer however the name was typed',
-  (:'rpt'::jsonb -> 'owed') = '[{"buyer": "Ana Cruz", "cents": 58000, "sales": 2}]'::jsonb
-  or (:'rpt'::jsonb -> 'owed') = '[{"buyer": "ana cruz", "cents": 58000, "sales": 2}]'::jsonb);
+  (:'rpt'::jsonb -> 'owed') = '[{"buyer": "Ana Cruz", "cents": 58000, "sales": 2}]'::jsonb);
 select pg_temp.check('batch report: what was collected, by method',
   (select jsonb_object_agg(p ->> 'method', (p ->> 'cents')::int) from jsonb_array_elements(:'rpt'::jsonb -> 'paid') p)
     = '{"cash": 68000, "gcash": 10000}'::jsonb);
@@ -860,6 +859,16 @@ select pg_temp.check('batch report: a batch with nothing sold yet has no days, n
   (select (r -> 'days') = '[]'::jsonb and (r -> 'owed') = '[]'::jsonb and (r -> 'paid') = '[]'::jsonb
           and (r -> 'flavours' -> 0 ->> 'received')::int = 2 and (r -> 'flavours' -> 0 ->> 'left')::int = 2
      from (select public.batch_report(:'rpt_empty') as r) x));
+reset role;
+update public.stock_batches set received_on = received_on + 2 where id = :'rpt_batch';
+set role authenticated;
+select pg_temp.check('batch report: sales before an edited received date count on its first day, never before it',
+  (select (r -> 'days' -> 0 ->> 'date')::date = public.manila_today() + 2 and (r -> 'days' -> 0 ->> 'cum_pcs')::int = 4
+          and jsonb_array_length(r -> 'days') = 1
+     from (select public.batch_report(:'rpt_batch') as r) x));
+reset role;
+update public.stock_batches set received_on = received_on - 2 where id = :'rpt_batch';
+set role authenticated;
 select pg_temp.expect_error('batch report: an unknown batch', $$select public.batch_report('00000000-0000-4000-8000-000000000000')$$, 'Batch not found');
 reset role;
 select pg_temp.check('nobody signed out can see batch reports', not has_function_privilege('anon', 'public.batch_report(uuid)', 'execute'));
