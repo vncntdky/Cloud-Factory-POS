@@ -22,10 +22,12 @@ export function ReportPicker({
   };
   return (
     <div className="rpt-pick">
-      <label className="field rpt-pick__field">
-        <span className="field__label">Batch</span>
+      <div className="field rpt-pick__field">
+        <label className="field__label" htmlFor="rpt-batch">
+          Batch
+        </label>
         <span className="select-wrap">
-          <select className="select" value={current} onChange={(e) => go(e.target.value, null)}>
+          <select id="rpt-batch" className="select" value={current} onChange={(e) => go(e.target.value, null)}>
             {batches.map((b) => (
               <option key={b.id} value={b.id}>
                 {b.label}
@@ -33,11 +35,13 @@ export function ReportPicker({
             ))}
           </select>
         </span>
-      </label>
-      <label className="field rpt-pick__field">
-        <span className="field__label">Compare with</span>
+      </div>
+      <div className="field rpt-pick__field">
+        <label className="field__label" htmlFor="rpt-vs">
+          Compare with
+        </label>
         <span className="select-wrap">
-          <select className="select" value={compare} onChange={(e) => go(current, e.target.value)}>
+          <select id="rpt-vs" className="select" value={compare} onChange={(e) => go(current, e.target.value)}>
             <option value="none">Nothing</option>
             {batches
               .filter((b) => b.id !== current)
@@ -48,7 +52,7 @@ export function ReportPicker({
               ))}
           </select>
         </span>
-      </label>
+      </div>
     </div>
   );
 }

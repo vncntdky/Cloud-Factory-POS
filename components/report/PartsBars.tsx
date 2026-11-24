@@ -85,7 +85,10 @@ export function PartsBars({
                       tabIndex={0}
                       role="img"
                       aria-label={`${r.label}, ${p.name}: ${p.text}`}
-                      onFocus={() => setOpen({ row: i, part: k })}
+                      onFocus={(e) => {
+                        // Keyboard focus reads one part; a tap (which also focuses) keeps the whole bar's list.
+                        if (e.currentTarget.matches(":focus-visible")) setOpen({ row: i, part: k });
+                      }}
                       onBlur={() => setOpen(null)}
                     >
                       <span className="rpt-part__label" hidden={fits[id] === false}>
