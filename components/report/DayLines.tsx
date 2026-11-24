@@ -10,7 +10,7 @@ import { useEffect, useRef, useState, type KeyboardEvent, type PointerEvent } fr
 export type DayLine = {
   key: string;
   label: string;
-  tone: "accent" | "muted";
+  tone: "accent" | "muted" | "faint";
   /** One value per day from day 0; the line ends where its values end. */
   values: number[];
   /** Short text at the end of the line ("29 of 30", "₱9,520"). */

@@ -92,6 +92,10 @@ the bottom. Commits on `main` hold the code for each step.
     centavo of rounding kept off the totals. Pace is pieces sold ÷ days from arrival to the last sale, so a batch with
     its last pieces still on the shelf isn't made to look slower. The page is `app/(staff)/sales/report/page.tsx`,
     the calculations `lib/batch-report.ts`, the charts `components/report/`.
+    Compare with **All batches** (25 Nov, asked for once Batch 3 came in): every batch on the charts (the reported
+    one in the accent colour, the one before in grey, older ones lighter, each named at its end), the bars, the
+    flavours and the statement; the summary and tiles still compare with the batch before. Change arrows wait until
+    a batch has sold something.
 
 ## Decisions the owner made
 

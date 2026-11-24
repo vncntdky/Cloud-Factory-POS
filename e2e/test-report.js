@@ -1,5 +1,5 @@
 // End-to-end: the owner's batch report (Sales → Finance → Report) against mock-restock.js with REPORT=1 (two
-// batches). Owner: the way in from Finance and from a batch's page, the picker (another batch, nothing to compare),
+// batches), or REPORT=3 (three, the newest with nothing sold: All batches). Owner: the way in from Finance and from a batch's page, the picker (another batch, nothing to compare),
 // tiles, both day-by-day charts with their readout (pointer and keys), bars drawn to scale, flavours, statement,
 // next steps, a 360px phone and dark mode with no sideways scroll, the database asked for both batches.
 // Managers and staff: no way in, and the page says it is for the owner. ROLE=owner|manager|cashier.
@@ -12,6 +12,7 @@ const B = "http://127.0.0.1:3100";
 const ROLE = process.env.ROLE || "owner";
 const B1 = "bbbbbbbb-0000-4000-8000-000000000001";
 const B2 = "bbbbbbbb-0000-4000-8000-000000000002";
+const B3 = "bbbbbbbb-0000-4000-8000-000000000003";
 
 (async () => {
   const browser = await chromium.launch({ executablePath: "/opt/pw-browsers/chromium" });
@@ -34,6 +35,49 @@ const B2 = "bbbbbbbb-0000-4000-8000-000000000002";
     check("the report page says it is for the owner", (await page.getByText("The batch report is for the owner.").count()) === 1);
     const log = (await (await fetch("http://127.0.0.1:54321/__log")).json()).log.filter((l) => l.rpc === "batch_report");
     check("the report data was never asked for", log.length === 0, JSON.stringify(log));
+    check("no page errors", errors.length === 0, errors.join("; "));
+    console.log(r.join("\n"));
+    await browser.close();
+    return;
+  }
+
+  if (process.env.REPORT === "3") {
+    // Three batches, the newest just received with nothing sold: compare it with All batches.
+    await page.goto(`${B}/sales/report`);
+    await page.getByRole("heading", { name: "How fast it sold" }).waitFor();
+    const batchSel = page.getByLabel("Batch", { exact: true });
+    const vsSel = page.getByLabel("Compare with");
+    check("it starts on the newest batch, compared with the one before", (await batchSel.inputValue()) === B3 && (await vsSel.inputValue()) === B2);
+    check("a batch with nothing sold says so", /Batch 3 hasn't sold anything yet/.test(await text()));
+    const options = await vsSel.locator("option").allInnerTexts();
+    check("Compare with offers All batches", options.includes("All batches"), options.join(" / "));
+    await vsSel.selectOption("all");
+    await page.waitForURL(/vs=all/, { waitUntil: "commit" });
+    await page.getByRole("heading", { name: "How fast it sold" }).waitFor();
+    check("All batches stays picked", (await vsSel.inputValue()) === "all");
+    const pace = page.locator(".rpt-lines").first();
+    check("the charts draw a line for every batch", (await pace.locator("polyline.rpt-line").count()) === 3);
+    const ends = await pace.locator(".rpt-endlabel").allTextContents();
+    check("each line is named at its end", ["Batch 1", "Batch 2", "Batch 3"].every((t) => ends.includes(t)), ends.join(" / "));
+    check("cost lines only for the batch reported and the one before", (await page.locator(".rpt-lines").nth(1).locator("line.rpt-level").count()) === 2);
+    const head = await page.locator(".rpt-st thead th").allInnerTexts();
+    check("the statement has a column per batch, oldest first", head.slice(1).join(",").toLowerCase() === "batch 1,batch 2,batch 3", head.join(" / "));
+    const tile = await page.locator(".kpi").first().innerText();
+    check("the tiles compare with the batch before", /Batch 2: /.test(tile) && !/Batch 1: /.test(tile), tile.replace(/\n/g, " | "));
+    check("the header names every batch compared", /Compared with every other batch: Batch 2 and Batch 1/.test(await text()));
+    const svg = pace.locator("svg");
+    await svg.scrollIntoViewIfNeeded();
+    const box = await svg.boundingBox();
+    await page.mouse.move(box.x + box.width * 0.35, box.y + box.height / 2);
+    const tip = await pace.locator(".chart__tip").innerText().catch(() => "");
+    check("the readout lists every batch on that day", ["Batch 3", "Batch 2", "Batch 1"].every((t) => tip.includes(t)), tip.replace(/\n/g, " | "));
+    check("no sideways scroll", !(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)));
+    await page.screenshot({ path: `${__dirname}/shots/report-owner-all.png`, fullPage: true });
+    // Another batch goes back to comparing with the one before it.
+    await batchSel.selectOption(B2);
+    await page.waitForURL(new RegExp(`batch=${B2}$`), { waitUntil: "commit" });
+    await page.getByRole("heading", { name: "How fast it sold" }).waitFor();
+    check("another batch starts compared with the one before it", (await vsSel.inputValue()) === B1);
     check("no page errors", errors.length === 0, errors.join("; "));
     console.log(r.join("\n"));
     await browser.close();

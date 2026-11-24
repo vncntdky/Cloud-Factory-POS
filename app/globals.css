@@ -2729,6 +2729,7 @@ a.segmented__option { text-decoration: none; }
 .rpt-key { display: inline-block; width: 14px; height: 2px; border-radius: 1px; flex: none; }
 .rpt-key--accent { background: var(--chart-accent); }
 .rpt-key--muted { background: var(--chart-muted); }
+.rpt-key--faint { background: var(--chart-muted); opacity: .55; }
 .rpt-key--dash.rpt-key--accent { background: repeating-linear-gradient(90deg, var(--chart-accent) 0 4px, transparent 4px 7px); }
 .rpt-key--dash.rpt-key--muted { background: repeating-linear-gradient(90deg, var(--chart-muted) 0 4px, transparent 4px 7px); }
 .rpt-ringkey { display: inline-block; width: 10px; height: 10px; border-radius: 50%; border: 2px solid var(--ink-muted); flex: none; }
@@ -2742,17 +2743,22 @@ a.segmented__option { text-decoration: none; }
 .rpt-line { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
 .rpt-line--accent { stroke: var(--chart-accent); }
 .rpt-line--muted { stroke: var(--chart-muted); }
+.rpt-line--faint { stroke: var(--chart-muted); stroke-width: 1.5; opacity: .6; }
 .rpt-level { stroke-width: 1.5; stroke-dasharray: 4 3; }
 .rpt-level--accent { stroke: var(--chart-accent); }
 .rpt-level--muted { stroke: var(--chart-muted); }
 .rpt-dot { stroke: var(--surface); stroke-width: 2; }
 .rpt-dot--accent { fill: var(--chart-accent); }
 .rpt-dot--muted { fill: var(--chart-muted); }
+.rpt-dot--faint { fill: var(--chart-muted); opacity: .7; }
 .rpt-ring { fill: var(--surface); stroke-width: 2; }
 .rpt-ring--accent { stroke: var(--chart-accent); }
 .rpt-ring--muted { stroke: var(--chart-muted); }
+.rpt-ring--faint { stroke: var(--chart-muted); opacity: .7; }
 .rpt-cross { stroke: var(--ink-muted); stroke-width: 1; shape-rendering: crispEdges; }
-.rpt-endlabel { fill: var(--ink-muted); font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.rpt-endlabel { fill: var(--ink-muted); font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums;
+  /* A thin outline in the card colour keeps a label readable where it crosses a line. */
+  paint-order: stroke; stroke: var(--surface); stroke-width: 3px; stroke-linejoin: round; }
 .rpt-tip { transform: none; width: auto; min-width: 180px; max-width: 260px; }
 .rpt-tip__row { display: flex; align-items: center; gap: 6px; }
 /* Bars split into parts, drawn to scale */

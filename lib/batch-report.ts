@@ -227,15 +227,25 @@ export function listing(items: (string | number)[]) {
 export const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
 /**
- * Which batch to compare with: the one asked for (none = "none"), else the batch just before it
- * (the next lower number). Returns null when there is nothing to compare with.
+ * Which batches to compare with, newest first: "none" → none; "all" → every other batch; a batch's id → that
+ * batch; nothing asked → the batch just before it (the next lower number), if there is one.
  */
-export function pickCompare<T extends { id: string; batch_no: number }>(batches: T[], current: T, asked: string | undefined) {
-  if (asked === "none") return null;
-  if (asked) return batches.find((b) => b.id === asked && b.id !== current.id) ?? null;
-  return (
-    batches
-      .filter((b) => b.batch_no < current.batch_no)
-      .sort((a, b) => b.batch_no - a.batch_no)[0] ?? null
-  );
+export function pickCompare<T extends { id: string; batch_no: number }>(batches: T[], current: T, asked: string | undefined): T[] {
+  const others = batches.filter((b) => b.id !== current.id).sort((a, b) => b.batch_no - a.batch_no);
+  if (asked === "none") return [];
+  if (asked === "all") return others;
+  if (asked) {
+    const one = others.find((b) => b.id === asked);
+    return one ? [one] : [];
+  }
+  const before = others.find((b) => b.batch_no < current.batch_no);
+  return before ? [before] : [];
+}
+
+/**
+ * The one batch the summary and tiles read against when several are compared: the batch just before the one
+ * reported, else the newest of the others.
+ */
+export function mainCompare<T extends { no: number }>(current: T, others: T[]): T | null {
+  return others.filter((b) => b.no < current.no).sort((x, y) => y.no - x.no)[0] ?? others[0] ?? null;
 }

@@ -7,11 +7,14 @@ export function ReportPicker({
   batches,
   current,
   compare,
+  canAll,
 }: {
   batches: { id: string; label: string }[];
   current: string;
-  /** The batch compared with, or "none". */
+  /** The batch compared with, "all" or "none". */
   compare: string;
+  /** Offer "All batches" (there are at least two other batches). */
+  canAll: boolean;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -43,6 +46,7 @@ export function ReportPicker({
         <span className="select-wrap">
           <select id="rpt-vs" className="select" value={compare} onChange={(e) => go(current, e.target.value)}>
             <option value="none">Nothing</option>
+            {canAll && <option value="all">All batches</option>}
             {batches
               .filter((b) => b.id !== current)
               .map((b) => (

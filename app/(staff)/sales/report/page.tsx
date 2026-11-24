@@ -22,6 +22,7 @@ import {
   fmtPace,
   fmtPct,
   listing,
+  mainCompare,
   pickCompare,
   plural,
   type BatchFigures,
@@ -113,7 +114,10 @@ export default async function BatchReportPage({ searchParams }: { searchParams: 
   // Newest first, as loadBatches returns them.
   const batches = list.map((x) => x.batch).filter(isReal);
   const current = batches.find((b) => b.id === sp.batch) ?? batches[0];
-  const vs = current ? pickCompare(batches, current, sp.vs) : null;
+  const vs = current ? pickCompare(batches, current, sp.vs) : [];
+  // "All batches" is offered when there are at least two other batches; with one it is that batch.
+  const canAll = batches.length >= 3;
+  const compareValue = sp.vs === "all" && canAll ? "all" : (vs[0]?.id ?? "none");
 
   let body: ReactNode;
   const loadError = error ?? statementsError ?? settingsRes.error;
@@ -133,17 +137,15 @@ export default async function BatchReportPage({ searchParams }: { searchParams: 
       />
     );
   } else {
-    const [ra, rb] = await Promise.all([
-      supabase.rpc("batch_report", { p_batch: current.id }),
-      vs ? supabase.rpc("batch_report", { p_batch: vs.id }) : Promise.resolve({ data: null, error: null }),
-    ]);
-    if (ra.error || rb.error || !ra.data) {
-      body = <Problem text={friendlyError(ra.error ?? rb.error)} />;
+    const wanted = [current, ...vs];
+    const results = await Promise.all(wanted.map((x) => supabase.rpc("batch_report", { p_batch: x.id })));
+    const failed = results.find((r) => r.error || !r.data);
+    if (failed) {
+      body = <Problem text={friendlyError(failed.error)} />;
     } else {
       const st = (b: RealBatch) => batchStatement(statements.get(b.id), b, expenses, taxRateBp);
-      const a = batchFigures(current, st(current), ra.data as BatchReportRpc, split);
-      const b = vs && rb.data ? batchFigures(vs, st(vs), rb.data as BatchReportRpc, split) : null;
-      body = <Report a={a} b={b} split={split} taxRateBp={taxRateBp} newestId={batches[0].id} />;
+      const [a, ...others] = wanted.map((x, i) => batchFigures(x, st(x), results[i].data as BatchReportRpc, split));
+      body = <Report a={a} others={others} split={split} taxRateBp={taxRateBp} newestId={batches[0].id} />;
     }
   }
 
@@ -177,7 +179,8 @@ export default async function BatchReportPage({ searchParams }: { searchParams: 
             <ReportPicker
               batches={batches.map((b) => ({ id: b.id, label: `Batch ${b.batch_no}` }))}
               current={current.id}
-              compare={vs?.id ?? "none"}
+              compare={compareValue}
+              canAll={canAll}
             />
           )}
           {body}
@@ -201,13 +204,14 @@ function Problem({ text }: { text: string }) {
 
 function Report({
   a,
-  b,
+  others,
   split,
   taxRateBp,
   newestId,
 }: {
   a: BatchFigures;
-  b: BatchFigures | null;
+  /** Every batch compared with, newest first (one, all, or none). */
+  others: BatchFigures[];
   split: { owner: number; manager: number };
   taxRateBp: number;
   /** The newest batch: only it gets "receive the next delivery". */
@@ -216,33 +220,46 @@ function Report({
   const parts = split.owner + split.manager;
   const ownerShare = shareLabel(split.owner, parts);
   const managerShare = shareLabel(split.manager, parts);
-  const both = b ? [a, b] : [a];
+  // The summary and tiles read against one batch: the one picked, or with All batches the batch before.
+  const b = mainCompare(a, others);
+  const many = others.length > 1;
+  const both = [a, ...others];
   const xMax = Math.max(...both.map((f) => f.series.length - 1), 1);
   const asOf = dayMonth(a.today);
+  // The reported batch in the accent colour, the batch read against in grey, any others in a lighter grey.
+  const tone = (f: BatchFigures, i: number) => (i === 0 ? "accent" : f === b ? "muted" : "faint") as "accent" | "muted" | "faint";
 
   return (
     <>
       <p className="t-sm muted">
         {a.title} arrived on {dayMonth(a.receivedOn)}
         {a.supplier ? ` from ${a.supplier}` : ""}
-        {b ? `. Compared with ${b.title}, which arrived on ${dayMonth(b.receivedOn)}.` : "."} Figures up to now: they change as
-        you sell, collect and add expenses.
+        {many
+          ? `. Compared with every other batch: ${listing(others.map((f) => f.title))}. The summary and the tiles compare with ${b?.title}, the batch before it.`
+          : b
+            ? `. Compared with ${b.title}, which arrived on ${dayMonth(b.receivedOn)}.`
+            : "."}{" "}
+        Figures up to now: they change as you sell, collect and add expenses.
       </p>
 
       <Lead a={a} b={b} />
       <Tiles a={a} b={b} ownerShare={ownerShare} managerShare={managerShare} />
 
       <Section id="rpt-pace" title="How fast it sold">
-        <p className="t-sm muted">{paceCaption(a, b)} Tap or point at the chart to read each day.</p>
+        <p className="t-sm muted">
+          {paceCaption(a, b)}
+          {many ? ` The lighter lines are ${listing(others.filter((f) => f !== b).map((f) => f.title))}.` : ""} Tap or point at
+          the chart to read each day.
+        </p>
         <DayLines
           title="Pieces sold so far, by day since each batch arrived"
           unit="count"
           lines={both.map((f, i) => ({
             key: f.id,
             label: f.title,
-            tone: i === 0 ? "accent" : "muted",
+            tone: tone(f, i),
             values: f.series.map((p) => p.cumPcs),
-            end: f.soldOutDay !== null ? "sold out" : `${f.st.sold} of ${f.st.received}`,
+            end: many ? f.title : f.soldOutDay !== null ? "sold out" : `${f.st.sold} of ${f.st.received}`,
           }))}
           tips={Array.from({ length: xMax + 1 }, (_, d) => [
             `Day ${d}`,
@@ -264,10 +281,10 @@ function Report({
           lines={both.map((f, i) => ({
             key: f.id,
             label: f.title,
-            tone: i === 0 ? "accent" : "muted",
+            tone: tone(f, i),
             values: f.series.map((p) => p.cumNet),
-            end: pesos(f.series.at(-1)?.cumNet ?? 0),
-            level: f.st.costInFull,
+            end: many ? f.title : pesos(f.series.at(-1)?.cumNet ?? 0),
+            level: i === 0 || f === b ? f.st.costInFull : undefined,
             ring: f.paybackDay,
           }))}
           tips={Array.from({ length: xMax + 1 }, (_, d) => [
@@ -284,11 +301,11 @@ function Report({
         />
       </Section>
 
-      <WhereEachPeso a={a} b={b} />
-      <PaidAndOwed a={a} b={b} />
-      <Flavours a={a} b={b} xMax={xMax} />
-      <Statement a={a} b={b} ownerShare={ownerShare} managerShare={managerShare} taxRateBp={taxRateBp} />
-      <NextSteps a={a} b={b} newestId={newestId} />
+      <WhereEachPeso a={a} b={b} all={both} />
+      <PaidAndOwed all={both} />
+      <Flavours a={a} b={b} all={both} xMax={xMax} />
+      <Statement all={both} ownerShare={ownerShare} managerShare={managerShare} taxRateBp={taxRateBp} />
+      <NextSteps a={a} b={b} others={others} newestId={newestId} />
 
       <Section id="rpt-how" title="How these numbers are worked out">
         <ul className="rpt-notes">
@@ -437,6 +454,9 @@ function Lead({ a, b }: { a: BatchFigures; b: BatchFigures | null }) {
 }
 
 function Tiles({ a, b, ownerShare, managerShare }: { a: BatchFigures; b: BatchFigures | null; ownerShare: string; managerShare: string }) {
+  // Change arrows only once the batch is selling: before that every "so far" figure is 0 and the arrows only say
+  // "less". The other batch's figure is still shown.
+  const Change = a.st.sold > 0 ? Delta : () => null;
   const d = (x: number, y: number | undefined | null) => (y === null || y === undefined ? 0 : x - y);
   const payDiff = b && a.paybackDay !== null && b.paybackDay !== null ? a.paybackDay - b.paybackDay : 0;
   const lastNet = a.series.at(-1)?.cumNet ?? 0;
@@ -455,9 +475,9 @@ function Tiles({ a, b, ownerShare, managerShare }: { a: BatchFigures; b: BatchFi
           meta={
             <Vs b={b} value={b ? pesos(b.st.netProfit) : ""}>
               {b && (
-                <Delta diff={d(a.st.netProfit, b.st.netProfit)} good="up">
+                <Change diff={d(a.st.netProfit, b.st.netProfit)} good="up">
                   {pesos(abs(d(a.st.netProfit, b.st.netProfit)))} {d(a.st.netProfit, b.st.netProfit) > 0 ? "more" : "less"}
-                </Delta>
+                </Change>
               )}
             </Vs>
           }
@@ -468,10 +488,10 @@ function Tiles({ a, b, ownerShare, managerShare }: { a: BatchFigures; b: BatchFi
           meta={
             <Vs b={b} value={fmtPct(b?.netMargin ?? null)}>
               {b && a.netMargin !== null && b.netMargin !== null && round1(a.netMargin * 100) !== round1(b.netMargin * 100) && (
-                <Delta diff={round1(a.netMargin * 100) - round1(b.netMargin * 100)} good="up">
+                <Change diff={round1(a.netMargin * 100) - round1(b.netMargin * 100)} good="up">
                   {abs(round1(a.netMargin * 100) - round1(b.netMargin * 100)).toFixed(1)} points{" "}
                   {a.netMargin > b.netMargin ? "higher" : "lower"}
-                </Delta>
+                </Change>
               )}
             </Vs>
           }
@@ -504,9 +524,9 @@ function Tiles({ a, b, ownerShare, managerShare }: { a: BatchFigures; b: BatchFi
           meta={
             <Vs b={b} value={b?.pace ? `${fmtPace(b.pace)} a day` : "–"}>
               {b && a.pace !== null && b.pace !== null && round1(a.pace) !== round1(b.pace) && (
-                <Delta diff={round1(a.pace) - round1(b.pace)} good="up">
+                <Change diff={round1(a.pace) - round1(b.pace)} good="up">
                   {fmtPace(abs(round1(a.pace) - round1(b.pace)))} a day {round1(a.pace) > round1(b.pace) ? "faster" : "slower"}
-                </Delta>
+                </Change>
               )}
             </Vs>
           }
@@ -521,9 +541,9 @@ function Tiles({ a, b, ownerShare, managerShare }: { a: BatchFigures; b: BatchFi
               ) : (
                 b &&
                 payDiff !== 0 && (
-                  <Delta diff={payDiff} good="down">
+                  <Change diff={payDiff} good="down">
                     {plural(abs(payDiff), "day")} {payDiff > 0 ? "later" : "sooner"}
-                  </Delta>
+                  </Change>
                 )
               )}
             </Vs>
@@ -535,10 +555,10 @@ function Tiles({ a, b, ownerShare, managerShare }: { a: BatchFigures; b: BatchFi
           meta={
             <Vs b={b} value={b ? pesos(b.st.owed) : ""}>
               {b && d(a.st.owed, b.st.owed) !== 0 ? (
-                <Delta diff={d(a.st.owed, b.st.owed)} good="down">
+                <Change diff={d(a.st.owed, b.st.owed)} good="down">
                   {pesos(abs(d(a.st.owed, b.st.owed)))} {d(a.st.owed, b.st.owed) > 0 ? "more" : "less"}
                   {a.owedBuyers > 0 ? `, ${plural(a.owedBuyers, "buyer")}` : ""}
-                </Delta>
+                </Change>
               ) : (
                 a.owedBuyers > 0 && <span className="rpt-delta rpt-delta--flat">{plural(a.owedBuyers, "buyer")}</span>
               )}
@@ -551,9 +571,9 @@ function Tiles({ a, b, ownerShare, managerShare }: { a: BatchFigures; b: BatchFi
           meta={
             <Vs b={b} value={b ? pesos(b.share.owner) : ""}>
               {b && (
-                <Delta diff={d(a.share.owner, b.share.owner)} good="up">
+                <Change diff={d(a.share.owner, b.share.owner)} good="up">
                   {pesos(abs(d(a.share.owner, b.share.owner)))} {d(a.share.owner, b.share.owner) > 0 ? "more" : "less"}
-                </Delta>
+                </Change>
               )}
             </Vs>
           }
@@ -564,9 +584,9 @@ function Tiles({ a, b, ownerShare, managerShare }: { a: BatchFigures; b: BatchFi
           meta={
             <Vs b={b} value={b ? pesos(b.share.manager) : ""}>
               {b && (
-                <Delta diff={d(a.share.manager, b.share.manager)} good="up">
+                <Change diff={d(a.share.manager, b.share.manager)} good="up">
                   {pesos(abs(d(a.share.manager, b.share.manager)))} {d(a.share.manager, b.share.manager) > 0 ? "more" : "less"}
-                </Delta>
+                </Change>
               )}
             </Vs>
           }
@@ -584,8 +604,8 @@ function pctOf(part: number, whole: number) {
   return whole > 0 ? `${((part / whole) * 100).toFixed(1)}%` : "–";
 }
 
-function WhereEachPeso({ a, b }: { a: BatchFigures; b: BatchFigures | null }) {
-  const both = b ? [a, b] : [a];
+function WhereEachPeso({ a, b, all }: { a: BatchFigures; b: BatchFigures | null; all: BatchFigures[] }) {
+  const both = all;
   const extra = both.some((f) => f.st.tax !== 0 || f.st.countDiffs !== 0);
   const otherName = extra ? "Expenses, tax and missing pieces" : "Expenses";
   const row = (f: BatchFigures): PartsRow => {
@@ -610,7 +630,10 @@ function WhereEachPeso({ a, b }: { a: BatchFigures; b: BatchFigures | null }) {
   };
   const caption = (() => {
     if (!b || a.grossMargin === null || b.grossMargin === null) {
-      if (a.grossMargin === null) return "Nothing sold yet.";
+      if (a.grossMargin === null) {
+        const sold = all.slice(1).filter((f) => f.st.net > 0);
+        return sold.length ? `${a.title} hasn't sold anything yet; the bars show ${listing(sold.map((f) => f.title))}.` : "Nothing sold yet.";
+      }
       return a.netMargin !== null && a.netMargin < 0
         ? `${a.title}'s costs so far are more than its net sales.`
         : `Of every ₱100 of net sales, ${a.title} keeps ₱${((a.netMargin ?? 0) * 100).toFixed(0)} as net profit so far.`;
@@ -647,8 +670,9 @@ function WhereEachPeso({ a, b }: { a: BatchFigures; b: BatchFigures | null }) {
   );
 }
 
-function PaidAndOwed({ a, b }: { a: BatchFigures; b: BatchFigures | null }) {
-  const both = b ? [a, b] : [a];
+function PaidAndOwed({ all }: { all: BatchFigures[] }) {
+  const both = all;
+  const a = all[0];
   const row = (f: BatchFigures): PartsRow => ({
     label: f.title,
     parts: [
@@ -692,7 +716,7 @@ function PaidAndOwed({ a, b }: { a: BatchFigures; b: BatchFigures | null }) {
               Still owed on {f.title} · {pesos(f.st.owed)}
             </h3>
             {f.owed.length === 0 ? (
-              <p className="t-sm muted">Nothing: every piece sold has been paid.</p>
+              <p className="t-sm muted">{f.st.sold === 0 ? "Nothing sold yet." : "Nothing: every piece sold has been paid."}</p>
             ) : (
               <ul className="rpt-owed" role="list">
                 {f.owed.map((o) => (
@@ -715,8 +739,8 @@ function PaidAndOwed({ a, b }: { a: BatchFigures; b: BatchFigures | null }) {
   );
 }
 
-function Flavours({ a, b, xMax }: { a: BatchFigures; b: BatchFigures | null; xMax: number }) {
-  const both = b ? [a, b] : [a];
+function Flavours({ a, b, all, xMax }: { a: BatchFigures; b: BatchFigures | null; all: BatchFigures[]; xMax: number }) {
+  const both = all;
   const fastest = (f: BatchFigures) => f.flavours.find((x) => x.soldOutDay !== null);
   const open = a.flavours.filter((x) => x.left > 0);
   return (
@@ -725,7 +749,11 @@ function Flavours({ a, b, xMax }: { a: BatchFigures; b: BatchFigures | null; xMa
         A shorter bar sold out sooner; a striped bar has pieces left.
         {fastest(a) ? ` ${a.title}'s fastest: ${fastest(a)!.name} (day ${fastest(a)!.soldOutDay}).` : ""}
         {b && fastest(b) ? ` ${b.title}'s: ${fastest(b)!.name} (day ${fastest(b)!.soldOutDay}).` : ""}
-        {open.length > 0 ? ` Still to sell on ${a.title}: ${listing(open.map((x) => `${x.name} (${x.left} left)`))}.` : ""}
+        {open.length > 5
+          ? ` ${a.title} has ${open.length} flavours with pieces left.`
+          : open.length > 0
+            ? ` Still to sell on ${a.title}: ${listing(open.map((x) => `${x.name} (${x.left} left)`))}.`
+            : ""}
       </p>
       <div className="rpt-two">
         {both.map((f, i) => (
@@ -762,20 +790,18 @@ function Flavours({ a, b, xMax }: { a: BatchFigures; b: BatchFigures | null; xMa
 }
 
 function Statement({
-  a,
-  b,
+  all,
   ownerShare,
   managerShare,
   taxRateBp,
 }: {
-  a: BatchFigures;
-  b: BatchFigures | null;
+  all: BatchFigures[];
   ownerShare: string;
   managerShare: string;
   taxRateBp: number;
 }) {
   // Oldest batch first, so the columns read like a ledger.
-  const both = (b ? [a, b] : [a]).sort((x, y) => x.no - y.no);
+  const both = [...all].sort((x, y) => x.no - y.no);
   const cost = (c: number) => `(${pesos(c)})`;
   const anyDiffs = both.some((f) => f.st.countDiffs !== 0);
   type Row = [string, (f: BatchFigures) => string] | [string];
@@ -859,7 +885,7 @@ function Statement({
   );
 }
 
-function NextSteps({ a, b, newestId }: { a: BatchFigures; b: BatchFigures | null; newestId: string }) {
+function NextSteps({ a, b, others, newestId }: { a: BatchFigures; b: BatchFigures | null; others: BatchFigures[]; newestId: string }) {
   const steps: ReactNode[] = [];
   if (a.st.owed > 0) {
     steps.push(
@@ -869,13 +895,12 @@ function NextSteps({ a, b, newestId }: { a: BatchFigures; b: BatchFigures | null
       </>,
     );
   }
-  if (b && b.st.owed > 0) {
+  const owing = others.filter((f) => f.st.owed > 0);
+  if (owing.length > 0) {
     steps.push(
       <>
-        <strong>
-          Collect the {pesos(b.st.owed)} still owed on {b.title}
-        </strong>{" "}
-        from {plural(b.owedBuyers, "buyer")}.
+        <strong>Collect what is still owed on {owing.length === 1 ? owing[0].title : "the other batches"}:</strong>{" "}
+        {listing(owing.map((f) => `${pesos(f.st.owed)} on ${f.title} from ${plural(f.owedBuyers, "buyer")}`))}.
       </>,
     );
   }

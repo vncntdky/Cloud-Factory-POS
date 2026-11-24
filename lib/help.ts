@@ -495,7 +495,7 @@ export const SOPS: Sop[] = [
           "Open Balance. Total assets and Owed + owners' share must match. Check the inventory value looks right for what's on the shelf.",
           "Open Batches. It always covers since opening. Read the running net profit: each batch's net profit so far, the owner's and the manager's share of it, and the running total. After general expenses it ends at Shop net profit so far, the same as Net profit on Profit & loss with Since opening picked.",
           "Tap a batch to see every line: sales, discounts, what the pieces sold cost, each expense, how much of the batch's cost is still to earn back, and its owner / manager split. The shares are a guide, not a payout: what can be paid out is Safe to distribute.",
-          "Owner: open Report (after Batches, or Report on a batch's page). It compares the newest batch with the one before: net profit, how fast it sold, the day it earned back its cost, where each peso went, who still owes and how each flavour sold. Pick another batch, or Compare with, at the top.",
+          "Owner: open Report (after Batches, or Report on a batch's page). It compares the newest batch with the one before: net profit, how fast it sold, the day it earned back its cost, where each peso went, who still owes and how each flavour sold. Pick another batch at the top; under Compare with, pick another batch, All batches (every batch on the charts and in the statement) or Nothing.",
           "Open Collectibles and follow up on everyone who owes (SOP 9).",
           "Check that every expense for the week is entered (SOP 11).",
         ],

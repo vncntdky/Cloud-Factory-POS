@@ -82,8 +82,16 @@ const movements = [
   { id: "dddddddd-1111-4111-8111-000000000005", product_id: LYCHEE, kind: "count", delta: -2, on_hand_after: 2, note: null, unit_cost_cents: null, created_at: ago(2), batch_id: B1, sale: null, who: null },
 ];
 // REPORT=1: a second batch, 2 days old and still selling, so the owner's batch report has two batches to compare.
+// REPORT=3: also a third batch, received today with nothing sold yet, to compare with All batches.
 const B2 = "bbbbbbbb-0000-4000-8000-000000000002";
-if (process.env.REPORT === "1") {
+const B3 = "bbbbbbbb-0000-4000-8000-000000000003";
+if (process.env.REPORT === "3") {
+  batches.push({ id: B3, batch_no: 3, supplier: null, received_on: new Date(Date.now() + 8 * 3600000).toISOString().slice(0, 10), note: null, created_at: ago(0), shipping_cents: 26400, tax_cents: 0, mooe_cents: 0, other_cents: 0, other_label: null, paid_from_funds: true });
+  [0, 1, 2, 3].forEach((k) => {
+    batchRows.push({ batch_id: B3, product_id: products[k].id, received: 6, sold: 0, sales_cents: 0, cost_cents: 0, uncosted: 0, owed_cents: 0, received_cost_cents: 6 * 21000, received_uncosted: 0, adjusted: 0, first_in: ago(0), first_sold_at: null, last_sold_at: null });
+  });
+}
+if (process.env.REPORT === "1" || process.env.REPORT === "3") {
   batches.push({ id: B2, batch_no: 2, supplier: null, received_on: new Date(Date.now() - 2 * day).toISOString().slice(0, 10), note: null, created_at: ago(2), shipping_cents: 24400, tax_cents: 0, mooe_cents: 0, other_cents: 0, other_label: null, paid_from_funds: true });
   [5, 3, 2, 1].forEach((sold, k) => {
     batchRows.push({ batch_id: B2, product_id: products[6 + k].id, received: 12, sold, sales_cents: sold * 35000, cost_cents: sold * 21000, uncosted: 0, owed_cents: k === 0 ? 35000 : 0, received_cost_cents: 12 * 21000, received_uncosted: 0, adjusted: 0, first_in: ago(2), first_sold_at: ago(2), last_sold_at: ago(0) });
