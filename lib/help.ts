@@ -110,7 +110,7 @@ export const SOPS: Sop[] = [
         title: "Add many products from a CSV file",
         steps: [
           "In Inventory, tap Import (next to Add product).",
-          "Tap Download template and open it in Google Sheets or Excel. Type one row per product or flavour. Product and Selling price are needed; Category, Brand, Flavour / variant, Barcode, Cost per piece, Low-stock alert at (5 if empty) and For sale (yes if empty) are optional. Type prices like 340 or 1,250.50. The two Example rows are skipped.",
+          "Tap Download template and open it in Google Sheets or Excel. Type one row per product or flavour. Product and Selling price are needed; Category, Brand, Flavour / variant, Barcode, Cost per piece, Low-stock alert at (5 if empty) and For sale (yes if empty) are optional. Write each product the way it is in the app (Brand BLXCK Signature, Product Mango), so products already there are skipped. Type prices like 340 or 1,250.50. The two Example rows are skipped.",
           "In Excel, set the Barcode column to Text before typing barcodes (select the column, then Format Cells, Text). Otherwise Excel turns long barcodes into numbers like 4.8E+12 and drops leading zeros.",
           "Save or download the sheet as CSV, then tap Choose CSV file and pick it.",
           "Check the list. New rows will be added; Already in the app rows (same brand, product and flavour) are skipped and never changed; a Fix this row says what to fix. Fix those rows in the sheet and choose the file again: nothing is added until every row is right.",

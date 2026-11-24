@@ -71,12 +71,14 @@ the bottom. Commits on `main` hold the code for each step.
     from comma-decimal regions it is read as ₱340.50), "P340" is read as ₱340, doubled spaces and line breaks in a
     cell don't make a second product or category, a barcode Excel turned into 4.8E+12 says how to keep it as text,
     Windows Excel's plain CSV encoding keeps ñ, a product in the app but Not for sale says so, no connection shows a
-    message instead of an error page, and a change between the check and Add marks the row again.
+    message instead of an error page, and a change between the check and Add marks the row again. The template's
+    example rows follow the shop's own names (Brand BLXCK Signature, Product Mango; XBLACK MAX Banana with flavour
+    Sweet Smoothie), so a sheet written the same way skips products that are already in the app.
 26. **End of Batch 2 report** (24 Nov): a one-off page comparing Batch 2 with Batch 1 (net profit, margin, pace,
     payback, where each peso went, paid and owed, flavours, statement, next steps), sent to the owner as an HTML
     file. Batch 2: ₱4,399.13 net profit so far on 29 of 30 pieces (Batch 1: ₱3,921 on 30); the lead comes from
-    expenses (₱100 against ₱640), gross profit is about the same; it sold 2.1 pieces a day against 2.7, and ₱2,420
-    of its sales was still owed by 7 buyers (Batch 1: ₱240).
+    expenses (₱100 against ₱640), gross profit is about the same; it sold 2.1 pieces a day against 2.7. As of
+    25 Nov, 1:36 a.m., ₱1,740 of its sales was still owed by 5 buyers; Batch 1 was fully paid.
 
 ## Decisions the owner made
 

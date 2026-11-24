@@ -14,11 +14,11 @@ export const dynamic = "force-dynamic";
 const TEMPLATE_HREF = "/templates/products-template.csv";
 
 const COLUMNS: { name: string; what: string }[] = [
-  { name: "Product", what: "Needed. The product or line, e.g. Very Chill or Signature 88000." },
+  { name: "Product", what: "Needed. The name as it is in the app, usually the flavour, e.g. Mango or Very Chill." },
   { name: "Selling price", what: "Needed. Pesos, e.g. 340 or 1,250.50." },
-  { name: "Category", what: "e.g. Black TEO. A new name makes a new category." },
-  { name: "Brand", what: "e.g. Black TEO or BLXCK Signature." },
-  { name: "Flavour / variant", what: "e.g. Mango. Each flavour is its own row." },
+  { name: "Category", what: "e.g. BLXCK Signature 88000 or Black TEO. A new name makes a new category." },
+  { name: "Brand", what: "e.g. BLXCK Signature, Black TEO or XBLACK MAX." },
+  { name: "Flavour / variant", what: "Optional second name, e.g. Sweet Smoothie, or a device version like V5." },
   {
     name: "Barcode",
     what: "Letters, numbers, . - and _ only. Leave empty if none. In Excel, set this column to Text first, so long barcodes and leading zeros stay.",
@@ -43,7 +43,8 @@ export default async function ImportProductsPage() {
             </h2>
             <p className="t-sm muted">
               One row per product or flavour. Open it in Google Sheets or Excel, type your products, and save or download it
-              as CSV. Its two example rows (category Example) are skipped, so you can leave them.
+              as CSV. Write each product the way it is in the app (Brand BLXCK Signature, Product Mango), so products already
+              there are skipped. The two example rows (category Example) are skipped, so you can leave them.
             </p>
             <div className="btn-row">
               <a className="btn btn--secondary" href={TEMPLATE_HREF} download="cloud-factory-products-template.csv">

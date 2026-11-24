@@ -46,7 +46,7 @@ const HEADER = "Category,Brand,Product,Flavour / variant,Barcode,Selling price,C
   const tplHref = await page.getByRole("link", { name: "Download template" }).getAttribute("href");
   const tpl = await page.evaluate(async (u) => (await fetch(u)).text(), tplHref);
   const lines = tpl.trim().split(/\r?\n/);
-  check("template: the import columns, then two Example rows", lines[0] === HEADER && lines.length === 3 && lines.slice(1).every((l) => l.startsWith("Example,Example,")), lines.join(" / "));
+  check("template: the import columns, then two Example rows", lines[0] === HEADER && lines.length === 3 && lines.slice(1).every((l) => l.startsWith("Example,")) && lines[1].startsWith("Example,BLXCK Signature,Mango,"), lines.join(" / "));
 
   // A file with something to fix: nothing can be added.
   await upload("first.csv", [HEADER, "Example,Example,Signature 88000,Mango,,340,165,5,yes", "Pods,XBLACK,MAX Pods,Mint,,350,210,5,yes",
