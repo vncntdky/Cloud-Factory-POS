@@ -162,7 +162,19 @@ export default async function BatchPage({
 
   return (
     <>
-      <Topbar title={title} backHref="/restock?view=batches" backLabel="Back to batches" />
+      <Topbar
+        title={title}
+        backHref="/restock?view=batches"
+        backLabel="Back to batches"
+        actions={
+          can(profile, "seeReports") && batch.id && batch.batch_no !== null ? (
+            <Link className="btn btn--secondary btn--sm" href={`/sales/report?batch=${batch.id}`} aria-label={`${title} report`}>
+              <Icon name="chart" />
+              Report
+            </Link>
+          ) : undefined
+        }
+      />
       <Main>
         <div className="stack stack-6 narrow">
           {sp.made === "1" && (

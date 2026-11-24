@@ -155,6 +155,11 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
                 {v.label}
               </Link>
             ))}
+            {can(profile, "seeReports") && (
+              <Link className="filter-chip" href="/sales/report">
+                Report
+              </Link>
+            )}
           </nav>
           {view === "batches" ? (
             <BatchesView supabase={supabase} isOwner={isOwner} sp={sp} />

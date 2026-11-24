@@ -13,7 +13,8 @@ export type Capability =
   | "voidSales"
   | "editSettings"
   | "manageStaff" // roles, activate, deactivate
-  | "deleteRecords"; // permanently delete test sales and products (owner only)
+  | "deleteRecords" // permanently delete test sales and products (owner only)
+  | "seeReports"; // the batch report on Sales → Finance → Report (owner only)
 
 const MANAGER: Capability[] = [
   "seeCosts",
