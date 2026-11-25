@@ -157,6 +157,33 @@ const B3 = "bbbbbbbb-0000-4000-8000-000000000003";
   await page.getByRole("heading", { name: "How fast it sold" }).waitFor();
   check("Batch 1 has nothing before it to compare with", (await vsSel.inputValue()) === "none" && /Batch 1 has made/.test(await text()));
 
+  // Change the date a batch arrived, from its report; the comparison stays.
+  await page.goto(`${B}/sales/report?batch=${B2}&vs=${B1}`);
+  await page.getByRole("heading", { name: "How fast it sold" }).waitFor();
+  const was = await page.evaluate(() => document.querySelector(".rpt .t-sm.muted")?.textContent ?? "");
+  await page.getByRole("button", { name: "Change the date Batch 2 arrived" }).click();
+  const dateInput = page.getByLabel("Arrived on");
+  const current = await dateInput.inputValue();
+  const earlier = new Date(Date.parse(current + "T00:00:00Z") - 86400000).toISOString().slice(0, 10);
+  await dateInput.fill(earlier);
+  await page.getByRole("button", { name: "Save changes" }).click();
+  await page.waitForURL(/date=saved/, { waitUntil: "commit" });
+  await page.getByText(/Batch 2 now arrived on/).waitFor();
+  const header = await page.evaluate(() => document.querySelector(".rpt .t-sm.muted")?.textContent ?? "");
+  const shown = new Date(earlier + "T00:00:00Z").toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "UTC" });
+  check("the date a batch arrived can be changed from its report", header.replace(/\u00a0/g, " ").includes(`Batch 2 arrived on ${shown}`) && header !== was, header.slice(0, 80));
+  check("the comparison stays after saving", (await page.getByLabel("Compare with").inputValue()) === B1 && new URL(page.url()).searchParams.get("vs") === B1);
+  const log2 = (await (await fetch("http://127.0.0.1:54321/__log")).json()).log.filter((l) => l.rpc === "set_batch_received_on");
+  check("only the date is sent", log2.length === 1 && log2[0].body.p_batch === B2 && log2[0].body.p_date === earlier, JSON.stringify(log2.map((l) => l.body)));
+  // A date after the batch's pieces were recorded is refused with the reason.
+  await page.getByRole("button", { name: "Change the date Batch 2 arrived" }).click();
+  await page.getByLabel("Arrived on").fill(current);
+  await page.getByLabel("Arrived on").fill(new Date(Date.now() + 8 * 3600000).toISOString().slice(0, 10));
+  await page.getByRole("button", { name: "Save changes" }).click();
+  await page.getByText(/were recorded on .*so it can't have arrived later/).waitFor();
+  check("a date after its pieces were recorded is refused, saying why", (await page.getByText(/so it can't have arrived later/).count()) === 1);
+  await page.getByRole("button", { name: "Cancel" }).click();
+
   // From a batch's page.
   await page.goto(`${B}/restock/batches/${B2}`);
   await page.getByRole("link", { name: "Batch 2 report" }).click();

@@ -218,6 +218,7 @@ export const SOPS: Sop[] = [
         title: "Wrong supplier, date or note",
         steps: [
           "On the batch page, under the date it arrived, tap Edit supplier, date or note. Change the Supplier, Arrived on or Note, then tap Save changes.",
+          "Owner: the date can also be changed on the batch's report (Sales → Finance → Report): tap Change the date it arrived, pick the day, then Save changes. A batch can't have arrived after the day its pieces were recorded in the app.",
         ],
       },
     ],
@@ -899,7 +900,7 @@ export const PROBLEMS: { see: string; doThis: string; managers?: boolean }[] = [
   { see: "A product missing from a batch", doThis: "Batch page → Add a product to this batch (SOP 4).", managers: true },
   {
     see: "A delivery came more than 60 days ago and Arrived on won't go back that far",
-    doThis: "Receive the batch with today's date, then on its page tap Edit supplier, date or note and set the real date (SOP 4).",
+    doThis: "Receive the batch with today's date, then on its page tap Edit supplier, date or note and set the real date, or change it on the batch's report (SOP 4). It can be earlier than the day the pieces were recorded, not later.",
     managers: true,
   },
   { see: "Change stock asks for a batch and none fits", doThis: "Receive the delivery as a batch first (SOP 3).", managers: true },

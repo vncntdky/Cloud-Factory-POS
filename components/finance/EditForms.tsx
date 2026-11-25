@@ -4,6 +4,7 @@
 // expenses (owners and managers), capital put in and distributions (owner), batch details.
 import { useState, type ReactNode } from "react";
 import {
+  setBatchReceivedOn,
   updateBatchDetails,
   updateCapital,
   updateExpense,
@@ -236,6 +237,34 @@ export function EditRelease({
       </div>
       <DateField id={`er-date-${k}`} name="released_on" label="Date paid out" value={r.released_on} min={earliest} max={today} />
       <Note id={`er-note-${k}`} value={r.note} />
+    </Shell>
+  );
+}
+
+/** Just the date a batch arrived, from its report; compare keeps the report's comparison ("all", "none" or a batch). */
+export function BatchDateForm({
+  batch: b,
+  compare,
+  today,
+  earliest,
+}: {
+  batch: { id: string; title: string; received_on: string };
+  compare: string;
+  today: string;
+  earliest: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [state, onSubmit, pending] = useFormAction<RestockFormState>(setBatchReceivedOn.bind(null, b.id, compare), null);
+  if (!open) {
+    return (
+      <button type="button" className="text-btn" onClick={() => setOpen(true)}>
+        Change the date {b.title} arrived
+      </button>
+    );
+  }
+  return (
+    <Shell label={`Change the date ${b.title} arrived`} state={state} pending={pending} onSubmit={onSubmit} onCancel={() => setOpen(false)}>
+      <DateField id="rpt-date" name="received_on" label="Arrived on" value={b.received_on} min={earliest} max={today} />
     </Shell>
   );
 }

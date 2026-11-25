@@ -873,6 +873,40 @@ select pg_temp.expect_error('batch report: an unknown batch', $$select public.ba
 reset role;
 select pg_temp.check('nobody signed out can see batch reports', not has_function_privilege('anon', 'public.batch_report(uuid)', 'execute'));
 
+-- ───────── A batch's received date (owners and managers) ─────────
+set role authenticated;
+set request.jwt.claim.sub = '33333333-3333-3333-3333-333333333333';
+select public.set_batch_received_on(:'rpt_batch', public.manila_today() - 3);
+select pg_temp.check('a manager can move a batch''s received date earlier; only the date changes',
+  (select received_on = public.manila_today() - 3 and supplier = 'Report Supply' from public.stock_batches where id = :'rpt_batch'));
+select pg_temp.expect_error('a received date in the future is refused',
+  format($$select public.set_batch_received_on('%s', public.manila_today() + 1)$$, :'rpt_batch'), 'last 400 days');
+reset role;
+update public.stock_movements set created_at = created_at - interval '5 days' where batch_id = :'rpt_batch';
+set role authenticated;
+select pg_temp.expect_error('a received date after the batch''s pieces were recorded is refused',
+  format($$select public.set_batch_received_on('%s', public.manila_today() - 2)$$, :'rpt_batch'), 'were recorded on');
+select pg_temp.expect_error('the same rule when changing supplier, date and note',
+  format($$select public.update_batch_details('%s', '{"supplier": "X", "received_on": "%s"}')$$, :'rpt_batch', public.manila_today() - 2),
+  'were recorded on');
+reset role;
+update public.stock_batches set received_on = public.manila_today() where id = :'rpt_batch';
+set role authenticated;
+select public.update_batch_details(:'rpt_batch', format('{"supplier": "Kept", "received_on": "%s"}', public.manila_today())::jsonb);
+select pg_temp.check('a supplier or note can still be saved when the date is unchanged',
+  (select supplier = 'Kept' and received_on = public.manila_today() from public.stock_batches where id = :'rpt_batch'));
+set request.jwt.claim.sub = '22222222-2222-2222-2222-222222222222';
+select pg_temp.expect_error('staff can''t change a batch''s date',
+  format($$select public.set_batch_received_on('%s', public.manila_today() - 6)$$, :'rpt_batch'), 'Only owners and managers');
+set request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
+select public.set_batch_received_on(:'rpt_batch', public.manila_today() - 6);
+select pg_temp.check('the owner can change it too, to the day the pieces were recorded or earlier',
+  (select received_on = public.manila_today() - 6 from public.stock_batches where id = :'rpt_batch'));
+select pg_temp.expect_error('an unknown batch',
+  $$select public.set_batch_received_on('00000000-0000-4000-8000-000000000000', public.manila_today())$$, 'no longer exists');
+reset role;
+select pg_temp.check('nobody signed out can change a batch''s date', not has_function_privilege('anon', 'public.set_batch_received_on(uuid, date)', 'execute'));
+
 reset role;
 select case when ok then 'ok   ' else 'FAIL ' end || name as result from results;
 select count(*) filter (where not ok) as failures, count(*) as checks from results;

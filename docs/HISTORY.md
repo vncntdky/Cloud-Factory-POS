@@ -96,6 +96,12 @@ the bottom. Commits on `main` hold the code for each step.
     one in the accent colour, the one before in grey, older ones lighter, each named at its end), the bars, the
     flavours and the statement; the summary and tiles still compare with the batch before. Change arrows wait until
     a batch has sold something.
+28. **Change the date a batch arrived from its report** (25 Nov): "Change the date Batch N arrived" under the report's
+    first line (owner), next to the existing Edit supplier, date or note on the batch's page (owners and managers).
+    New `set_batch_received_on` changes only the date (`20261125020000_batch_received_date.sql`). Both it and
+    `update_batch_details` now refuse a date after the day the batch's first piece was recorded in the app (the
+    pieces can't be on the shelf before the batch arrived); the details edit checks this only when the date changes.
+    The report's days, pace and payback count from the new date.
 
 ## Decisions the owner made
 

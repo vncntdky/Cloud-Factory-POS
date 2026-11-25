@@ -15,6 +15,7 @@ import { NotAllowed } from "@/components/NotAllowed";
 import { Topbar } from "@/components/Topbar";
 import { DayLines } from "@/components/report/DayLines";
 import { PartsBars, type PartsRow } from "@/components/report/PartsBars";
+import { BatchDateForm } from "@/components/finance/EditForms";
 import { ReportPicker } from "@/components/report/ReportPicker";
 import { requireActiveStaff } from "@/lib/auth";
 import {
@@ -32,11 +33,12 @@ import { friendlyError } from "@/lib/db-errors";
 import { paymentMethodLabel, pesos } from "@/lib/format";
 import { can } from "@/lib/permissions";
 import { shareLabel } from "@/lib/pnl";
+import { addDays, manilaToday } from "@/lib/time";
 import { batchStatement, loadBatchStatements, loadBatches, type Batch } from "../../restock/data";
 
 export const dynamic = "force-dynamic";
 
-type SP = { batch?: string; vs?: string };
+type SP = { batch?: string; vs?: string; date?: string };
 type RealBatch = Batch & { id: string; batch_no: number; received_on: string };
 
 const isReal = (b: Batch): b is RealBatch => b.id !== null && b.batch_no !== null && b.received_on !== null;
@@ -145,7 +147,17 @@ export default async function BatchReportPage({ searchParams }: { searchParams: 
     } else {
       const st = (b: RealBatch) => batchStatement(statements.get(b.id), b, expenses, taxRateBp);
       const [a, ...others] = wanted.map((x, i) => batchFigures(x, st(x), results[i].data as BatchReportRpc, split));
-      body = <Report a={a} others={others} split={split} taxRateBp={taxRateBp} newestId={batches[0].id} />;
+      body = (
+        <Report
+          a={a}
+          others={others}
+          split={split}
+          taxRateBp={taxRateBp}
+          newestId={batches[0].id}
+          compare={compareValue}
+          dateSaved={sp.date === "saved"}
+        />
+      );
     }
   }
 
@@ -208,6 +220,8 @@ function Report({
   split,
   taxRateBp,
   newestId,
+  compare,
+  dateSaved,
 }: {
   a: BatchFigures;
   /** Every batch compared with, newest first (one, all, or none). */
@@ -216,6 +230,10 @@ function Report({
   taxRateBp: number;
   /** The newest batch: only it gets "receive the next delivery". */
   newestId: string;
+  /** The comparison picked ("all", "none" or a batch), kept when the date is changed. */
+  compare: string;
+  /** The batch's date was just changed. */
+  dateSaved: boolean;
 }) {
   const parts = split.owner + split.manager;
   const ownerShare = shareLabel(split.owner, parts);
@@ -241,6 +259,23 @@ function Report({
             : "."}{" "}
         Figures up to now: they change as you sell, collect and add expenses.
       </p>
+      {dateSaved && (
+        <div className="notice notice--success" role="status">
+          <Icon name="check" />
+          <div>
+            <p className="notice__title">
+              {a.title} now arrived on {dayMonth(a.receivedOn)}.
+            </p>
+            <p>Its days on the charts, its pace and the day it earned back its cost count from that date.</p>
+          </div>
+        </div>
+      )}
+      <BatchDateForm
+        batch={{ id: a.id, title: a.title, received_on: a.receivedOn }}
+        compare={compare}
+        today={manilaToday()}
+        earliest={addDays(manilaToday(), -400)}
+      />
 
       <Lead a={a} b={b} />
       <Tiles a={a} b={b} ownerShare={ownerShare} managerShare={managerShare} />

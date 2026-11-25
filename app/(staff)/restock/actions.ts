@@ -426,6 +426,27 @@ export async function updateRelease(id: string, _prev: RestockFormState, fd: For
   redirect("/sales/pnl?released=edited#distributions");
 }
 
+/**
+ * The date a batch arrived, changed from its report (Sales → Finance → Report). Only the date changes; the database
+ * refuses a date after the batch's pieces were recorded. Back to the same report and comparison.
+ */
+export async function setBatchReceivedOn(batchId: string, compare: string, _prev: RestockFormState, fd: FormData): Promise<RestockFormState> {
+  if (!UUID_RE.test(batchId)) return { error: "That batch no longer exists." };
+  const staff = await manager();
+  if ("error" in staff) return { error: staff.error };
+  const date = text(fd, "received_on", 10);
+  if (!isIsoDate(date)) return { error: "Pick the date it arrived.", field: "received_on" };
+  const { error } = await staff.supabase.rpc("set_batch_received_on", { p_batch: batchId, p_date: date });
+  if (error) return { error: friendlyError(error as DbError), field: "received_on" };
+  revalidatePath("/restock", "layout");
+  revalidatePath("/sales/pnl");
+  revalidatePath("/sales/report");
+  const q = new URLSearchParams({ batch: batchId });
+  if (compare === "all" || compare === "none" || UUID_RE.test(compare)) q.set("vs", compare);
+  q.set("date", "saved");
+  redirect(`/sales/report?${q.toString()}`);
+}
+
 /** A batch's supplier, date received and note. */
 export async function updateBatchDetails(batchId: string, _prev: RestockFormState, fd: FormData): Promise<RestockFormState> {
   if (!UUID_RE.test(batchId)) return { error: "That batch no longer exists." };

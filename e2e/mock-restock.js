@@ -158,6 +158,22 @@ http
           return send(res, 200, products.map((x, i) => ({ product_id: x.id, sold: stats[i][0], days: 11, last_sold_at: stats[i][0] ? ago(1) : null })));
         if (fn === "batch_sales") return send(res, 200, batchRows);
         if (fn === "batch_statements") return send(res, 200, batchStatements());
+        if (fn === "set_batch_received_on") {
+          // Like the database: owners and managers; not in the future; not after the batch's pieces were recorded.
+          if (role === "cashier") return send(res, 403, { code: "42501", message: "Only owners and managers can change batches" });
+          const b = batches.find((x) => x.id === body.p_batch);
+          if (!b) return send(res, 404, { code: "P0002", message: "That batch no longer exists" });
+          const today = new Date(Date.now() + 8 * 3600000).toISOString().slice(0, 10);
+          const recorded = new Date(Date.parse(b.created_at) + 8 * 3600000).toISOString().slice(0, 10);
+          if (!body.p_date || body.p_date > today) return send(res, 400, { code: "22023", message: "The date must be in the last 400 days" });
+          if (body.p_date > recorded) {
+            const [, m, d] = recorded.split("-");
+            const mon = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][Number(m) - 1];
+            return send(res, 400, { code: "22023", message: `Batch ${b.batch_no}'s pieces were recorded on ${Number(d)} ${mon}, so it can't have arrived later. Pick that day or earlier.` });
+          }
+          b.received_on = body.p_date;
+          return send(res, 204);
+        }
         if (fn === "batch_report") {
           // Like the database: owner only; days, flavours, who owes and how it was paid, adding up to the statement.
           if (role !== "owner") return send(res, 403, { code: "42501", message: "Only the owner can see batch reports" });
