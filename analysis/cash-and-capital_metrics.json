@@ -209,6 +209,12 @@
   "formula": "same, paying on pick-up",
   "as_of": "2026-11-26"
  },
+ "money_check_short_now": {
+  "value": 3889.6855,
+  "unit": "PHP",
+  "formula": "6,224 - 340 - 0 - expected collections of open balances by 10 Dec",
+  "as_of": "2026-11-26"
+ },
  "rule_B_suggested_25nov": {
   "value": 0.0,
   "unit": "PHP",

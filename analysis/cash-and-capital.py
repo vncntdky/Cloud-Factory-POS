@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Cash and capital branch: every number in analysis/cash-and-capital.md comes from this script.
 
-Run:  python3 analysis/cash-and-capital.py      (offline; about 20 seconds)
+Run:  python3 analysis/cash-and-capital.py      (offline; under a minute)
 
 Data
 - Section 1 of analysis/baseline.py (the 26 Nov 2026 18:59 Manila pull of sales, payments, stock movements,
@@ -445,6 +445,13 @@ def rules(st, t, order_by, last_company=721400.0):
     return dict(A_today=a / P, B_suggested=b / P, C_hold_last_batch=c / P, expected_collections=rec_by / P, hold=hold / P)
 for lab, st, t in [("25 Nov 07:48", pre, "2026-11-25 07:48"), ("26 Nov now", now, "2026-11-26 19:18")]:
     print(lab, {k: round(v) for k, v in rules(st, t, "2026-12-10").items()})
+rn = rules(now, "2026-11-26 19:18", "2026-12-10")
+short_now = NEXT_ORDER_ENGINE / P - (now["spare"] + now["kept"]) / P - rn["expected_collections"]
+print(f"money check now: next order {ps(NEXT_ORDER_ENGINE)} - spare {ps(now['spare'])} - reserve {ps(now['kept'])} - "
+      f"expected collections by 10 Dec P{rn['expected_collections']:,.0f} = short P{short_now:,.0f} "
+      f"(without collections: P{(NEXT_ORDER_ENGINE - now['spare']) / P:,.0f}); collections = "
+      f"{rn['expected_collections'] / 171.6:.1f} pcs at landed cost")
+put("money_check_short_now", short_now, "PHP", "6,224 - 340 - 0 - expected collections of open balances by 10 Dec")
 rb = rules(pre, "2026-11-25 07:48", "2026-12-10")
 put("rule_B_suggested_25nov", rb["B_suggested"], "PHP", "min(safe, spare - (next order - kept - collections expected by 10 Dec) - month of running costs)")
 put("rule_C_25nov", rb["C_hold_last_batch"], "PHP", "safe with reserve = last company batch while the question is open")

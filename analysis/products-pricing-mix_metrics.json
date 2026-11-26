@@ -1,0 +1,356 @@
+{
+ "shop_days_with_stock": {
+  "value": 27.0258,
+  "unit": "days",
+  "formula": "time with >=1 piece on the shelf, 27 Oct 09:15 -> 26 Nov 18:59",
+  "as_of": "2026-11-26 18:59"
+ },
+ "rhythm_days_v2": {
+  "value": 18.0,
+  "unit": "days",
+  "formula": "mean gap between order days (Batches 1, 2: arrival - 7 days)",
+  "as_of": "2026-11-26 18:59"
+ },
+ "half_life_v2": {
+  "value": 36.0,
+  "unit": "days",
+  "formula": "clamp(2R, 21, 56)",
+  "as_of": "2026-11-26 18:59"
+ },
+ "shop_pace_v2": {
+  "value": 2.0519,
+  "unit": "pieces/day",
+  "formula": "Σ w·sold ÷ ∫ w dt over time with stock, half-life H",
+  "as_of": "2026-11-26 18:59"
+ },
+ "pareto_n80_value": {
+  "value": 16.0,
+  "unit": "of 20",
+  "formula": "flavours for 80% of net sales",
+  "as_of": "2026-11-26 18:59"
+ },
+ "pareto_n80_gp": {
+  "value": 16.0,
+  "unit": "of 20",
+  "formula": "flavours for 80% of landed gross profit",
+  "as_of": "2026-11-26 18:59"
+ },
+ "pareto_n80_speed": {
+  "value": 12.0,
+  "unit": "of 20",
+  "formula": "flavours for 80% of in-stock speed",
+  "as_of": "2026-11-26 18:59"
+ },
+ "pareto_top4_speed": {
+  "value": 0.4471,
+  "unit": "share",
+  "formula": "top 20% of flavours, in-stock speed",
+  "as_of": "2026-11-26 18:59"
+ },
+ "abc_v2_A": {
+  "value": 14.0,
+  "unit": "of 20",
+  "formula": "class A under design v2",
+  "as_of": "2026-11-26 18:59"
+ },
+ "abc_value_vs_gp_class_agreement": {
+  "value": 1.0,
+  "unit": "share",
+  "formula": "same class under value pace and landed-margin pace",
+  "as_of": "2026-11-26 18:59"
+ },
+ "dashboard_profit_per_piece_unit_cost": {
+  "value": 167.5,
+  "unit": "PHP",
+  "formula": "Dashboard: (net − Σ qty × unit cost) ÷ pieces",
+  "as_of": "2026-11-26 18:59"
+ },
+ "abc_same_class_next_6pcs": {
+  "value": 0.6577,
+  "unit": "share",
+  "formula": "simulated, 6 pieces sold per flavour",
+  "as_of": "2026-11-26 18:59"
+ },
+ "abc_same_class_next_12pcs": {
+  "value": 0.6874,
+  "unit": "share",
+  "formula": "simulated, 12 pieces sold per flavour",
+  "as_of": "2026-11-26 18:59"
+ },
+ "abc_same_class_next_batch_app": {
+  "value": "0.632-0.642",
+  "unit": "share",
+  "formula": "app-like ranking, 3 pieces",
+  "as_of": "2026-11-26 18:59"
+ },
+ "top_seller_false_alarm_app": {
+  "value": "0.000-0.000",
+  "unit": "share",
+  "formula": "share of batches where 'Top seller' would show although the true spread is not concentrated",
+  "as_of": "2026-11-26 18:59"
+ },
+ "ss_class_z_effect_pcs": {
+  "value": 1.2162,
+  "unit": "pieces",
+  "formula": "class z vs one z, pooled within class",
+  "as_of": "2026-11-26 18:59"
+ },
+ "ss_pooled_pcs": {
+  "value": 8.6635,
+  "unit": "pieces",
+  "formula": "1.645·√(L·λ·lump + λ²·σ_L²)",
+  "as_of": "2026-11-26 18:59"
+ },
+ "ss_v1_per_flavour_pcs": {
+  "value": 44.0,
+  "unit": "pieces",
+  "formula": "Σ ceil(z_class·√(L·pace_i·lump + pace_i²·σ_L²))",
+  "as_of": "2026-11-26 18:59"
+ },
+ "ss_v1_extra_cash": {
+  "value": 6039.0111,
+  "unit": "PHP",
+  "formula": "extra pieces × average landed pod cost",
+  "as_of": "2026-11-26 18:59"
+ },
+ "critical_ratio_z_range_pods": {
+  "value": "1.20-2.18",
+  "unit": "z",
+  "formula": "pods, both holding-cost cases",
+  "as_of": "2026-11-26 18:59"
+ },
+ "line_gp_day_xmax": {
+  "value": 439.1466,
+  "unit": "PHP or x",
+  "formula": "gp_day",
+  "as_of": "2026-11-26 18:59"
+ },
+ "line_gp_day_bteo": {
+  "value": 300.8593,
+  "unit": "PHP or x",
+  "formula": "gp_day",
+  "as_of": "2026-11-26 18:59"
+ },
+ "line_gp_flavour_day_xmax": {
+  "value": 88.4829,
+  "unit": "PHP or x",
+  "formula": "gp_flavour_day",
+  "as_of": "2026-11-26 18:59"
+ },
+ "line_gp_flavour_day_bteo": {
+  "value": 49.6544,
+  "unit": "PHP or x",
+  "formula": "gp_flavour_day",
+  "as_of": "2026-11-26 18:59"
+ },
+ "line_gp_day_ex_xmax": {
+  "value": 356.3514,
+  "unit": "PHP or x",
+  "formula": "gp_day_ex",
+  "as_of": "2026-11-26 18:59"
+ },
+ "line_gp_day_ex_bteo": {
+  "value": 234.7379,
+  "unit": "PHP or x",
+  "formula": "gp_day_ex",
+  "as_of": "2026-11-26 18:59"
+ },
+ "line_gmroi_30_xmax": {
+  "value": 9.2275,
+  "unit": "PHP or x",
+  "formula": "gmroi_30",
+  "as_of": "2026-11-26 18:59"
+ },
+ "line_gmroi_30_bteo": {
+  "value": 4.7899,
+  "unit": "PHP or x",
+  "formula": "gmroi_30",
+  "as_of": "2026-11-26 18:59"
+ },
+ "line_pace_ex_launch_xmax": {
+  "value": 2.3439,
+  "unit": "pieces/day",
+  "formula": "first 24 h after arrival left out",
+  "as_of": "2026-11-26 18:59"
+ },
+ "line_pace_ex_launch_bteo": {
+  "value": 1.4067,
+  "unit": "pieces/day",
+  "formula": "first 24 h after arrival left out",
+  "as_of": "2026-11-26 18:59"
+ },
+ "implied_elasticity_if_price_explained_gap": {
+  "value": -8.4214,
+  "unit": "",
+  "formula": "ln(pace BT / pace XMAX, ex launch) ÷ ln(340/320)",
+  "as_of": "2026-11-26 18:59"
+ },
+ "price_share_of_gap_at_eps_1_6": {
+  "value": 0.2312,
+  "unit": "share",
+  "formula": "elasticity -1.6 (Huang 2018)",
+  "as_of": "2026-11-26 18:59"
+ },
+ "price_1pct_gp_per_month": {
+  "value": 191.6129,
+  "unit": "PHP/month",
+  "formula": "1% × ₱330 × 58.1 pieces",
+  "as_of": "2026-11-26 18:59"
+ },
+ "price_1pct_gp_lift": {
+  "value": 0.0207,
+  "unit": "share",
+  "formula": "1% ÷ landed contribution margin",
+  "as_of": "2026-11-26 18:59"
+ },
+ "staff_limit_50_volume_needed": {
+  "value": 0.4278,
+  "unit": "share",
+  "formula": "a ₱50 discount on a ₱340 piece: c ÷ (m − c)",
+  "as_of": "2026-11-26 18:59"
+ },
+ "price_plus10_gp_month_eps_1_6": {
+  "value": 115.2137,
+  "unit": "PHP/month",
+  "formula": "+₱10 at elasticity -1.6",
+  "as_of": "2026-11-26 18:59"
+ },
+ "price_plus10_gp_month_eps_0": {
+  "value": 580.6452,
+  "unit": "PHP/month",
+  "formula": "+₱10, volume held",
+  "as_of": "2026-11-26 18:59"
+ },
+ "cost_plus5_gp_month": {
+  "value": -479.0323,
+  "unit": "PHP/month",
+  "formula": "₱8.25 a piece × 58.1 pieces",
+  "as_of": "2026-11-26 18:59"
+ },
+ "pocket_cash_per_piece": {
+  "value": 295.3333,
+  "unit": "PHP",
+  "formula": "(net − still owed) ÷ pieces",
+  "as_of": "2026-11-26 18:59"
+ },
+ "discount_leak_10pct_sales": {
+  "value": 246.7742,
+  "unit": "PHP/month",
+  "formula": "10% of 49.4 sales a month × ₱50",
+  "as_of": "2026-11-26 18:59"
+ },
+ "repeat_within_line_new_flavour": {
+  "value": 0.8182,
+  "unit": "share",
+  "formula": "repeat purchases inside a known line that took a new flavour",
+  "as_of": "2026-11-26 18:59"
+ },
+ "repeat_buyers_both_lines": {
+  "value": 9.0,
+  "unit": "buyers",
+  "formula": "repeat buyers who bought XBLACK MAX and Black TEO",
+  "as_of": "2026-11-26 18:59"
+ },
+ "repeat_purchase_new_flavour_share": {
+  "value": 0.9,
+  "unit": "share",
+  "formula": "next purchase took a flavour not bought before",
+  "as_of": "2026-11-26 18:59"
+ },
+ "bridge_oct_nov_1a": {
+  "value": -42.657,
+  "unit": "PHP/day",
+  "formula": "1a Days with stock",
+  "as_of": "2026-11-26 18:59"
+ },
+ "bridge_oct_nov_1b": {
+  "value": -239.3765,
+  "unit": "PHP/day",
+  "formula": "1b Flavours on the shelf",
+  "as_of": "2026-11-26 18:59"
+ },
+ "bridge_oct_nov_1c": {
+  "value": -235.5126,
+  "unit": "PHP/day",
+  "formula": "1c Sales per flavour on the shelf",
+  "as_of": "2026-11-26 18:59"
+ },
+ "bridge_oct_nov_2a": {
+  "value": 23.264,
+  "unit": "PHP/day",
+  "formula": "2a Price and mix",
+  "as_of": "2026-11-26 18:59"
+ },
+ "bridge_oct_nov_2b": {
+  "value": -0.0,
+  "unit": "PHP/day",
+  "formula": "2b Discounts",
+  "as_of": "2026-11-26 18:59"
+ },
+ "bridge_oct_nov_3a": {
+  "value": -5.816,
+  "unit": "PHP/day",
+  "formula": "3a Cost per piece (goods)",
+  "as_of": "2026-11-26 18:59"
+ },
+ "bridge_oct_nov_3b": {
+  "value": -0.1939,
+  "unit": "PHP/day",
+  "formula": "3b Restocking fees per piece",
+  "as_of": "2026-11-26 18:59"
+ },
+ "bridge_oct_nov_4a": {
+  "value": -28.6922,
+  "unit": "PHP/day",
+  "formula": "4a Expenses",
+  "as_of": "2026-11-26 18:59"
+ },
+ "bridge_oct_nov_4b": {
+  "value": -0.0,
+  "unit": "PHP/day",
+  "formula": "4b Tax estimate",
+  "as_of": "2026-11-26 18:59"
+ },
+ "bridge_oct_nov_4c": {
+  "value": 0.0,
+  "unit": "PHP/day",
+  "formula": "4c Stock count differences",
+  "as_of": "2026-11-26 18:59"
+ },
+ "bridge_oct_nov_total": {
+  "value": -528.9843,
+  "unit": "PHP/day",
+  "formula": "Nov − Oct net profit a day",
+  "as_of": "2026-11-26 18:59"
+ },
+ "batch_np_per_shelf_day_b1": {
+  "value": 377.5255,
+  "unit": "PHP/day",
+  "formula": "3,921 ÷ 10.39",
+  "as_of": "2026-11-26 18:59"
+ },
+ "batch_np_per_shelf_day_b2": {
+  "value": 294.8494,
+  "unit": "PHP/day",
+  "formula": "4,906 ÷ 16.64",
+  "as_of": "2026-11-26 18:59"
+ },
+ "device_cash_on_order": {
+  "value": 2066.0,
+  "unit": "PHP",
+  "formula": "10 × (₱200 + ₱6.60 fee share)",
+  "as_of": "2026-11-26 18:59"
+ },
+ "device_excess_pod_gp_per_cycle": {
+  "value": 1419.2312,
+  "unit": "PHP/cycle",
+  "formula": "7 devices' cash as pods × pod margin",
+  "as_of": "2026-11-26 18:59"
+ },
+ "lever_line_choice_month": {
+  "value": 3180.6804,
+  "unit": "PHP/month",
+  "formula": "(₱/day XMAX − ₱/day BT, launch day out) × 26.2 in-stock days a month",
+  "as_of": "2026-11-26 18:59"
+ }
+}

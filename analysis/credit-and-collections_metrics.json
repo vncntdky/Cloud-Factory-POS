@@ -1,0 +1,980 @@
+{
+ "credit_share_value": {
+  "value": 0.7343,
+  "unit": "share",
+  "formula": "Not paid yet sales / net sales (37 of 51 sales)",
+  "as_of": "2026-11-26"
+ },
+ "credit_share_count": {
+  "value": 0.7255,
+  "unit": "share",
+  "formula": "Not paid yet sales / completed sales",
+  "as_of": "2026-11-26"
+ },
+ "credit_share_batch1": {
+  "value": 0.7,
+  "unit": "share",
+  "formula": "credit value / net sales of batch 1",
+  "as_of": "2026-11-26"
+ },
+ "credit_share_batch2": {
+  "value": 0.7667,
+  "unit": "share",
+  "formula": "credit value / net sales of batch 2",
+  "as_of": "2026-11-26"
+ },
+ "credit_ticket_median": {
+  "value": 340.0,
+  "unit": "PHP",
+  "formula": "median Not paid yet sale",
+  "as_of": "2026-11-26"
+ },
+ "credit_multi_piece_share": {
+  "value": 0.1622,
+  "unit": "share",
+  "formula": "credit sales with 2+ pieces",
+  "as_of": "2026-11-26"
+ },
+ "cash_multi_piece_share": {
+  "value": 0.1429,
+  "unit": "share",
+  "formula": "cash sales with 2+ pieces",
+  "as_of": "2026-11-26"
+ },
+ "buyers": {
+  "value": 31,
+  "unit": "buyers",
+  "formula": "distinct pseudonymous buyers",
+  "as_of": "2026-11-26"
+ },
+ "credit_buyers": {
+  "value": 24,
+  "unit": "buyers",
+  "formula": "buyers with 1+ Not paid yet sale",
+  "as_of": "2026-11-26"
+ },
+ "repeat_buyers": {
+  "value": 11,
+  "unit": "buyers",
+  "formula": "buyers with 2+ sales",
+  "as_of": "2026-11-26"
+ },
+ "repeat_buyers_using_credit": {
+  "value": 10,
+  "unit": "buyers",
+  "formula": "repeat buyers with 1+ credit sale",
+  "as_of": "2026-11-26"
+ },
+ "repeat_buyer_value_share": {
+  "value": 0.6182,
+  "unit": "share",
+  "formula": "net sales from repeat buyers",
+  "as_of": "2026-11-26"
+ },
+ "one_time_buyer_credit_rate": {
+  "value": 0.7,
+  "unit": "share",
+  "formula": "one-time buyers who bought on credit",
+  "as_of": "2026-11-26"
+ },
+ "repeat_buyer_credit_rate": {
+  "value": 0.9091,
+  "unit": "share",
+  "formula": "repeat buyers who bought on credit at least once",
+  "as_of": "2026-11-26"
+ },
+ "credit_value_from_repeat_buyers": {
+  "value": 0.6382,
+  "unit": "share",
+  "formula": "credit sales value from repeat buyers",
+  "as_of": "2026-11-26"
+ },
+ "days_to_collect_median": {
+  "value": 9.0,
+  "unit": "days",
+  "formula": "sale day -> last payment day, paid in full",
+  "as_of": "2026-11-26"
+ },
+ "days_to_collect_mean": {
+  "value": 8.7097,
+  "unit": "days",
+  "formula": "same, mean",
+  "as_of": "2026-11-26"
+ },
+ "days_to_collect_value_weighted": {
+  "value": 9.3174,
+  "unit": "days",
+  "formula": "same, weighted by sale value",
+  "as_of": "2026-11-26"
+ },
+ "days_to_collect_pdisc_50": {
+  "value": 9,
+  "unit": "days",
+  "formula": "percentile_disc(0.5) of paid days",
+  "as_of": "2026-11-26"
+ },
+ "days_to_collect_pdisc_80": {
+  "value": 11,
+  "unit": "days",
+  "formula": "percentile_disc(0.8) of paid days",
+  "as_of": "2026-11-26"
+ },
+ "days_to_collect_pdisc_90": {
+  "value": 13,
+  "unit": "days",
+  "formula": "percentile_disc(0.9) of paid days",
+  "as_of": "2026-11-26"
+ },
+ "days_to_collect_pdisc_95": {
+  "value": 13,
+  "unit": "days",
+  "formula": "percentile_disc(0.95) of paid days",
+  "as_of": "2026-11-26"
+ },
+ "paid_within_3_days": {
+  "value": 0.0323,
+  "unit": "share",
+  "formula": "paid in full within 3 days",
+  "as_of": "2026-11-26"
+ },
+ "paid_within_7_days": {
+  "value": 0.3548,
+  "unit": "share",
+  "formula": "paid in full within 7 days",
+  "as_of": "2026-11-26"
+ },
+ "paid_within_9_days": {
+  "value": 0.7419,
+  "unit": "share",
+  "formula": "paid in full within 9 days",
+  "as_of": "2026-11-26"
+ },
+ "paid_within_11_days": {
+  "value": 0.8387,
+  "unit": "share",
+  "formula": "paid in full within 11 days",
+  "as_of": "2026-11-26"
+ },
+ "paid_within_12_days": {
+  "value": 0.871,
+  "unit": "share",
+  "formula": "paid in full within 12 days",
+  "as_of": "2026-11-26"
+ },
+ "paid_within_14_days": {
+  "value": 0.9677,
+  "unit": "share",
+  "formula": "paid in full within 14 days",
+  "as_of": "2026-11-26"
+ },
+ "days_to_collect_median_1piece": {
+  "value": 8.5,
+  "unit": "days",
+  "formula": "1-piece credit sales",
+  "as_of": "2026-11-26"
+ },
+ "days_to_collect_median_multi": {
+  "value": 9.0,
+  "unit": "days",
+  "formula": "2+ piece credit sales",
+  "as_of": "2026-11-26"
+ },
+ "credit_sales_paid_in_parts": {
+  "value": 4,
+  "unit": "sales",
+  "formula": "credit sales with 2+ payments, or a part payment and a balance left",
+  "as_of": "2026-11-26"
+ },
+ "km_days_p50": {
+  "value": 9,
+  "unit": "days",
+  "formula": "Kaplan-Meier quantile, open balances right-censored at their age",
+  "as_of": "2026-11-26"
+ },
+ "km_days_p80": {
+  "value": 12,
+  "unit": "days",
+  "formula": "Kaplan-Meier quantile, open balances right-censored at their age",
+  "as_of": "2026-11-26"
+ },
+ "km_days_p90": {
+  "value": 13,
+  "unit": "days",
+  "formula": "Kaplan-Meier quantile, open balances right-censored at their age",
+  "as_of": "2026-11-26"
+ },
+ "km_days_p95": {
+  "value": 21,
+  "unit": "days",
+  "formula": "Kaplan-Meier quantile, open balances right-censored at their age",
+  "as_of": "2026-11-26"
+ },
+ "km_unpaid_after_14": {
+  "value": 0.0926,
+  "unit": "share",
+  "formula": "Kaplan-Meier share still unpaid 14 days after the sale",
+  "as_of": "2026-11-26"
+ },
+ "payments_on_a_purchase_day": {
+  "value": 0.1667,
+  "unit": "share",
+  "formula": "later payments made on a day the same buyer bought again (not the sale's own day)",
+  "as_of": "2026-11-26"
+ },
+ "payment_value_on_a_purchase_day": {
+  "value": 0.1605,
+  "unit": "share",
+  "formula": "same, by value",
+  "as_of": "2026-11-26"
+ },
+ "still_owed": {
+  "value": 2080.0,
+  "unit": "PHP",
+  "formula": "sum of open balances",
+  "as_of": "2026-11-26"
+ },
+ "still_owed_share_net_sales": {
+  "value": 0.1051,
+  "unit": "share",
+  "formula": "still owed / net sales",
+  "as_of": "2026-11-26"
+ },
+ "largest_open_balance_share": {
+  "value": 0.3269,
+  "unit": "share",
+  "formula": "largest buyer / still owed",
+  "as_of": "2026-11-26"
+ },
+ "still_owed_balance_weighted_age": {
+  "value": 5.5385,
+  "unit": "days",
+  "formula": "balance-weighted age",
+  "as_of": "2026-11-26"
+ },
+ "still_owed_hhi": {
+  "value": 0.2141,
+  "unit": "index 0-1",
+  "formula": "Herfindahl index of what is owed, by buyer (1/HHI = equivalent buyers)",
+  "as_of": "2026-11-26"
+ },
+ "receivables_avg_daily": {
+  "value": 3968.3871,
+  "unit": "PHP",
+  "formula": "mean of end-of-day receivables, 27 Oct - 26 Nov",
+  "as_of": "2026-11-26"
+ },
+ "receivables_peak": {
+  "value": 6080.0,
+  "unit": "PHP",
+  "formula": "highest end-of-day receivables (03 Nov)",
+  "as_of": "2026-11-26"
+ },
+ "dso_avg": {
+  "value": 6.2131,
+  "unit": "days",
+  "formula": "average daily receivables / (net sales / 31)",
+  "as_of": "2026-11-26"
+ },
+ "dso_steady_state": {
+  "value": 6.8422,
+  "unit": "days",
+  "formula": "credit share x value-weighted days to collect",
+  "as_of": "2026-11-26"
+ },
+ "owed_days_of_sales_today": {
+  "value": 3.6195,
+  "unit": "days",
+  "formula": "still owed / average daily net sales of the last 30 days",
+  "as_of": "2026-11-26"
+ },
+ "owed_days_of_sales_p10": {
+  "value": 2.3333,
+  "unit": "days",
+  "formula": "10th percentile of the daily series",
+  "as_of": "2026-11-26"
+ },
+ "owed_days_of_sales_p90": {
+  "value": 6.7287,
+  "unit": "days",
+  "formula": "90th percentile of the daily series",
+  "as_of": "2026-11-26"
+ },
+ "rule_fixed_late_after": {
+  "value": 7,
+  "unit": "days",
+  "formula": "fixed (SOP 9 / Finance): Late = owed longer than this",
+  "as_of": "2026-11-26"
+ },
+ "rule_fixed_very_late_after": {
+  "value": 30,
+  "unit": "days",
+  "formula": "fixed (SOP 9 / Finance): Very late = owed longer than this",
+  "as_of": "2026-11-26"
+ },
+ "rule_fixed_paid_sales_marked_late": {
+  "value": 0.6452,
+  "unit": "share",
+  "formula": "fixed (SOP 9 / Finance): share of the 31 paid-in-full sales that were still owed past Late's start",
+  "as_of": "2026-11-26"
+ },
+ "rule_fixed_paid_sales_marked_late_n": {
+  "value": 20,
+  "unit": "sales",
+  "formula": "fixed (SOP 9 / Finance): number of the 31 paid-in-full sales that would have shown Late before being paid",
+  "as_of": "2026-11-26"
+ },
+ "rule_design_v2_late_after": {
+  "value": 12,
+  "unit": "days",
+  "formula": "design v2: Late = owed longer than this",
+  "as_of": "2026-11-26"
+ },
+ "rule_design_v2_very_late_after": {
+  "value": 19,
+  "unit": "days",
+  "formula": "design v2: Very late = owed longer than this",
+  "as_of": "2026-11-26"
+ },
+ "rule_design_v2_paid_sales_marked_late": {
+  "value": 0.129,
+  "unit": "share",
+  "formula": "design v2: share of the 31 paid-in-full sales that were still owed past Late's start",
+  "as_of": "2026-11-26"
+ },
+ "rule_design_v2_paid_sales_marked_late_n": {
+  "value": 4,
+  "unit": "sales",
+  "formula": "design v2: number of the 31 paid-in-full sales that would have shown Late before being paid",
+  "as_of": "2026-11-26"
+ },
+ "rule_paid_only_late_after": {
+  "value": 11,
+  "unit": "days",
+  "formula": "paid only (recommended): Late = owed longer than this",
+  "as_of": "2026-11-26"
+ },
+ "rule_paid_only_very_late_after": {
+  "value": 18,
+  "unit": "days",
+  "formula": "paid only (recommended): Very late = owed longer than this",
+  "as_of": "2026-11-26"
+ },
+ "rule_paid_only_paid_sales_marked_late": {
+  "value": 0.1613,
+  "unit": "share",
+  "formula": "paid only (recommended): share of the 31 paid-in-full sales that were still owed past Late's start",
+  "as_of": "2026-11-26"
+ },
+ "rule_paid_only_paid_sales_marked_late_n": {
+  "value": 5,
+  "unit": "sales",
+  "formula": "paid only (recommended): number of the 31 paid-in-full sales that would have shown Late before being paid",
+  "as_of": "2026-11-26"
+ },
+ "rule_kaplan_meier_late_after": {
+  "value": 12,
+  "unit": "days",
+  "formula": "Kaplan-Meier: Late = owed longer than this",
+  "as_of": "2026-11-26"
+ },
+ "rule_kaplan_meier_very_late_after": {
+  "value": 21,
+  "unit": "days",
+  "formula": "Kaplan-Meier: Very late = owed longer than this",
+  "as_of": "2026-11-26"
+ },
+ "rule_kaplan_meier_paid_sales_marked_late": {
+  "value": 0.129,
+  "unit": "share",
+  "formula": "Kaplan-Meier: share of the 31 paid-in-full sales that were still owed past Late's start",
+  "as_of": "2026-11-26"
+ },
+ "rule_kaplan_meier_paid_sales_marked_late_n": {
+  "value": 4,
+  "unit": "sales",
+  "formula": "Kaplan-Meier: number of the 31 paid-in-full sales that would have shown Late before being paid",
+  "as_of": "2026-11-26"
+ },
+ "selfmask_design_v2_first_very_late_age": {
+  "value": null,
+  "unit": "days",
+  "formula": "age at which a never-paid 16-day balance is first marked Very late (none = never within 45 days)",
+  "as_of": "2026-11-26"
+ },
+ "selfmask_paid_only_first_very_late_age": {
+  "value": 19,
+  "unit": "days",
+  "formula": "age at which a never-paid 16-day balance is first marked Very late (none = never within 45 days)",
+  "as_of": "2026-11-26"
+ },
+ "selfmask_kaplan_meier_first_very_late_age": {
+  "value": 21,
+  "unit": "days",
+  "formula": "age at which a never-paid 16-day balance is first marked Very late (none = never within 45 days)",
+  "as_of": "2026-11-26"
+ },
+ "v2_stuck_balances_to_hide_late": {
+  "value": 8,
+  "unit": "balances",
+  "formula": "open balances aged 30 days needed before design v2's Late start reaches 30 (none flagged)",
+  "as_of": "2026-11-26"
+ },
+ "late_start_90pct_range_n31": {
+  "value": "9-13",
+  "unit": "days",
+  "formula": "5th-95th pct of p80 over 31 paid sales",
+  "as_of": "2026-11-26"
+ },
+ "late_start_90pct_range_n60": {
+  "value": "9-12",
+  "unit": "days",
+  "formula": "5th-95th pct of p80 over 60 paid sales",
+  "as_of": "2026-11-26"
+ },
+ "late_start_90pct_range_n120": {
+  "value": "9-12",
+  "unit": "days",
+  "formula": "5th-95th pct of p80 over 120 paid sales",
+  "as_of": "2026-11-26"
+ },
+ "late_start_90pct_range_n240": {
+  "value": "10-11",
+  "unit": "days",
+  "formula": "5th-95th pct of p80 over 240 paid sales",
+  "as_of": "2026-11-26"
+ },
+ "backtest_stacked_sales": {
+  "value": 4,
+  "unit": "sales",
+  "formula": "credit sales to a buyer who already owed at that moment",
+  "as_of": "2026-11-26"
+ },
+ "backtest_stacked_value": {
+  "value": 1960.0,
+  "unit": "PHP",
+  "formula": "value of those sales",
+  "as_of": "2026-11-26"
+ },
+ "backtest_over_limit_sales": {
+  "value": 13,
+  "unit": "sales",
+  "formula": "credit sales where owed + this sale > the buyer's largest fully repaid sale (new buyer: usual credit sale)",
+  "as_of": "2026-11-26"
+ },
+ "backtest_over_limit_pcs_sales": {
+  "value": 9,
+  "unit": "sales",
+  "formula": "credit sales where owed pieces + this sale > most pieces the buyer repaid on one sale (new buyer: 1)",
+  "as_of": "2026-11-26"
+ },
+ "backtest_over_limit_pcs_value": {
+  "value": 5280.0,
+  "unit": "PHP",
+  "formula": "value of those sales",
+  "as_of": "2026-11-26"
+ },
+ "backtest_late_open_sales": {
+  "value": 0,
+  "unit": "sales",
+  "formula": "credit sales to a buyer with a Late balance then",
+  "as_of": "2026-11-26"
+ },
+ "buyers_with_3plus_settled": {
+  "value": 1,
+  "unit": "buyers",
+  "formula": "buyers with 3+ credit sales paid in full",
+  "as_of": "2026-11-26"
+ },
+ "settled_sales_from_those_buyers": {
+  "value": 3,
+  "unit": "sales",
+  "formula": "paid-in-full credit sales by buyers with 3+ of them",
+  "as_of": "2026-11-26"
+ },
+ "own_median_min": {
+  "value": 8.0,
+  "unit": "days",
+  "formula": "lowest own median among those buyers",
+  "as_of": "2026-11-26"
+ },
+ "own_median_max": {
+  "value": 8.0,
+  "unit": "days",
+  "formula": "highest own median among those buyers",
+  "as_of": "2026-11-26"
+ },
+ "backtest_any_warning_sales": {
+  "value": 13,
+  "unit": "sales",
+  "formula": "credit sales that would have shown a warning",
+  "as_of": "2026-11-26"
+ },
+ "backtest_open_now_with_warning": {
+  "value": 3,
+  "unit": "sales",
+  "formula": "of today's 6 open sales, how many would have shown a warning when made",
+  "as_of": "2026-11-26"
+ },
+ "backtest_first_time_sales": {
+  "value": 24,
+  "unit": "sales",
+  "formula": "credit sales that were the buyer's first purchase on credit",
+  "as_of": "2026-11-26"
+ },
+ "days_to_collect_median_first_time": {
+  "value": 9.0,
+  "unit": "days",
+  "formula": "buyer's first credit sale, paid in full",
+  "as_of": "2026-11-26"
+ },
+ "days_to_collect_median_repeat": {
+  "value": 9.0,
+  "unit": "days",
+  "formula": "buyer's later credit sales, paid in full",
+  "as_of": "2026-11-26"
+ },
+ "one_tab_rule_peso_days": {
+  "value": 9460.0,
+  "unit": "peso-days",
+  "formula": "old balances x days they stayed open after the buyer took more credit",
+  "as_of": "2026-11-26"
+ },
+ "one_tab_rule_avg_cash_freed": {
+  "value": 305.1613,
+  "unit": "PHP",
+  "formula": "same / 31 days = average cash that would have been in hand",
+  "as_of": "2026-11-26"
+ },
+ "one_tab_rule_dso_cut": {
+  "value": 0.4778,
+  "unit": "days",
+  "formula": "same / average daily net sales",
+  "as_of": "2026-11-26"
+ },
+ "peak_buyer_exposure_max": {
+  "value": 1280.0,
+  "unit": "PHP",
+  "formula": "largest amount one buyer owed at any moment",
+  "as_of": "2026-11-26"
+ },
+ "peak_buyer_exposure_median": {
+  "value": 340.0,
+  "unit": "PHP",
+  "formula": "median of each credit buyer's peak balance",
+  "as_of": "2026-11-26"
+ },
+ "buyers_peak_over_one_piece": {
+  "value": 8,
+  "unit": "buyers",
+  "formula": "credit buyers who at some point owed more than one pod",
+  "as_of": "2026-11-26"
+ },
+ "pd_usual": {
+  "value": 0.0156,
+  "unit": "probability",
+  "formula": "(defaults + 0.5) / (paid sales that were still owed at the Usual start + 1)",
+  "as_of": "2026-11-26"
+ },
+ "pd_late": {
+  "value": 0.0833,
+  "unit": "probability",
+  "formula": "(defaults + 0.5) / (paid sales that were still owed at the Late start + 1)",
+  "as_of": "2026-11-26"
+ },
+ "pd_very_late": {
+  "value": 0.25,
+  "unit": "probability",
+  "formula": "(defaults + 0.5) / (paid sales that were still owed at the Very late start + 1)",
+  "as_of": "2026-11-26"
+ },
+ "pd_base": {
+  "value": 0.0156,
+  "unit": "probability",
+  "formula": "Jeffreys mean, 0 defaults in 31 resolved credit sales",
+  "as_of": "2026-11-26"
+ },
+ "pd_base_upper95": {
+  "value": 0.0599,
+  "unit": "probability",
+  "formula": "95th percentile of Beta(0.5, 31.5)",
+  "as_of": "2026-11-26"
+ },
+ "pd_rule_of_three": {
+  "value": 0.0968,
+  "unit": "probability",
+  "formula": "3 / n upper bound with 0 events (Hanley & Lippman-Hand 1983)",
+  "as_of": "2026-11-26"
+ },
+ "expected_loss_now": {
+  "value": 58.2292,
+  "unit": "PHP",
+  "formula": "sum of open balance x PD(bucket) x LGD 100%",
+  "as_of": "2026-11-26"
+ },
+ "expected_loss_now_share_owed": {
+  "value": 0.028,
+  "unit": "share",
+  "formula": "expected loss / still owed",
+  "as_of": "2026-11-26"
+ },
+ "loss_current_book_mean": {
+  "value": 57.8864,
+  "unit": "PHP",
+  "formula": "Monte Carlo mean, 50,000 trials",
+  "as_of": "2026-11-26"
+ },
+ "loss_current_book_p95": {
+  "value": 340.0,
+  "unit": "PHP",
+  "formula": "95th percentile",
+  "as_of": "2026-11-26"
+ },
+ "loss_current_book_p99": {
+  "value": 680.0,
+  "unit": "PHP",
+  "formula": "99th percentile",
+  "as_of": "2026-11-26"
+ },
+ "prob_any_loss_current_book": {
+  "value": 0.2009,
+  "unit": "probability",
+  "formula": "chance at least one open balance is never paid",
+  "as_of": "2026-11-26"
+ },
+ "stress_largest_buyer": {
+  "value": 680.0,
+  "unit": "PHP",
+  "formula": "loss if largest buyer (P680) is never paid",
+  "as_of": "2026-11-26"
+ },
+ "stress_both_late_balances": {
+  "value": 380.0,
+  "unit": "PHP",
+  "formula": "loss if both Late balances is never paid",
+  "as_of": "2026-11-26"
+ },
+ "stress_everything_owed": {
+  "value": 2080.0,
+  "unit": "PHP",
+  "formula": "loss if everything owed is never paid",
+  "as_of": "2026-11-26"
+ },
+ "gross_profit_to_date": {
+  "value": 9567.0,
+  "unit": "PHP",
+  "formula": "net sales - landed COGS",
+  "as_of": "2026-11-26"
+ },
+ "el_month_now": {
+  "value": 219.8589,
+  "unit": "PHP/month",
+  "formula": "PD 1.56% x credit sales a month (now)",
+  "as_of": "2026-11-26"
+ },
+ "el_month_now_upper95": {
+  "value": 842.3874,
+  "unit": "PHP/month",
+  "formula": "PD 5.99% (95% upper)",
+  "as_of": "2026-11-26"
+ },
+ "el_month_full_shelf": {
+  "value": 410.0734,
+  "unit": "PHP/month",
+  "formula": "PD 1.56% x credit sales a month (full shelf)",
+  "as_of": "2026-11-26"
+ },
+ "el_month_full_shelf_upper95": {
+  "value": 1571.1928,
+  "unit": "PHP/month",
+  "formula": "PD 5.99% (95% upper)",
+  "as_of": "2026-11-26"
+ },
+ "carry_cost_0.01": {
+  "value": 39.6839,
+  "unit": "PHP/month",
+  "formula": "average receivables 3,968 x 1% a month",
+  "as_of": "2026-11-26"
+ },
+ "carry_cost_0.03": {
+  "value": 119.0516,
+  "unit": "PHP/month",
+  "formula": "average receivables 3,968 x 3% a month",
+  "as_of": "2026-11-26"
+ },
+ "carry_cost_0.20": {
+  "value": 793.6774,
+  "unit": "PHP/month",
+  "formula": "average receivables 3,968 x 20% a month",
+  "as_of": "2026-11-26"
+ },
+ "cost_per_credit_sale_fin_el": {
+  "value": 8.231,
+  "unit": "PHP",
+  "formula": "P330 x 3%/month x value-weighted days/30 + base PD x P330",
+  "as_of": "2026-11-26"
+ },
+ "timing_s0_cash_5dec": {
+  "value": 2776.2718,
+  "unit": "PHP",
+  "formula": "S0 as now (73% credit, own timing): cash on the order-by day",
+  "as_of": "2026-11-26"
+ },
+ "timing_s0_top_up": {
+  "value": 3447.7282,
+  "unit": "PHP",
+  "formula": "S0 as now (73% credit, own timing): owner money needed on the order-by day to order in full",
+  "as_of": "2026-11-26"
+ },
+ "timing_s0_delay_days": {
+  "value": 8,
+  "unit": "days",
+  "formula": "S0 as now (73% credit, own timing): days the full order waits for cash",
+  "as_of": "2026-11-26"
+ },
+ "timing_s0_gp_lost": {
+  "value": 1588.2162,
+  "unit": "PHP",
+  "formula": "S0 as now (73% credit, own timing): empty days x P354",
+  "as_of": "2026-11-26"
+ },
+ "timing_s1_cash_5dec": {
+  "value": 4931.4094,
+  "unit": "PHP",
+  "formula": "S1 every new sale paid at the till: cash on the order-by day",
+  "as_of": "2026-11-26"
+ },
+ "timing_s1_top_up": {
+  "value": 1292.5906,
+  "unit": "PHP",
+  "formula": "S1 every new sale paid at the till: owner money needed on the order-by day to order in full",
+  "as_of": "2026-11-26"
+ },
+ "timing_s1_delay_days": {
+  "value": 2,
+  "unit": "days",
+  "formula": "S1 every new sale paid at the till: days the full order waits for cash",
+  "as_of": "2026-11-26"
+ },
+ "timing_s1_gp_lost": {
+  "value": 0.0,
+  "unit": "PHP",
+  "formula": "S1 every new sale paid at the till: empty days x P354",
+  "as_of": "2026-11-26"
+ },
+ "timing_s2_cash_5dec": {
+  "value": 3464.0186,
+  "unit": "PHP",
+  "formula": "S2 half of sales on credit: cash on the order-by day",
+  "as_of": "2026-11-26"
+ },
+ "timing_s2_top_up": {
+  "value": 2759.9814,
+  "unit": "PHP",
+  "formula": "S2 half of sales on credit: owner money needed on the order-by day to order in full",
+  "as_of": "2026-11-26"
+ },
+ "timing_s2_delay_days": {
+  "value": 6,
+  "unit": "days",
+  "formula": "S2 half of sales on credit: days the full order waits for cash",
+  "as_of": "2026-11-26"
+ },
+ "timing_s2_gp_lost": {
+  "value": 880.2162,
+  "unit": "PHP",
+  "formula": "S2 half of sales on credit: empty days x P354",
+  "as_of": "2026-11-26"
+ },
+ "timing_s3_cash_5dec": {
+  "value": 2776.2718,
+  "unit": "PHP",
+  "formula": "S3 credit, all paid within 7 days: cash on the order-by day",
+  "as_of": "2026-11-26"
+ },
+ "timing_s3_top_up": {
+  "value": 3447.7282,
+  "unit": "PHP",
+  "formula": "S3 credit, all paid within 7 days: owner money needed on the order-by day to order in full",
+  "as_of": "2026-11-26"
+ },
+ "timing_s3_delay_days": {
+  "value": 7,
+  "unit": "days",
+  "formula": "S3 credit, all paid within 7 days: days the full order waits for cash",
+  "as_of": "2026-11-26"
+ },
+ "timing_s3_gp_lost": {
+  "value": 1234.2162,
+  "unit": "PHP",
+  "formula": "S3 credit, all paid within 7 days: empty days x P354",
+  "as_of": "2026-11-26"
+ },
+ "timing_s4_cash_5dec": {
+  "value": 2776.2718,
+  "unit": "PHP",
+  "formula": "S4 credit, all paid by Late's start: cash on the order-by day",
+  "as_of": "2026-11-26"
+ },
+ "timing_s4_top_up": {
+  "value": 3447.7282,
+  "unit": "PHP",
+  "formula": "S4 credit, all paid by Late's start: owner money needed on the order-by day to order in full",
+  "as_of": "2026-11-26"
+ },
+ "timing_s4_delay_days": {
+  "value": 8,
+  "unit": "days",
+  "formula": "S4 credit, all paid by Late's start: days the full order waits for cash",
+  "as_of": "2026-11-26"
+ },
+ "timing_s4_gp_lost": {
+  "value": 1588.2162,
+  "unit": "PHP",
+  "formula": "S4 credit, all paid by Late's start: empty days x P354",
+  "as_of": "2026-11-26"
+ },
+ "timing_s5_cash_5dec": {
+  "value": 3069.2237,
+  "unit": "PHP",
+  "formula": "S5 as now, but today's P2,080 collected by 28 Nov: cash on the order-by day",
+  "as_of": "2026-11-26"
+ },
+ "timing_s5_top_up": {
+  "value": 3154.7763,
+  "unit": "PHP",
+  "formula": "S5 as now, but today's P2,080 collected by 28 Nov: owner money needed on the order-by day to order in full",
+  "as_of": "2026-11-26"
+ },
+ "timing_s5_delay_days": {
+  "value": 8,
+  "unit": "days",
+  "formula": "S5 as now, but today's P2,080 collected by 28 Nov: days the full order waits for cash",
+  "as_of": "2026-11-26"
+ },
+ "timing_s5_gp_lost": {
+  "value": 1588.2162,
+  "unit": "PHP",
+  "formula": "S5 as now, but today's P2,080 collected by 28 Nov: empty days x P354",
+  "as_of": "2026-11-26"
+ },
+ "credit_cash_held_back_5dec": {
+  "value": 2155.1376,
+  "unit": "PHP",
+  "formula": "cash on 5 Dec with every new sale paid at the till minus as now",
+  "as_of": "2026-11-26"
+ },
+ "timing_s0p_gp_lost": {
+  "value": 0.0,
+  "unit": "PHP",
+  "formula": "S0p as now, supplier paid on pick-up: empty days x P354",
+  "as_of": "2026-11-26"
+ },
+ "timing_s0p_top_up": {
+  "value": 592.5848,
+  "unit": "PHP",
+  "formula": "S0p as now, supplier paid on pick-up: owner money needed on the pick-up day",
+  "as_of": "2026-11-26"
+ },
+ "timing_s1p_gp_lost": {
+  "value": 0.0,
+  "unit": "PHP",
+  "formula": "S1p no new credit, supplier paid on pick-up: empty days x P354",
+  "as_of": "2026-11-26"
+ },
+ "timing_s1p_top_up": {
+  "value": 0.0,
+  "unit": "PHP",
+  "formula": "S1p no new credit, supplier paid on pick-up: owner money needed on the pick-up day",
+  "as_of": "2026-11-26"
+ },
+ "credit_timing_cost_next_order": {
+  "value": 1588.2162,
+  "unit": "PHP",
+  "formula": "GP lost S0 - S1 on Batch 4 (waiting for the full order)",
+  "as_of": "2026-11-26"
+ },
+ "timing_s0_gp_lost_order7214": {
+  "value": 2296.2162,
+  "unit": "PHP",
+  "formula": "S0 with a P7,214 order",
+  "as_of": "2026-11-26"
+ },
+ "timing_s1_gp_lost_order7214": {
+  "value": 0.0,
+  "unit": "PHP",
+  "formula": "S1 with a P7,214 order",
+  "as_of": "2026-11-26"
+ },
+ "tied_up_1.94": {
+  "value": 4370.1772,
+  "unit": "PHP",
+  "formula": "steady-state DSO 6.84 x 1.94 pieces x P330",
+  "as_of": "2026-11-26"
+ },
+ "tied_up_2.22": {
+  "value": 5012.5933,
+  "unit": "PHP",
+  "formula": "steady-state DSO 6.84 x 2.22 pieces x P330",
+  "as_of": "2026-11-26"
+ },
+ "tied_up_3.61": {
+  "value": 8151.1089,
+  "unit": "PHP",
+  "formula": "steady-state DSO 6.84 x 3.61 pieces x P330",
+  "as_of": "2026-11-26"
+ },
+ "cash_freed_cap7": {
+  "value": 1334.5819,
+  "unit": "PHP",
+  "formula": "(steady DSO - DSO with every collection by day 7) x net sales a day",
+  "as_of": "2026-11-26"
+ },
+ "cash_freed_cap11": {
+  "value": 481.3752,
+  "unit": "PHP",
+  "formula": "(steady DSO - DSO with every collection by day 11) x net sales a day",
+  "as_of": "2026-11-26"
+ },
+ "cash_freed_per_10pts_credit": {
+  "value": 595.1135,
+  "unit": "PHP",
+  "formula": "10 points of credit share moved to the till x value-weighted days x net sales a day",
+  "as_of": "2026-11-26"
+ },
+ "credit_decision_p_star_if_no_sale": {
+  "value": 0.5047,
+  "unit": "probability",
+  "formula": "chance of being paid above which a one-off credit sale beats no sale: landed cost P171.60 / price P340",
+  "as_of": "2026-11-26"
+ },
+ "breakeven_pd_inc0": {
+  "value": -0.0093,
+  "unit": "probability",
+  "formula": "(share of credit sales that need credit 0% x P159.45 margin - P3.1 financing) / P330",
+  "as_of": "2026-11-26"
+ },
+ "breakeven_pd_inc5": {
+  "value": 0.0148,
+  "unit": "probability",
+  "formula": "(share of credit sales that need credit 5% x P159.45 margin - P3.1 financing) / P330",
+  "as_of": "2026-11-26"
+ },
+ "breakeven_pd_inc10": {
+  "value": 0.039,
+  "unit": "probability",
+  "formula": "(share of credit sales that need credit 10% x P159.45 margin - P3.1 financing) / P330",
+  "as_of": "2026-11-26"
+ },
+ "breakeven_pd_inc25": {
+  "value": 0.1115,
+  "unit": "probability",
+  "formula": "(share of credit sales that need credit 25% x P159.45 margin - P3.1 financing) / P330",
+  "as_of": "2026-11-26"
+ },
+ "breakeven_pd_inc50": {
+  "value": 0.2323,
+  "unit": "probability",
+  "formula": "(share of credit sales that need credit 50% x P159.45 margin - P3.1 financing) / P330",
+  "as_of": "2026-11-26"
+ }
+}
