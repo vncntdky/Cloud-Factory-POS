@@ -60,6 +60,9 @@ rules. The SOPs and app handbook live in `lib/help.ts` (shown in the app under H
 
 ## Workflow
 
+0. **Consult first**: before building a feature or answering a business question, consult the strategy consultant
+   (`.claude/agents/strategy-consultant.md`: answer first, MECE, 80/20, every number in pesos computed in code from
+   the shop's own data). The owner asked for this. Its analyses go in `analysis/`.
 1. **Migration**: `supabase/migrations/YYYYMMDDHHMMSS_name.sql`, then add checks to `supabase/tests/pos_test.sql`.
 2. **Database tests** on a throwaway local Postgres 16 (needs the `postgresql` package; any data dir):
    `PGHOST=<socket dir> PGPORT=<port> PGUSER=postgres bash supabase/tests/run.sh` → prints `failures | checks`
