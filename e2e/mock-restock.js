@@ -40,6 +40,9 @@ products.forEach((p, i) => {
   }
 });
 const log = [];
+// Orders (batch_order_lines) and payments to suppliers (batch_payments). ORDER=1 adds an order on the way.
+const orderLines = [];
+const payments = [];
 const reservations = [];
 const releases = [];
 const setAsides = [];
@@ -56,20 +59,49 @@ function finTotals(upto) {
     const byCat = {};
     for (const e of opexRows) byCat[e.category] = (byCat[e.category] || 0) + e.amount_cents;
     const net = sum((r) => r.net_cents), owed = sum((r) => r.owed_cents);
-    return { gross: sum((r) => r.gross_cents), discounts: sum((r) => r.discount_cents), net, sales: 63, collected: net - owed, collected_by_method: { cash: net - owed }, cogs: sum((r) => r.cogs_goods_cents + r.cogs_fees_cents), cogs_uncosted: 0, count_diffs: sum((r) => r.count_diffs_cents), opex: opexRows.reduce((s, e) => s + e.amount_cents, 0), opex_by_category: byCat, tax_paid: 0, tax_rate_bp: taxBp, fund_goods: sum((r) => r.goods_cents), owner_goods: 0, fund_fees: sum((r) => r.fees_cents), owner_fees: 0, capital_cash: 0, distributions: 0 };
+    return { gross: sum((r) => r.gross_cents), discounts: sum((r) => r.discount_cents), net, sales: 63, collected: net - owed, collected_by_method: { cash: net - owed }, cogs: sum((r) => r.cogs_goods_cents + r.cogs_fees_cents), cogs_uncosted: 0, count_diffs: sum((r) => r.count_diffs_cents), opex: opexRows.reduce((s, e) => s + e.amount_cents, 0), opex_by_category: byCat, tax_paid: 0, tax_rate_bp: taxBp, loose_goods: 0, ordered: sum((r) => r.goods_cents + r.fees_cents), arrived: sum((r) => r.goods_cents + r.fees_cents), paid_company: sum((r) => r.goods_cents + r.fees_cents), paid_owner: 0, paid_investment: 0, capital_cash: 0, distributions: 0 };
   }
-  if (upto === "before") return { gross: 0, discounts: 0, net: 0, sales: 0, collected: 0, collected_by_method: {}, cogs: 0, cogs_uncosted: 0, count_diffs: 0, opex: 0, opex_by_category: {}, tax_paid: 0, tax_rate_bp: taxBp, fund_goods: 0, owner_goods: 0, fund_fees: 0, owner_fees: 0, capital_cash: 0, distributions: 0 };
+  if (upto === "before") return { gross: 0, discounts: 0, net: 0, sales: 0, collected: 0, collected_by_method: {}, cogs: 0, cogs_uncosted: 0, count_diffs: 0, opex: 0, opex_by_category: {}, tax_paid: 0, tax_rate_bp: taxBp, loose_goods: 0, ordered: 0, arrived: 0, paid_company: 0, paid_owner: 0, paid_investment: 0, capital_cash: 0, distributions: 0 };
   const capCash = capital.reduce((s, c) => s + c.amount_cents, 0);
   const dist = releases.reduce((s, r) => s + r.amount_cents, 0);
   const added = expenses.filter((e) => e.category !== "tax");
   const byCat = { supplies: 30000, other: 64000 };
   for (const e of added) byCat[e.category] = (byCat[e.category] || 0) + e.amount_cents;
-  return { gross: 960000, discounts: 0, net: 960000, sales: 24, collected: 832000, collected_by_method: { cash: 772000, gcash: 60000 }, cogs: 480000, cogs_uncosted: 0, count_diffs: 0, opex: 94000 + added.reduce((s, e) => s + e.amount_cents, 0), opex_by_category: byCat, tax_paid: 0, tax_rate_bp: taxBp, fund_goods: 495000, owner_goods: 480000, fund_fees: 24400, owner_fees: 0, capital_cash: capCash, distributions: dist };
+  // Orders and deliveries recorded in the mock: their cost from the order day, their payments by whose money.
+  const made = batches.filter((b) => b.mock);
+  const cost = (b) => batchCost(b);
+  const pay = (src) => payments.filter((x) => made.some((b) => b.id === x.batch_id) && x.source === src).reduce((n, x) => n + x.amount_cents, 0);
+  const ordered = made.reduce((n, b) => n + cost(b), 0);
+  const arrived = made.filter((b) => b.received_on).reduce((n, b) => n + cost(b), 0);
+  return { gross: 960000, discounts: 0, net: 960000, sales: 24, collected: 832000, collected_by_method: { cash: 772000, gcash: 60000 }, cogs: 480000, cogs_uncosted: 0, count_diffs: 0, opex: 94000 + added.reduce((s, e) => s + e.amount_cents, 0), opex_by_category: byCat, tax_paid: 0, tax_rate_bp: taxBp,
+    loose_goods: 0, ordered: 999400 + ordered, arrived: 999400 + arrived, paid_company: 519400 + pay("company"), paid_owner: 480000 + pay("owner"), paid_investment: pay("investment"), capital_cash: capCash, distributions: dist };
 }
 function finDerive(t) {
   const tax = Math.round((t.net * t.tax_rate_bp) / 10000);
-  const goods = t.fund_goods + t.owner_goods, fees = t.fund_fees + t.owner_fees;
-  return { ...t, tax, net_profit: t.net - t.cogs + t.count_diffs - t.opex - tax, cash: t.capital_cash + t.collected - t.fund_goods - t.fund_fees - t.opex - t.tax_paid - t.distributions, receivables: t.net - t.collected, inventory: goods + fees - t.cogs + t.count_diffs, capital: t.capital_cash + t.owner_goods + t.owner_fees, tax_payable: tax - t.tax_paid, retained: t.net - t.cogs + t.count_diffs - t.opex - tax - t.distributions };
+  const owners = t.paid_owner + t.paid_investment;
+  return { ...t, tax, net_profit: t.net - t.cogs + t.count_diffs - t.opex - tax, cash: t.capital_cash + t.collected - t.paid_company - t.loose_goods - t.opex - t.tax_paid - t.distributions, receivables: t.net - t.collected,
+    inventory: t.arrived + t.loose_goods - t.cogs + t.count_diffs, on_the_way: t.ordered - t.arrived, owed_suppliers: t.ordered - t.paid_company - owners,
+    suppliers_owed: t.suppliers_owed ?? Math.max(0, t.ordered - t.paid_company - owners), suppliers_ahead: t.suppliers_ahead ?? Math.max(0, -(t.ordered - t.paid_company - owners)),
+    capital: t.capital_cash + owners, tax_payable: tax - t.tax_paid, retained: t.net - t.cogs + t.count_diffs - t.opex - tax - t.distributions };
+}
+// A batch's cost in full: its pieces (ordered while on the way, received once here) + restocking fees.
+function batchCost(b) {
+  const fees = b.shipping_cents + b.tax_cents + b.mooe_cents + b.other_cents;
+  const goods = b.received_on
+    ? batchRows.filter((r) => r.batch_id === b.id).reduce((n, r) => n + r.received_cost_cents, 0)
+    : orderLines.filter((l) => l.batch_id === b.id).reduce((n, l) => n + l.qty * (l.unit_cost_cents ?? 0), 0);
+  return goods + fees;
+}
+function paidOn(id) {
+  return payments.filter((x) => x.batch_id === id).reduce((n, x) => n + x.amount_cents, 0);
+}
+const today8 = () => new Date(Date.now() + 8 * 3600000).toISOString().slice(0, 10);
+const dayMon = (iso) => `${Number(iso.slice(8, 10))} ${["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][Number(iso.slice(5, 7)) - 1]}`;
+// Paid with an order, a delivery or on pick-up: {amount_cents: number | "rest", source}.
+function payNow(b, pay, on) {
+  if (!pay) return;
+  const amount = pay.amount_cents === "rest" ? Math.max(0, batchCost(b) - paidOn(b.id)) : Number(pay.amount_cents || 0);
+  if (amount > 0) payments.push({ id: crypto.randomUUID(), batch_id: b.id, amount_cents: amount, paid_on: on, source: pay.source || "company", note: null, created_at: new Date().toISOString() });
 }
 const MINT = "00000000-0000-4000-8000-000000000010";
 const LYCHEE = "00000000-0000-4000-8000-000000000013";
@@ -86,13 +118,13 @@ const movements = [
 const B2 = "bbbbbbbb-0000-4000-8000-000000000002";
 const B3 = "bbbbbbbb-0000-4000-8000-000000000003";
 if (process.env.REPORT === "3") {
-  batches.push({ id: B3, batch_no: 3, supplier: null, received_on: new Date(Date.now() + 8 * 3600000).toISOString().slice(0, 10), note: null, created_at: ago(0), shipping_cents: 26400, tax_cents: 0, mooe_cents: 0, other_cents: 0, other_label: null, paid_from_funds: true });
+  batches.push({ id: B3, batch_no: 3, supplier: null, received_on: new Date(Date.now() + 8 * 3600000).toISOString().slice(0, 10), note: null, created_at: ago(0), shipping_cents: 26400, tax_cents: 0, mooe_cents: 0, other_cents: 0, other_label: null });
   [0, 1, 2, 3].forEach((k) => {
     batchRows.push({ batch_id: B3, product_id: products[k].id, received: 6, sold: 0, sales_cents: 0, cost_cents: 0, uncosted: 0, owed_cents: 0, received_cost_cents: 6 * 21000, received_uncosted: 0, adjusted: 0, first_in: ago(0), first_sold_at: null, last_sold_at: null });
   });
 }
 if (process.env.REPORT === "1" || process.env.REPORT === "3") {
-  batches.push({ id: B2, batch_no: 2, supplier: null, received_on: new Date(Date.now() - 2 * day).toISOString().slice(0, 10), note: null, created_at: ago(2), shipping_cents: 24400, tax_cents: 0, mooe_cents: 0, other_cents: 0, other_label: null, paid_from_funds: true });
+  batches.push({ id: B2, batch_no: 2, supplier: null, ordered_on: new Date(Date.now() - 4 * day).toISOString().slice(0, 10), received_on: new Date(Date.now() - 2 * day).toISOString().slice(0, 10), note: null, created_at: ago(2), shipping_cents: 24400, tax_cents: 0, mooe_cents: 0, other_cents: 0, other_label: null });
   [5, 3, 2, 1].forEach((sold, k) => {
     batchRows.push({ batch_id: B2, product_id: products[6 + k].id, received: 12, sold, sales_cents: sold * 35000, cost_cents: sold * 21000, uncosted: 0, owed_cents: k === 0 ? 35000 : 0, received_cost_cents: 12 * 21000, received_uncosted: 0, adjusted: 0, first_in: ago(2), first_sold_at: ago(2), last_sold_at: ago(0) });
   });
@@ -104,6 +136,18 @@ if (process.env.NOBATCH === "1") {
 }
 const expenses = [];
 const split = { split_owner_parts: 2, split_manager_parts: 1 };
+// Every batch already here was paid in full from the company fund on the day it arrived.
+for (const b of batches) payments.push({ id: crypto.randomUUID(), batch_id: b.id, amount_cents: batchCost(b), paid_on: b.received_on, source: "company", note: null, created_at: b.created_at });
+// ORDER=1: Batch 2 ordered 3 days ago from Vape Hub, ₱1,000 down with the owner's money, not here yet.
+const B_ORDER = "bbbbbbbb-0000-4000-8000-0000000000f2";
+if (process.env.ORDER === "1") {
+  batches.push({ id: B_ORDER, batch_no: batches.length + 1, supplier: "Vape Hub", ordered_on: new Date(Date.now() + 8 * 3600000 - 3 * day).toISOString().slice(0, 10), received_on: null, note: null, created_at: ago(3), shipping_cents: 20000, tax_cents: 0, mooe_cents: 0, other_cents: 0, other_label: null, mock: true });
+  orderLines.push(
+    { id: "0c0c0c0c-0000-4000-8000-000000000001", batch_id: B_ORDER, product_id: products[0].id, qty: 10, unit_cost_cents: 21000, created_at: ago(3) },
+    { id: "0c0c0c0c-0000-4000-8000-000000000002", batch_id: B_ORDER, product_id: products[6].id, qty: 6, unit_cost_cents: 21000, created_at: ago(3) },
+  );
+  payments.push({ id: crypto.randomUUID(), batch_id: B_ORDER, amount_cents: 100000, paid_on: batches.at(-1).ordered_on, source: "owner", note: null, created_at: ago(3) });
+}
 // batch_statements: each batch's running figures, worked out from the rows above the way the
 // database does (landed cost = unit cost + fees / pieces received). Batch 1 has one discounted sale.
 function batchStatements() {
@@ -120,9 +164,11 @@ function batchStatements() {
     const goods = sum((r) => r.received_cost_cents);
     const diffs = Math.round(sum((r) => (r.adjusted || 0) * (21000 + pp)));
     const left = sum((r) => Math.max(0, r.received - r.sold + (r.adjusted || 0)));
+    const waiting = b && !b.received_on;
+    const orderedGoods = orderLines.filter((l) => l.batch_id === id).reduce((n, l) => n + l.qty * (l.unit_cost_cents ?? 0), 0);
     return { batch_id: id, received, sold, adjusted, left_pcs: left, uncosted: 0, gross_cents: net + discount, discount_cents: discount, net_cents: net,
       cogs_goods_cents: cogsGoods, cogs_fees_cents: cogsFees, count_diffs_cents: diffs, owed_cents: sum((r) => r.owed_cents),
-      goods_cents: goods, fees_cents: fees, stock_cents: goods + (received ? fees : 0) - cogsGoods - cogsFees + diffs, left_value_cents: left * 35000, left_cost_cents: Math.round(left * (21000 + pp)) };
+      goods_cents: waiting ? orderedGoods : goods, fees_cents: fees, stock_cents: waiting ? 0 : goods + fees - cogsGoods - cogsFees + diffs, left_value_cents: left * 35000, left_cost_cents: Math.round(left * (21000 + pp)) };
   });
 }
 
@@ -145,7 +191,7 @@ http
       const p = url.pathname;
       const one = (req.headers.accept || "").includes("vnd.pgrst.object");
       const rows = (list) => send(res, 200, one ? list[0] ?? null : list);
-      if (p === "/__log") return send(res, 200, { log, products, settings, batches });
+      if (p === "/__log") return send(res, 200, { log, products, settings, batches, orderLines, payments });
       if (p === "/auth/v1/user") return send(res, 200, USER);
 
       if (p.startsWith("/rest/v1/rpc/")) {
@@ -159,18 +205,14 @@ http
         if (fn === "batch_sales") return send(res, 200, batchRows);
         if (fn === "batch_statements") return send(res, 200, batchStatements());
         if (fn === "set_batch_received_on") {
-          // Like the database: owners and managers; not in the future; not after the batch's pieces were recorded.
+          // Like the database: owners and managers; not in the future; not before the day it was ordered.
           if (role === "cashier") return send(res, 403, { code: "42501", message: "Only owners and managers can change batches" });
           const b = batches.find((x) => x.id === body.p_batch);
           if (!b) return send(res, 404, { code: "P0002", message: "That batch no longer exists" });
-          const today = new Date(Date.now() + 8 * 3600000).toISOString().slice(0, 10);
-          const recorded = new Date(Date.parse(b.created_at) + 8 * 3600000).toISOString().slice(0, 10);
-          if (!body.p_date || body.p_date > today) return send(res, 400, { code: "22023", message: "The date must be in the last 400 days" });
-          if (body.p_date > recorded) {
-            const [, m, d] = recorded.split("-");
-            const mon = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][Number(m) - 1];
-            return send(res, 400, { code: "22023", message: `Batch ${b.batch_no}'s pieces were recorded on ${Number(d)} ${mon}, so it can't have arrived later. Pick that day or earlier.` });
-          }
+          if (!b.received_on) return send(res, 400, { code: "22023", message: `Batch ${b.batch_no} hasn't arrived yet. Tap Arrived on its page when it comes.` });
+          if (!body.p_date || body.p_date > today8()) return send(res, 400, { code: "22023", message: "The date must be in the last 400 days" });
+          if (b.ordered_on && body.p_date < b.ordered_on)
+            return send(res, 400, { code: "22023", message: `Batch ${b.batch_no} was ordered on ${dayMon(b.ordered_on)}, so it can't arrive before that. Pick that day or later.` });
           b.received_on = body.p_date;
           return send(res, 204);
         }
@@ -206,7 +248,8 @@ http
           const owed = st.owed_cents > 0 ? [{ buyer: "Ana Cruz", cents: st.owed_cents, sales: 1 }] : [];
           const paidAll = st.net_cents - st.owed_cents;
           const paid = paidAll > 50000 ? [{ method: "cash", cents: paidAll - 50000 }, { method: "gcash", cents: 50000 }] : paidAll > 0 ? [{ method: "cash", cents: paidAll }] : [];
-          return send(res, 200, { batch_id: b.id, batch_no: b.batch_no, received_on: b.received_on, supplier: b.supplier, paid_from_funds: b.paid_from_funds ?? false, today, days, flavours, owed, paid });
+          const by = (src) => payments.filter((x) => x.batch_id === b.id && x.source === src).reduce((n, x) => n + x.amount_cents, 0);
+          return send(res, 200, { batch_id: b.id, batch_no: b.batch_no, received_on: b.received_on, ordered_on: b.ordered_on ?? null, supplier: b.supplier, cost_cents: batchCost(b), paid_company_cents: by("company"), paid_owner_cents: by("owner"), paid_investment_cents: by("investment"), today, days, flavours, owed, paid });
         }
         if (fn === "batch_owed")
           return send(res, 200, batches[0] && body.p_batch === batches[0].id && !process.env.NOBATCH ? [{ sale_id: "66666666-0000-4000-8000-000000000001", sale_number: 4, business_date: batches[0].received_on, customer_name: "Ana", pcs: 2, owed_cents: 68000 }] : []);
@@ -242,7 +285,76 @@ http
           releases.splice(releases.findIndex((r) => r.id === body.p_id), 1);
           return send(res, 204);
         }
-        if (fn === "edit_stock_change" || fn === "remove_stock_change" || fn === "set_batch_paid_from_funds") return send(res, 204);
+        if (fn === "edit_stock_change" || fn === "remove_stock_change") return send(res, 204);
+        if (fn === "order_batch" || fn === "receive_batch") {
+          const id = crypto.randomUUID();
+          const here = fn === "receive_batch";
+          const b = { id, batch_no: batches.length + 1, supplier: body.p.supplier || null, ordered_on: here ? null : body.p.ordered_on || today8(), received_on: here ? body.p.received_on || today8() : null, note: body.p.note || null, created_at: new Date().toISOString(), shipping_cents: body.p.shipping_cents, tax_cents: body.p.tax_cents, mooe_cents: body.p.mooe_cents, other_cents: body.p.other_cents, other_label: body.p.other_label || null, mock: true };
+          batches.push(b);
+          for (const it of body.p.items) {
+            if (here) {
+              products.find((q) => q.id === it.product_id).on_hand += it.qty;
+              batchRows.push({ batch_id: id, product_id: it.product_id, received: it.qty, sold: 0, sales_cents: 0, cost_cents: 0, uncosted: 0, owed_cents: 0, received_cost_cents: it.qty * (it.unit_cost_cents ?? 21000), received_uncosted: 0, first_in: new Date().toISOString(), first_sold_at: null, last_sold_at: null });
+            } else orderLines.push({ id: crypto.randomUUID(), batch_id: id, product_id: it.product_id, qty: it.qty, unit_cost_cents: it.unit_cost_cents, created_at: new Date().toISOString() });
+          }
+          payNow(b, body.p.payment ?? (here ? { amount_cents: "rest", source: "company" } : null), here ? b.received_on : b.ordered_on);
+          return send(res, 200, id);
+        }
+        if (fn === "arrive_batch") {
+          if (role === "cashier") return send(res, 403, { code: "42501", message: "Only owners and managers can receive stock" });
+          const b = batches.find((x) => x.id === body.p_batch);
+          if (!b) return send(res, 404, { code: "P0002", message: "That batch no longer exists" });
+          if (b.received_on) return send(res, 400, { code: "22023", message: `Batch ${b.batch_no} already arrived on ${dayMon(b.received_on)}` });
+          const on = body.p.received_on || today8();
+          if (b.ordered_on && on < b.ordered_on) return send(res, 400, { code: "22023", message: `Batch ${b.batch_no} was ordered on ${dayMon(b.ordered_on)}, so it can't arrive before that. Pick that day or later.` });
+          const came = orderLines.filter((l) => l.batch_id === b.id).map((l) => ({ l, qty: (body.p.items || []).find((i) => i.line_id === l.id)?.qty ?? l.qty }));
+          if (!came.some((c) => c.qty > 0)) return send(res, 400, { code: "22023", message: "Enter the pieces that came for at least one product" });
+          b.received_on = on;
+          for (const { l, qty } of came.filter((c) => c.qty > 0)) {
+            products.find((q) => q.id === l.product_id).on_hand += qty;
+            batchRows.push({ batch_id: b.id, product_id: l.product_id, received: qty, sold: 0, sales_cents: 0, cost_cents: 0, uncosted: 0, owed_cents: 0, received_cost_cents: qty * (l.unit_cost_cents ?? 0), received_uncosted: 0, adjusted: 0, first_in: new Date().toISOString(), first_sold_at: null, last_sold_at: null });
+          }
+          payNow(b, body.p.payment, on);
+          return send(res, 204);
+        }
+        if (fn === "undo_batch_arrival") {
+          const b = batches.find((x) => x.id === body.p_batch);
+          const rs = batchRows.filter((r) => r.batch_id === b.id);
+          if (rs.some((r) => r.sold > 0)) return send(res, 400, { code: "22023", message: `Some of Batch ${b.batch_no}'s pieces were sold, so it can't go back on the way` });
+          // What came becomes the order again (as the database does).
+          for (let k = orderLines.length - 1; k >= 0; k--) if (orderLines[k].batch_id === b.id) orderLines.splice(k, 1);
+          for (const r of rs) orderLines.push({ id: crypto.randomUUID(), batch_id: b.id, product_id: r.product_id, qty: r.received, unit_cost_cents: Math.round(r.received_cost_cents / r.received), created_at: new Date().toISOString() });
+          for (const r of rs) {
+            products.find((q) => q.id === r.product_id).on_hand -= r.received;
+            batchRows.splice(batchRows.indexOf(r), 1);
+          }
+          b.ordered_on = b.ordered_on || b.received_on;
+          b.received_on = null;
+          return send(res, 204);
+        }
+        if (fn === "delete_batch_order") {
+          const b = batches.find((x) => x.id === body.p_batch);
+          if (paidOn(b.id) > 0) return send(res, 400, { code: "22023", message: `Batch ${b.batch_no} has ₱${(paidOn(b.id) / 100).toLocaleString("en-US", { minimumFractionDigits: 2 })} paid on it. Remove its payments first (if the supplier gave the money back).` });
+          batches.splice(batches.indexOf(b), 1);
+          for (let k = orderLines.length - 1; k >= 0; k--) if (orderLines[k].batch_id === b.id) orderLines.splice(k, 1);
+          return send(res, 204);
+        }
+        if (fn === "add_batch_payment" || fn === "update_batch_payment") {
+          if (role === "cashier") return send(res, 403, { code: "42501", message: "Only owners and managers can record payments" });
+          const existing = fn === "update_batch_payment" ? payments.find((x) => x.id === body.p_id) : null;
+          const b = batches.find((x) => x.id === (existing ? existing.batch_id : body.p_batch));
+          const left = batchCost(b) - paidOn(b.id) + (existing ? existing.amount_cents : 0);
+          if (body.p.amount_cents > left)
+            return send(res, 400, { code: "22023", message: left <= 0 ? `Batch ${b.batch_no} is already paid in full` : `Only ₱${(left / 100).toLocaleString("en-US", { minimumFractionDigits: 2 })} is still to pay for Batch ${b.batch_no}` });
+          if (existing) Object.assign(existing, { amount_cents: body.p.amount_cents, paid_on: body.p.paid_on, source: body.p.source, note: body.p.note || null });
+          else payments.push({ id: crypto.randomUUID(), batch_id: b.id, amount_cents: body.p.amount_cents, paid_on: body.p.paid_on, source: body.p.source, note: body.p.note || null, created_at: new Date().toISOString() });
+          return send(res, existing ? 204 : 200, existing ? undefined : payments.at(-1).id);
+        }
+        if (fn === "delete_batch_payment") {
+          const k = payments.findIndex((x) => x.id === body.p_id);
+          if (k >= 0) payments.splice(k, 1);
+          return send(res, 204);
+        }
         if (fn === "batch_existing_stock") {
           const id = crypto.randomUUID();
           batches.push({ id, batch_no: batches.length + 1, supplier: body.p.supplier || null, received_on: new Date(Date.now() - 11 * day).toISOString().slice(0, 10), note: "Opening stock", created_at: new Date().toISOString(), shipping_cents: 0, tax_cents: 0, mooe_cents: 0, other_cents: 0, other_label: null });
@@ -268,7 +380,11 @@ http
           return send(res, 204);
         }
         if (fn === "update_batch_details") {
-          Object.assign(batches.find((x) => x.id === body.p_batch), { supplier: body.p.supplier || null, received_on: body.p.received_on, note: body.p.note || null });
+          const b = batches.find((x) => x.id === body.p_batch);
+          const ordered = "ordered_on" in body.p ? body.p.ordered_on || null : b.ordered_on ?? null;
+          if (ordered && body.p.received_on && ordered > body.p.received_on)
+            return send(res, 400, { code: "22023", message: `It can't arrive before it was ordered (${dayMon(ordered)}). Pick that day or later.` });
+          Object.assign(b, { supplier: body.p.supplier || null, ordered_on: ordered, note: body.p.note || null, ...(b.received_on ? { received_on: body.p.received_on } : {}) });
           return send(res, 204);
         }
         if (fn === "delete_expense") {
@@ -359,10 +475,14 @@ http
           const end = finDerive(finTotals("end"));
           const kept = setAsides.length ? setAsides.at(-1).amount_cents : 0;
           const taxRes = Math.max(0, end.tax_payable);
-          const spare = end.cash - taxRes - kept;
-          return send(res, 200, { from: body.p_from, to: body.p_to, start, end, first_day: "2026-10-27",
-            now: { cash: end.cash, retained: end.retained, tax_reserve: taxRes, inventory_reserve: kept, spare_cash: spare, safe_to_distribute: Math.max(0, Math.min(end.retained, spare)),
-              register: { cash_received: end.collected_by_method.cash, capital_cash: end.capital_cash, stock: end.fund_goods, fees: end.fund_fees, expenses: end.opex - (end.opex_by_category.fees || 0), payment_fees: end.opex_by_category.fees || 0, tax_paid: end.tax_paid, distributions: end.distributions,
+          const owedSup = Math.max(0, end.suppliers_owed);
+          const spare = end.cash - taxRes - owedSup - kept;
+          const suppliers = batches
+            .filter((b) => !b.received_on || batchCost(b) !== paidOn(b.id))
+            .map((b) => ({ batch_id: b.id, batch_no: b.batch_no, cost_cents: batchCost(b), paid_cents: paidOn(b.id), owed_cents: batchCost(b) - paidOn(b.id), on_the_way: !b.received_on, ordered_on: b.ordered_on || b.received_on, received_on: b.received_on || null }));
+          return send(res, 200, { from: body.p_from, to: body.p_to, start, end, first_day: "2026-10-27", suppliers,
+            now: { cash: end.cash, retained: end.retained, tax_reserve: taxRes, supplier_reserve: owedSup, inventory_reserve: kept, spare_cash: spare, safe_to_distribute: Math.max(0, Math.min(end.retained, spare)),
+              register: { cash_received: end.collected_by_method.cash, capital_cash: end.capital_cash, stock: end.paid_company + end.loose_goods, expenses: end.opex - (end.opex_by_category.fees || 0), payment_fees: end.opex_by_category.fees || 0, tax_paid: end.tax_paid, distributions: end.distributions,
                 elsewhere: end.collected - end.collected_by_method.cash, elsewhere_by_method: end.collected - end.collected_by_method.cash ? { gcash: end.collected - end.collected_by_method.cash } : {}, expected: end.cash - (end.collected - end.collected_by_method.cash) + (end.opex_by_category.fees || 0) } },
             receivables: [{ sale_id: "66666666-0000-4000-8000-000000000001", customer_name: "RODS", cents: 96000, days: 7 }, { sale_id: "66666666-0000-4000-8000-000000000002", customer_name: "PAOLO", cents: 32000, days: 6 }] });
         }
@@ -382,16 +502,6 @@ http
         if (fn === "set_restock_set_aside") {
           setAsides.push({ amount_cents: body.p_amount_cents, note: body.p_note || null, created_at: new Date().toISOString() });
           return send(res, 200, crypto.randomUUID());
-        }
-        if (fn === "receive_batch") {
-          const id = crypto.randomUUID();
-          const b = { id, batch_no: batches.length + 1, supplier: body.p.supplier || null, received_on: body.p.received_on, note: body.p.note || null, created_at: new Date().toISOString(), shipping_cents: body.p.shipping_cents, tax_cents: body.p.tax_cents, mooe_cents: body.p.mooe_cents, other_cents: body.p.other_cents, other_label: body.p.other_label || null };
-          batches.push(b);
-          for (const it of body.p.items) {
-            products.find((q) => q.id === it.product_id).on_hand += it.qty;
-            batchRows.push({ batch_id: id, product_id: it.product_id, received: it.qty, sold: 0, sales_cents: 0, cost_cents: 0, uncosted: 0, owed_cents: 0, received_cost_cents: it.qty * (it.unit_cost_cents ?? 21000), received_uncosted: 0, first_in: new Date().toISOString(), first_sold_at: null, last_sold_at: null });
-          }
-          return send(res, 200, id);
         }
         return send(res, 200, null);
       }
@@ -426,9 +536,14 @@ http
         }
         if (table === "product_costs") return rows(products.map((x) => ({ product_id: x.id, cost_cents: 21000 })));
         if (table === "stock_batches") {
-          const pf = url.searchParams.get("paid_from_funds");
-          const list = [...batches].sort((a, b) => b.batch_no - a.batch_no);
-          return rows(pf === "eq.false" ? list.filter((b) => b.paid_from_funds === false) : list);
+          const here = url.searchParams.get("received_on");
+          const list = [...batches].sort((a, b) => b.batch_no - a.batch_no).map(({ mock, ...b }) => ({ ordered_on: null, ...b }));
+          return rows(here === "not.is.null" ? list.filter((b) => b.received_on) : list);
+        }
+        if (table === "batch_order_lines") return rows(orderLines);
+        if (table === "batch_payments") {
+          const src = (url.searchParams.get("source") || "").replace(/^in\.\(|\)$/g, "").split(",").filter(Boolean);
+          return rows(payments.filter((x) => !src.length || src.includes(x.source)).sort((a, b) => a.paid_on.localeCompare(b.paid_on)));
         }
         if (table === "products") {
           const idEq = url.searchParams.get("id");

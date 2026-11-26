@@ -10,7 +10,11 @@ export type BatchReportRpc = {
   batch_no: number;
   received_on: string;
   supplier: string | null;
-  paid_from_funds: boolean;
+  ordered_on: string | null;
+  cost_cents: number;
+  paid_company_cents: number;
+  paid_owner_cents: number;
+  paid_investment_cents: number;
   /** Manila date when the report was made. */
   today: string;
   /** Days with sales: pieces that day, and the running pieces and net sales (paid or not). */
@@ -48,7 +52,10 @@ export type BatchFigures = {
   title: string;
   receivedOn: string;
   supplier: string | null;
-  paidFromFunds: boolean;
+  /** Whose money paid for it, e.g. "company fund", "company fund and owner's money"; null with nothing paid. */
+  paidBy: string | null;
+  /** Still owed to the supplier. */
+  owedSupplier: number;
   st: BatchStatement;
   share: { owner: number; manager: number };
   /** Net profit and its shares if the pieces left sell at today's prices (the statement's "when sold out"). */
@@ -164,7 +171,8 @@ export function batchFigures(
     title: `Batch ${batch.batch_no}`,
     receivedOn: received,
     supplier: batch.supplier,
-    paidFromFunds: batch.paid_from_funds,
+    paidBy: paidBy(rpc),
+    owedSupplier: Number(rpc.cost_cents ?? 0) - Number(rpc.paid_company_cents ?? 0) - Number(rpc.paid_owner_cents ?? 0) - Number(rpc.paid_investment_cents ?? 0),
     st,
     share: split2(st.netProfit),
     shareWhenSoldOut: split2(st.whenSoldOut),
@@ -248,4 +256,15 @@ export function pickCompare<T extends { id: string; batch_no: number }>(batches:
  */
 export function mainCompare<T extends { no: number }>(current: T, others: T[]): T | null {
   return others.filter((b) => b.no < current.no).sort((x, y) => y.no - x.no)[0] ?? others[0] ?? null;
+}
+
+/** "company fund", "owner's money", "company fund and investment"…; null when nothing is paid yet. */
+export function paidBy(r: Pick<BatchReportRpc, "paid_company_cents" | "paid_owner_cents" | "paid_investment_cents">) {
+  const parts = [
+    Number(r.paid_company_cents ?? 0) > 0 ? "company fund" : null,
+    Number(r.paid_owner_cents ?? 0) > 0 ? "owner's money" : null,
+    Number(r.paid_investment_cents ?? 0) > 0 ? "investment" : null,
+  ].filter((x): x is string => x !== null);
+  if (parts.length === 0) return null;
+  return parts.length === 1 ? parts[0] : `${parts.slice(0, -1).join(", ")} and ${parts.at(-1)}`;
 }

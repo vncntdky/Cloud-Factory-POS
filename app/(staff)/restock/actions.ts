@@ -1,7 +1,8 @@
 "use server";
 
-// Restock tab: the reorder plan settings, applying suggested reorder points as low-stock alerts,
-// and receiving a batch. Owners and managers; the database functions check the role too.
+// Restock tab: the reorder plan settings, applying suggested reorder points as low-stock alerts, ordering stock,
+// receiving a batch, Arrived, and payments to suppliers. Owners and managers; the database functions check the
+// role too.
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireActiveStaff } from "@/lib/auth";
@@ -49,6 +50,23 @@ export async function saveRestockPlan(_prev: RestockFormState, fd: FormData): Pr
   if (error) return { error: friendlyError(error as DbError) };
   revalidatePath("/restock");
   redirect("/restock?plan=saved");
+}
+
+/** Use how long recent orders took to arrive as the delivery time (buffer and cover stay as they are). */
+export async function applyLeadDays(fd: FormData): Promise<void> {
+  const lead = days(fd, "lead");
+  const staff = await manager();
+  if ("error" in staff || lead === null || lead > 90) redirect("/restock?plan=error");
+  const { data } = await staff.supabase.from("settings").select("restock_buffer_days, restock_cover_days").maybeSingle();
+  const cur = data as { restock_buffer_days: number; restock_cover_days: number } | null;
+  if (!cur) redirect("/restock?plan=error");
+  const { error } = await staff.supabase.rpc("set_restock_plan", {
+    p_lead_days: lead,
+    p_buffer_days: cur.restock_buffer_days,
+    p_cover_days: cur.restock_cover_days,
+  });
+  revalidatePath("/restock");
+  redirect(error ? "/restock?plan=error" : "/restock?plan=saved");
 }
 
 /**
@@ -101,56 +119,208 @@ export async function saveBatchCosts(id: string, _prev: RestockFormState, fd: Fo
   redirect(`/restock/batches/${id}?costs=saved`);
 }
 
-/** One supplier delivery: pieces (and optionally cost per piece) for each product, as qty_<id> / cost_<id>. */
-export async function receiveBatch(_prev: RestockFormState, fd: FormData): Promise<RestockFormState> {
-  const staff = await manager();
-  if ("error" in staff) return { error: staff.error };
+type Item = { product_id: string; qty: number; unit_cost_cents: number | null };
 
-  const items: { product_id: string; qty: number; unit_cost_cents: number | null }[] = [];
+/** Pieces (and optionally cost per piece) for each product, as qty_<id> / cost_<id>. */
+function batchItems(fd: FormData): { ok: true; items: Item[] } | { ok: false; error: string; field?: string } {
+  const items: Item[] = [];
   for (const [key, value] of fd.entries()) {
     if (!key.startsWith("qty_") || typeof value !== "string") continue;
     const id = key.slice(4);
     const raw = value.trim().replace(/,/g, "");
     if (!UUID_RE.test(id) || raw === "" || raw === "0") continue;
     if (!/^\d{1,6}$/.test(raw) || Number(raw) > 100_000) {
-      return { error: "Pieces received must be whole numbers up to 100,000.", field: key };
+      return { ok: false, error: "Pieces must be whole numbers up to 100,000.", field: key };
     }
     const costRaw = String(fd.get(`cost_${id}`) ?? "").trim();
     const cost = costRaw === "" ? null : toCents(costRaw);
-    if (costRaw !== "" && (cost === null || cost < 0)) return { error: "Check the cost per piece.", field: `cost_${id}` };
+    if (costRaw !== "" && (cost === null || cost < 0 || cost > 10_000_000))
+      return { ok: false, error: "Cost per piece must be ₱0 to ₱100,000.", field: `cost_${id}` };
     items.push({ product_id: id, qty: Number(raw), unit_cost_cents: cost });
   }
-  if (items.length === 0) return { error: "Enter the pieces received for at least one product." };
+  if (items.length === 0) return { ok: false, error: "Enter the pieces for at least one product." };
+  return { ok: true, items };
+}
 
-  const receivedOn = String(fd.get("received_on") ?? "").trim();
-  if (receivedOn && !isIsoDate(receivedOn)) return { error: "Pick the day the batch arrived.", field: "received_on" };
+const SOURCES = ["company", "owner", "investment"];
 
-  const parsed = batchCosts(fd);
-  if (!parsed.ok) return { error: parsed.error, field: parsed.field };
+/**
+ * What was paid with the order, the delivery or on pick-up: pay = full | part | none, pay_amount (pesos) for part,
+ * pay_source = company | owner | investment. "full" sends "rest": the database pays whatever is still owed.
+ */
+function payment(fd: FormData): { ok: true; payment: { amount_cents: number | "rest"; source: string } } | { ok: false; error: string; field: string } {
+  const pay = String(fd.get("pay") ?? "none");
+  const source = String(fd.get("pay_source") ?? "company");
+  if (pay === "none") return { ok: true, payment: { amount_cents: 0, source: "company" } };
+  if (!SOURCES.includes(source)) return { ok: false, error: "Pick whose money paid.", field: "pay_source" };
+  if (pay === "full") return { ok: true, payment: { amount_cents: "rest", source } };
+  const amount = toCents(String(fd.get("pay_amount") ?? "").trim());
+  if (amount === null || amount <= 0 || amount > 100_000_000) return { ok: false, error: "Enter the amount paid, e.g. 2000.", field: "pay_amount" };
+  return { ok: true, payment: { amount_cents: amount, source } };
+}
 
-  const { data, error } = await staff.supabase.rpc("receive_batch", {
-    p: {
-      ...parsed.costs,
-      supplier: String(fd.get("supplier") ?? "")
-        .trim()
-        .slice(0, 60),
-      received_on: receivedOn,
-      note: String(fd.get("note") ?? "")
-        .trim()
-        .slice(0, 200),
-      items,
-    },
-  });
-  if (error) return { error: friendlyError(error as DbError) };
-  // New batches are paid from the company funds unless this was unticked.
-  if (fd.get("paid_from_funds") !== "1") {
-    await staff.supabase.rpc("set_batch_paid_from_funds", { p_batch: data as string, p_paid: false });
-  }
-  revalidatePath("/restock");
+function batchBasics(fd: FormData) {
+  return {
+    supplier: String(fd.get("supplier") ?? "")
+      .trim()
+      .slice(0, 60),
+    note: String(fd.get("note") ?? "")
+      .trim()
+      .slice(0, 200),
+  };
+}
+
+function afterStockChange() {
+  revalidatePath("/restock", "layout");
   revalidatePath("/sales/pnl");
+  revalidatePath("/sales/report");
   revalidatePath("/inventory");
   revalidatePath("/", "layout");
+}
+
+/** One supplier delivery that is already here: its pieces go on the shelf now. */
+export async function receiveBatch(_prev: RestockFormState, fd: FormData): Promise<RestockFormState> {
+  const staff = await manager();
+  if ("error" in staff) return { error: staff.error };
+  const parsed = batchItems(fd);
+  if (!parsed.ok) return { error: parsed.error, field: parsed.field };
+  const receivedOn = String(fd.get("received_on") ?? "").trim();
+  if (receivedOn && !isIsoDate(receivedOn)) return { error: "Pick the day the batch arrived.", field: "received_on" };
+  const costs = batchCosts(fd);
+  if (!costs.ok) return { error: costs.error, field: costs.field };
+  const paid = payment(fd);
+  if (!paid.ok) return { error: paid.error, field: paid.field };
+
+  const { data, error } = await staff.supabase.rpc("receive_batch", {
+    p: { ...costs.costs, ...batchBasics(fd), received_on: receivedOn, items: parsed.items, payment: paid.payment },
+  });
+  if (error) return { error: friendlyError(error as DbError) };
+  afterStockChange();
   redirect(`/restock/batches/${data as string}?received=1`);
+}
+
+/** Stock ordered from a supplier: it waits as an order on the way until someone taps Arrived. */
+export async function orderBatch(_prev: RestockFormState, fd: FormData): Promise<RestockFormState> {
+  const staff = await manager();
+  if ("error" in staff) return { error: staff.error };
+  const parsed = batchItems(fd);
+  if (!parsed.ok) return { error: parsed.error, field: parsed.field };
+  const orderedOn = String(fd.get("ordered_on") ?? "").trim();
+  if (orderedOn && !isIsoDate(orderedOn)) return { error: "Pick the day it was ordered.", field: "ordered_on" };
+  const costs = batchCosts(fd);
+  if (!costs.ok) return { error: costs.error, field: costs.field };
+  const paid = payment(fd);
+  if (!paid.ok) return { error: paid.error, field: paid.field };
+
+  const { data, error } = await staff.supabase.rpc("order_batch", {
+    p: { ...costs.costs, ...batchBasics(fd), ordered_on: orderedOn, items: parsed.items, payment: paid.payment },
+  });
+  if (error) return { error: friendlyError(error as DbError) };
+  revalidatePath("/restock", "layout");
+  revalidatePath("/sales/pnl");
+  redirect(`/restock/batches/${data as string}?ordered=1`);
+}
+
+/**
+ * An order arrived: the day, the pieces that came for each ordered line (arrived_<line id>; as ordered when
+ * left out) and what was paid on pick-up.
+ */
+export async function arriveBatch(batchId: string, _prev: RestockFormState, fd: FormData): Promise<RestockFormState> {
+  if (!UUID_RE.test(batchId)) return { error: "That batch no longer exists." };
+  const staff = await manager();
+  if ("error" in staff) return { error: staff.error };
+  const date = text(fd, "received_on", 10);
+  if (!isIsoDate(date)) return { error: "Pick the day it arrived.", field: "received_on" };
+  const items: { line_id: string; qty: number }[] = [];
+  for (const [key, value] of fd.entries()) {
+    if (!key.startsWith("arrived_") || typeof value !== "string") continue;
+    const id = key.slice(8);
+    const raw = value.trim().replace(/,/g, "");
+    if (!UUID_RE.test(id)) continue;
+    if (!/^\d{1,6}$/.test(raw) || Number(raw) > 100_000) return { error: "Pieces must be whole numbers from 0 to 100,000.", field: key };
+    items.push({ line_id: id, qty: Number(raw) });
+  }
+  const paid = payment(fd);
+  if (!paid.ok) return { error: paid.error, field: paid.field };
+  const { error } = await staff.supabase.rpc("arrive_batch", {
+    p_batch: batchId,
+    p: { received_on: date, items, payment: paid.payment },
+  });
+  if (error) return { error: friendlyError(error as DbError) };
+  afterStockChange();
+  redirect(`/restock/batches/${batchId}?arrived=1`);
+}
+
+/** Tapped Arrived by mistake: the pieces come off the shelf and the batch is an order on the way again. */
+export async function undoArrival(batchId: string, _prev: RestockFormState, _fd: FormData): Promise<RestockFormState> {
+  if (!UUID_RE.test(batchId)) return { error: "That batch no longer exists." };
+  const staff = await manager();
+  if ("error" in staff) return { error: staff.error };
+  const { error } = await staff.supabase.rpc("undo_batch_arrival", { p_batch: batchId });
+  if (error) return { error: friendlyError(error as DbError) };
+  afterStockChange();
+  redirect(`/restock/batches/${batchId}?back=1`);
+}
+
+/** An order that was cancelled: removed with its lines (only when nothing is paid on it). */
+export async function deleteOrder(batchId: string, _prev: RestockFormState, _fd: FormData): Promise<RestockFormState> {
+  if (!UUID_RE.test(batchId)) return { error: "That batch no longer exists." };
+  const staff = await manager();
+  if ("error" in staff) return { error: staff.error };
+  const { error } = await staff.supabase.rpc("delete_batch_order", { p_batch: batchId });
+  if (error) return { error: friendlyError(error as DbError) };
+  revalidatePath("/restock", "layout");
+  revalidatePath("/sales/pnl");
+  redirect("/restock?view=batches&order=removed");
+}
+
+function paymentFields(fd: FormData): { ok: true; p: Record<string, string | number> } | { ok: false; error: string; field: string } {
+  const amount = cents(fd);
+  if (amount === null || amount <= 0 || amount > 100_000_000) return { ok: false, error: "Enter the amount paid, e.g. 2000.", field: "amount" };
+  const source = text(fd, "source", 20);
+  if (!SOURCES.includes(source)) return { ok: false, error: "Pick whose money paid.", field: "source" };
+  const paidOn = text(fd, "paid_on", 10);
+  if (!isIsoDate(paidOn)) return { ok: false, error: "Pick the day it was paid.", field: "paid_on" };
+  return { ok: true, p: { amount_cents: amount, source, paid_on: paidOn, note: text(fd, "note") } };
+}
+
+/** Money paid to the supplier for a batch: a downpayment, the rest on pick-up, or anything paid later. */
+export async function addBatchPayment(batchId: string, _prev: RestockFormState, fd: FormData): Promise<RestockFormState> {
+  if (!UUID_RE.test(batchId)) return { error: "That batch no longer exists." };
+  const staff = await manager();
+  if ("error" in staff) return { error: staff.error };
+  const parsed = paymentFields(fd);
+  if (!parsed.ok) return { error: parsed.error, field: parsed.field };
+  const { error } = await staff.supabase.rpc("add_batch_payment", { p_batch: batchId, p: parsed.p });
+  if (error) return { error: friendlyError(error as DbError), field: "amount" };
+  revalidatePath("/restock", "layout");
+  revalidatePath("/sales/pnl");
+  redirect(`/restock/batches/${batchId}?paid=added#payments`);
+}
+
+export async function updateBatchPayment(id: string, batchId: string, _prev: RestockFormState, fd: FormData): Promise<RestockFormState> {
+  if (!UUID_RE.test(id) || !UUID_RE.test(batchId)) return { error: "That payment no longer exists." };
+  const staff = await manager();
+  if ("error" in staff) return { error: staff.error };
+  const parsed = paymentFields(fd);
+  if (!parsed.ok) return { error: parsed.error, field: parsed.field };
+  const { error } = await staff.supabase.rpc("update_batch_payment", { p_id: id, p: parsed.p });
+  if (error) return { error: friendlyError(error as DbError), field: "amount" };
+  revalidatePath("/restock", "layout");
+  revalidatePath("/sales/pnl");
+  redirect(`/restock/batches/${batchId}?paid=edited#payments`);
+}
+
+export async function deleteBatchPayment(fd: FormData): Promise<void> {
+  const id = String(fd.get("id") ?? "");
+  const batchId = String(fd.get("batch_id") ?? "");
+  if (!UUID_RE.test(batchId)) redirect("/restock?view=batches");
+  const staff = await manager();
+  if ("error" in staff || !UUID_RE.test(id)) redirect(`/restock/batches/${batchId}?paid=error#payments`);
+  const { error } = await staff.supabase.rpc("delete_batch_payment", { p_id: id });
+  revalidatePath("/restock", "layout");
+  revalidatePath("/sales/pnl");
+  redirect(`/restock/batches/${batchId}?paid=${error ? "error" : "removed"}#payments`);
 }
 
 /** Where the P&L and expense forms send you back to. */
@@ -264,18 +434,6 @@ export async function undoRelease(fd: FormData): Promise<void> {
   const { error } = await staff.supabase.rpc("delete_fund_release", { p_id: id });
   revalidatePath("/sales/pnl");
   redirect(`/sales/pnl?released=${error ? "error" : "undone"}#distributions`);
-}
-
-/** Whether a batch was paid from the company funds (a new batch is, unless switched off). */
-export async function setPaidFromFunds(fd: FormData): Promise<void> {
-  const id = String(fd.get("id") ?? "");
-  const paid = fd.get("paid") === "1";
-  if (!UUID_RE.test(id)) redirect("/restock?view=batches");
-  const staff = await manager();
-  if (!("error" in staff)) await staff.supabase.rpc("set_batch_paid_from_funds", { p_batch: id, p_paid: paid });
-  revalidatePath("/restock");
-  revalidatePath("/sales/pnl");
-  redirect(`/restock/batches/${id}#pnl`);
 }
 
 /** Add pieces of a product to a batch already received (a product left off it, or more of one). */
@@ -427,8 +585,8 @@ export async function updateRelease(id: string, _prev: RestockFormState, fd: For
 }
 
 /**
- * The date a batch arrived, changed from its report (Sales → Finance → Report). Only the date changes; the database
- * refuses a date after the batch's pieces were recorded. Back to the same report and comparison.
+ * The date a batch arrived, changed from its report (Sales → Finance → Report). Only the date changes; it can't be
+ * before the day it was ordered. Back to the same report and comparison.
  */
 export async function setBatchReceivedOn(batchId: string, compare: string, _prev: RestockFormState, fd: FormData): Promise<RestockFormState> {
   if (!UUID_RE.test(batchId)) return { error: "That batch no longer exists." };
@@ -447,18 +605,25 @@ export async function setBatchReceivedOn(batchId: string, compare: string, _prev
   redirect(`/sales/report?${q.toString()}`);
 }
 
-/** A batch's supplier, date received and note. */
+/**
+ * A batch's supplier, the day it was ordered, the day it arrived (once it has) and note. An order still on the way
+ * has no arrival date here: Arrived sets it.
+ */
 export async function updateBatchDetails(batchId: string, _prev: RestockFormState, fd: FormData): Promise<RestockFormState> {
   if (!UUID_RE.test(batchId)) return { error: "That batch no longer exists." };
   const staff = await manager();
   if ("error" in staff) return { error: staff.error };
+  const arrived = fd.has("received_on");
   const date = text(fd, "received_on", 10);
-  if (!isIsoDate(date)) return { error: "Pick the date it arrived.", field: "received_on" };
+  if (arrived && !isIsoDate(date)) return { error: "Pick the date it arrived.", field: "received_on" };
+  const ordered = text(fd, "ordered_on", 10);
+  if (ordered && !isIsoDate(ordered)) return { error: "Pick the date it was ordered.", field: "ordered_on" };
+  if (!arrived && !ordered) return { error: "Pick the date it was ordered.", field: "ordered_on" };
   const { error } = await staff.supabase.rpc("update_batch_details", {
     p_batch: batchId,
-    p: { supplier: text(fd, "supplier", 60), received_on: date, note: text(fd, "note") },
+    p: { supplier: text(fd, "supplier", 60), ...(arrived ? { received_on: date } : {}), ordered_on: ordered, note: text(fd, "note") },
   });
-  if (error) return { error: friendlyError(error as DbError) };
+  if (error) return { error: friendlyError(error as DbError), field: /order/i.test(error.message) ? "ordered_on" : undefined };
   revalidatePath("/restock", "layout");
   revalidatePath("/sales/pnl");
   redirect(`/restock/batches/${batchId}?details=saved`);

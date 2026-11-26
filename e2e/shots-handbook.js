@@ -124,18 +124,16 @@ async function scrollTo(page, loc, offset = 90) {
   ]);
   await shot("04-reserve");
 
-  // 5. Receive batch
-  await page.goto(`${B}/restock/receive`);
+  // 5. Order stock (the mock needs ORDER=1 for the Arrived picture: Batch 2 is on the way)
+  await page.goto(`${B}/restock/order`);
   await page.locator("#b-supplier").waitFor();
   await page.fill("#b-supplier", "Cloud Supply");
-  const firstQty = page.locator("input[inputmode=numeric]").first();
   await scrollTo(page, page.locator("#b-supplier"));
   await annotate(page, [
     { loc: page.locator("#b-supplier"), side: "bottom", dx: 120 },
     { loc: page.locator("#b-date"), side: "bottom", dx: 120 },
-    { loc: page.locator(".check-row", { hasText: "Paid from company funds" }), side: "bottom", dx: 120 },
   ]);
-  await shot("05a-receive-top");
+  await shot("05a-order-top");
   await page.locator("input[name^='qty']").first().fill("20");
   await page.waitForTimeout(300);
   const chips = page.locator(".filter-row");
@@ -143,9 +141,29 @@ async function scrollTo(page, loc, offset = 90) {
   await annotate(page, [
     { loc: chips, side: "top", dx: 100 },
     { loc: page.locator("input[name^='qty']").first(), side: "left", dy: 40 },
-    { loc: page.locator("button", { hasText: "Receive batch" }).last(), side: "top", dx: -100 },
-  ]).catch(async (e) => { console.log("receive bottom fallback", e.message); });
-  await shot("05b-receive-items");
+    { loc: page.locator("button", { hasText: "Save order" }).last(), side: "top", dx: -100 },
+  ]).catch(async (e) => { console.log("order bottom fallback", e.message); });
+  await shot("05b-order-items");
+  const paySec = page.locator('section[aria-labelledby="pay-t"]');
+  await page.getByRole("radio", { name: "Downpayment" }).click();
+  await page.fill("#pay-amount", "2000");
+  await scrollTo(page, paySec, 200);
+  await annotate(page, [
+    { loc: paySec.getByRole("radiogroup", { name: "How it was paid" }), side: "top", dx: 120 },
+    { loc: paySec.getByRole("radiogroup", { name: "Whose money paid" }), side: "bottom", dx: 120 },
+  ]);
+  await shot("05c-order-payment");
+  await page.goto(`${B}/restock/batches/bbbbbbbb-0000-4000-8000-0000000000f2`);
+  await page.getByRole("button", { name: "Arrived" }).click();
+  const af = page.locator("form[aria-label$=' arrived']");
+  await af.locator("input[name^='arrived_']").last().fill("5");
+  await scrollTo(page, af, 70);
+  await annotate(page, [
+    { loc: af.locator("#arr-date"), side: "bottom", dx: 120 },
+    { loc: af.locator("input[name^='arrived_']").last(), side: "left", dy: 30 },
+    { loc: af.getByRole("radiogroup", { name: "Paid on pick-up" }), side: "top", dx: 130 },
+  ]).catch(async (e) => { console.log("arrived fallback", e.message); });
+  await shot("05d-order-arrived");
 
   // 6. Batch page: fix a line, add a product
   await page.goto(`${B}/restock/batches/${B1}`);

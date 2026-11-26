@@ -14,7 +14,18 @@ const CATEGORY = Object.fromEntries(EXPENSE_CATEGORIES.map((c) => [c.id, c.label
 const pct = (part: number, whole: number) => (whole > 0 ? `${((part / whole) * 100).toFixed(1)}%` : undefined);
 const pcs = (n: number) => `${n} pc${n === 1 ? "" : "s"}`;
 
-export function BatchStatementLines({ batch, st, taxRateBp }: { batch: Batch; st: BatchStatement; taxRateBp: number }) {
+export function BatchStatementLines({
+  batch,
+  st,
+  taxRateBp,
+  ordered,
+}: {
+  batch: Batch;
+  st: BatchStatement;
+  taxRateBp: number;
+  /** Pieces ordered, for an order still on the way. */
+  ordered?: number;
+}) {
   const toEarnBack = st.costInFull - st.net;
   return (
     <>
@@ -79,7 +90,7 @@ export function BatchStatementLines({ batch, st, taxRateBp }: { batch: Batch; st
       <h3 className="eyebrow">What the batch cost in full</h3>
       <p className="t-sm muted">The whole batch, sold or not. Net profit above counts only the pieces sold.</p>
       <dl className="cost-list pnl">
-        <Line label={`Goods (${pcs(st.received)})`} cents={st.goods} />
+        <Line label={ordered !== undefined ? `Goods (${pcs(ordered)} ordered)` : `Goods (${pcs(st.received)})`} cents={st.goods} />
         {batch.id !== null && (
           <>
             <Line label="Shipping" cents={batch.shipping_cents} />

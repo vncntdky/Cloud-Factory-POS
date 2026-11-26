@@ -434,7 +434,12 @@ select pg_temp.check('its sales move with it', (select sum(sold) from public.bat
   and not exists (select 1 from public.batch_sales() where batch_id is null));
 select public.add_expense(format('{"batch_id": "%s", "category": "other", "amount_cents": 1000}', :'made')::jsonb);
 select pg_temp.check('it can take expenses now', exists (select 1 from public.expenses where batch_id = :'made'));
-select pg_temp.check('earlier stock was already paid for: not charged to the funds', (select not paid_from_funds from public.stock_batches where id = :'made'));
+reset role;
+select pg_temp.check('earlier stock was already paid for, with the owners'' money: one payment of its cost in full',
+  (select count(*) = 1 and bool_and(source = 'owner') and sum(amount_cents) = (select cost_cents from public.batch_money(:'made'))
+     from public.batch_payments where batch_id = :'made')
+  and (select cost_cents > 0 and owed_cents = 0 from public.batch_money(:'made')));
+set role authenticated;
 select pg_temp.expect_error('nothing left to batch', $$select public.batch_existing_stock('{}')$$, 'already in a batch');
 
 -- ───────── Reservations (all staff) ─────────
@@ -466,16 +471,19 @@ select pg_temp.check('funds: gross − discounts = net; net − still owed = col
   and (:'f0'::jsonb ->> 'net_cents')::bigint = (:'f0'::jsonb ->> 'gross_cents')::bigint - (:'f0'::jsonb ->> 'discount_cents')::bigint
   and (:'f0'::jsonb ->> 'collected_cents')::bigint = (select sum(total_cents - balance_cents) from public.sales where status = 'completed')
   and (select sum(value::bigint) from jsonb_each_text(:'f0'::jsonb -> 'collected_by_method')) = (:'f0'::jsonb ->> 'collected_cents')::bigint);
-select public.set_batch_paid_from_funds(:'made', true);
-select pg_temp.check('switched on, opening stock''s cost counts in the funds (Mint 10 + Mango 2 at 210, Batch Pod 5 at 50)',
-  (public.company_funds() ->> 'goods_cents')::bigint = (:'f0'::jsonb ->> 'goods_cents')::bigint + (12 * 21000 + 5 * 5000));
-select public.set_batch_paid_from_funds(:'made', false);
+select public.update_batch_payment((select id from public.batch_payments where batch_id = :'made'),
+  format('{"amount_cents": %s, "source": "company", "paid_on": "%s"}', (select sum(amount_cents) from public.batch_payments where batch_id = :'made'), public.manila_today())::jsonb);
+select pg_temp.check('paid from the company fund instead, the earlier stock''s cost counts in the funds (Mint 10 + Mango 2 at 210, Batch Pod 5 at 50)',
+  (public.company_funds() ->> 'stock_paid_cents')::bigint = (:'f0'::jsonb ->> 'stock_paid_cents')::bigint + (12 * 21000 + 5 * 5000));
+select public.update_batch_payment((select id from public.batch_payments where batch_id = :'made'),
+  format('{"amount_cents": %s, "source": "owner", "paid_on": "%s"}', (select sum(amount_cents) from public.batch_payments where batch_id = :'made'), public.manila_today())::jsonb);
 select public.save_product(null, '{"name": "Fund Pod", "price_cents": 1000}') as fp \gset
 select public.receive_batch(format('{"shipping_cents": 500, "items": [{"product_id": "%s", "qty": 10, "unit_cost_cents": 300}]}', :'fp')::jsonb) as fb \gset
 select public.company_funds() as f1 \gset
-select pg_temp.check('a new batch is paid from the funds (goods + restocking fees); nothing kept until you decide, so it asks',
-  (:'f1'::jsonb ->> 'goods_cents')::bigint = (:'f0'::jsonb ->> 'goods_cents')::bigint + 3000
-  and (:'f1'::jsonb ->> 'restock_fees_cents')::bigint = (:'f0'::jsonb ->> 'restock_fees_cents')::bigint + 500
+select pg_temp.check('a new batch is paid in full from the funds (goods + restocking fees); nothing kept until you decide, so it asks',
+  (:'f1'::jsonb ->> 'stock_paid_cents')::bigint = (:'f0'::jsonb ->> 'stock_paid_cents')::bigint + 3500
+  and (select count(*) = 1 and sum(amount_cents) = 3500 and bool_and(source = 'company' and paid_on = public.manila_today())
+         from public.batch_payments where batch_id = :'fb')
   and (:'f1'::jsonb ->> 'balance_cents')::bigint = (:'f0'::jsonb ->> 'balance_cents')::bigint - 3500
   and (:'f1'::jsonb ->> 'kept_cents')::bigint = 0
   and (:'f1'::jsonb ->> 'needs_decision')::boolean
@@ -495,10 +503,12 @@ select pg_temp.check('the next batch uses what was kept (₱12 goods + ₱3 ship
   and (:'f3'::jsonb ->> 'needs_decision')::boolean
   and (:'f3'::jsonb ->> 'balance_cents')::bigint = (:'f2'::jsonb ->> 'balance_cents')::bigint - 1500);
 select pg_temp.expect_error('the amount kept is checked', $$select public.set_restock_set_aside(-1)$$, '₱0 or more');
-select public.set_batch_paid_from_funds(:'fb', false);
-select pg_temp.check('a batch not paid from funds isn''t charged',
-  (public.company_funds() ->> 'goods_cents')::bigint = (:'f3'::jsonb ->> 'goods_cents')::bigint - 3000);
-select public.set_batch_paid_from_funds(:'fb', true);
+select public.update_batch_payment((select id from public.batch_payments where batch_id = :'fb'),
+  format('{"amount_cents": 3500, "source": "investment", "paid_on": "%s"}', public.manila_today())::jsonb);
+select pg_temp.check('a batch paid with an investment isn''t charged to the funds',
+  (public.company_funds() ->> 'stock_paid_cents')::bigint = (:'f3'::jsonb ->> 'stock_paid_cents')::bigint - 3500);
+select public.update_batch_payment((select id from public.batch_payments where batch_id = :'fb'),
+  format('{"amount_cents": 3500, "source": "company", "paid_on": "%s"}', public.manila_today())::jsonb);
 select pg_temp.expect_error('manager can''t release profits', $$select public.release_profits(100)$$, 'Only the owner');
 set request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
 -- A big sale so the test shop has profit above the reserve.
@@ -574,9 +584,11 @@ select pg_temp.expect_error('staff can''t fix stock', format($$select public.rem
 -- ───────── Finance: statements, owner capital, tax, payout limit ─────────
 set request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
 select public.finance_report(public.manila_today() - 3650, public.manila_today()) as fin \gset
-select pg_temp.check('finance: the balance adds up (cash + receivables + stock = tax owed + capital + profit kept)',
-  ((:'fin'::jsonb -> 'end' ->> 'cash')::numeric + (:'fin'::jsonb -> 'end' ->> 'receivables')::numeric + (:'fin'::jsonb -> 'end' ->> 'inventory')::numeric)
-  = ((:'fin'::jsonb -> 'end' ->> 'tax_payable')::numeric + (:'fin'::jsonb -> 'end' ->> 'capital')::numeric + (:'fin'::jsonb -> 'end' ->> 'retained')::numeric));
+select pg_temp.check('finance: the balance adds up (cash + receivables + stock + stock on the way = tax owed + owed to suppliers + capital + profit kept)',
+  ((:'fin'::jsonb -> 'end' ->> 'cash')::numeric + (:'fin'::jsonb -> 'end' ->> 'receivables')::numeric + (:'fin'::jsonb -> 'end' ->> 'inventory')::numeric
+   + (:'fin'::jsonb -> 'end' ->> 'on_the_way')::numeric)
+  = ((:'fin'::jsonb -> 'end' ->> 'tax_payable')::numeric + (:'fin'::jsonb -> 'end' ->> 'owed_suppliers')::numeric
+     + (:'fin'::jsonb -> 'end' ->> 'capital')::numeric + (:'fin'::jsonb -> 'end' ->> 'retained')::numeric));
 select pg_temp.check('finance: a period from before the first sale starts at zero',
   (:'fin'::jsonb -> 'start' ->> 'net')::numeric = 0 and (:'fin'::jsonb -> 'start' ->> 'cash')::numeric = 0);
 select pg_temp.check('finance: net sales and receivables match the sales',
@@ -584,9 +596,9 @@ select pg_temp.check('finance: net sales and receivables match the sales',
   and (:'fin'::jsonb -> 'end' ->> 'receivables')::bigint = (select sum(balance_cents) from public.sales where status = 'completed'));
 select pg_temp.check('finance: cash = the old fund balance (no capital put in yet)',
   (:'fin'::jsonb -> 'end' ->> 'cash')::numeric = (public.company_funds() ->> 'balance_cents')::numeric);
-select pg_temp.check('finance: the earlier-stock batch counts as owner capital',
-  (:'fin'::jsonb -> 'end' ->> 'capital')::numeric = (:'fin'::jsonb -> 'end' ->> 'owner_goods')::numeric + (:'fin'::jsonb -> 'end' ->> 'owner_fees')::numeric
-  and (:'fin'::jsonb -> 'end' ->> 'owner_goods')::numeric > 0);
+select pg_temp.check('finance: the earlier-stock batch, paid with the owners'' money, counts as owner capital',
+  (:'fin'::jsonb -> 'end' ->> 'capital')::numeric = (:'fin'::jsonb -> 'end' ->> 'paid_owner')::numeric + (:'fin'::jsonb -> 'end' ->> 'paid_investment')::numeric
+  and (:'fin'::jsonb -> 'end' ->> 'paid_owner')::numeric > 0);
 select pg_temp.check('finance: tax is 3% of net sales',
   (:'fin'::jsonb -> 'end' ->> 'tax')::numeric = round((:'fin'::jsonb -> 'end' ->> 'net')::numeric * 0.03));
 select pg_temp.check('finance: receivables listed with their age',
@@ -604,11 +616,14 @@ select pg_temp.check('payment fees are an operating expense; taxes paid are not,
   and (:'fin2'::jsonb -> 'end' ->> 'tax_payable')::numeric = (:'fin'::jsonb -> 'end' ->> 'tax_payable')::numeric - 2000
   and (:'fin2'::jsonb -> 'end' ->> 'cash')::numeric = (:'fin'::jsonb -> 'end' ->> 'cash')::numeric + 100000 - 1500 - 2000);
 select pg_temp.check('the balance still adds up',
-  ((:'fin2'::jsonb -> 'end' ->> 'cash')::numeric + (:'fin2'::jsonb -> 'end' ->> 'receivables')::numeric + (:'fin2'::jsonb -> 'end' ->> 'inventory')::numeric)
-  = ((:'fin2'::jsonb -> 'end' ->> 'tax_payable')::numeric + (:'fin2'::jsonb -> 'end' ->> 'capital')::numeric + (:'fin2'::jsonb -> 'end' ->> 'retained')::numeric));
-select pg_temp.check('safe to distribute = the lower of profit kept and spare cash (cash − tax owed − inventory reserve)',
+  ((:'fin2'::jsonb -> 'end' ->> 'cash')::numeric + (:'fin2'::jsonb -> 'end' ->> 'receivables')::numeric + (:'fin2'::jsonb -> 'end' ->> 'inventory')::numeric
+   + (:'fin2'::jsonb -> 'end' ->> 'on_the_way')::numeric)
+  = ((:'fin2'::jsonb -> 'end' ->> 'tax_payable')::numeric + (:'fin2'::jsonb -> 'end' ->> 'owed_suppliers')::numeric
+     + (:'fin2'::jsonb -> 'end' ->> 'capital')::numeric + (:'fin2'::jsonb -> 'end' ->> 'retained')::numeric));
+select pg_temp.check('safe to distribute = the lower of profit kept and spare cash (cash − tax owed − owed to suppliers − inventory reserve)',
   (:'fin2'::jsonb -> 'now' ->> 'safe_to_distribute')::numeric = greatest(0, least((:'fin2'::jsonb -> 'now' ->> 'retained')::numeric,
-     (:'fin2'::jsonb -> 'now' ->> 'cash')::numeric - (:'fin2'::jsonb -> 'now' ->> 'tax_reserve')::numeric - (:'fin2'::jsonb -> 'now' ->> 'inventory_reserve')::numeric)));
+     (:'fin2'::jsonb -> 'now' ->> 'cash')::numeric - (:'fin2'::jsonb -> 'now' ->> 'tax_reserve')::numeric
+     - (:'fin2'::jsonb -> 'now' ->> 'supplier_reserve')::numeric - (:'fin2'::jsonb -> 'now' ->> 'inventory_reserve')::numeric)));
 select (:'fin2'::jsonb -> 'now' ->> 'safe_to_distribute')::numeric::bigint as safe \gset
 select pg_temp.expect_error('can''t distribute more than is safe', format($$select public.release_profits(%s)$$, :safe + 1), 'safe to distribute');
 select public.set_tax_rate(0);
@@ -683,9 +698,9 @@ select pg_temp.check('batch statements: stock from before batches has one row of
             and fees_cents = 0 and stock_cents = 2000 and left_cost_cents = 2000 and left_value_cents = 5000)
      from public.batch_statements() where batch_id is null));
 select public.finance_report(public.manila_today() - 3650, public.manila_today()) as fin3 \gset
-select pg_temp.check('register: cash received + capital − everything paid out = what the register should hold',
+select pg_temp.check('register: cash received + capital − everything paid out (stock paid from the fund, expenses, taxes, distributions) = what the register should hold',
   (select (r ->> 'expected')::numeric = (r ->> 'cash_received')::numeric + (r ->> 'capital_cash')::numeric - (r ->> 'stock')::numeric
-            - (r ->> 'fees')::numeric - (r ->> 'expenses')::numeric - (r ->> 'tax_paid')::numeric - (r ->> 'distributions')::numeric
+            - (r ->> 'expenses')::numeric - (r ->> 'tax_paid')::numeric - (r ->> 'distributions')::numeric
      from (select :'fin3'::jsonb -> 'now' -> 'register' as r) x));
 select pg_temp.check('register: money paid by GCash, Maya, card or bank is not in the register',
   (select (r ->> 'expected')::numeric + (r ->> 'elsewhere')::numeric - (r ->> 'payment_fees')::numeric = (:'fin3'::jsonb -> 'now' ->> 'cash')::numeric
@@ -873,40 +888,360 @@ select pg_temp.expect_error('batch report: an unknown batch', $$select public.ba
 reset role;
 select pg_temp.check('nobody signed out can see batch reports', not has_function_privilege('anon', 'public.batch_report(uuid)', 'execute'));
 
--- ───────── A batch's received date (owners and managers) ─────────
+-- ───────── A batch's received date: changeable any time, not before the order (owners and managers) ─────────
 set role authenticated;
 set request.jwt.claim.sub = '33333333-3333-3333-3333-333333333333';
 select public.set_batch_received_on(:'rpt_batch', public.manila_today() - 3);
-select pg_temp.check('a manager can move a batch''s received date earlier; only the date changes',
+select pg_temp.check('a manager can move a batch''s received date; only the date changes',
   (select received_on = public.manila_today() - 3 and supplier = 'Report Supply' from public.stock_batches where id = :'rpt_batch'));
 select pg_temp.expect_error('a received date in the future is refused',
   format($$select public.set_batch_received_on('%s', public.manila_today() + 1)$$, :'rpt_batch'), 'last 400 days');
 reset role;
 update public.stock_movements set created_at = created_at - interval '5 days' where batch_id = :'rpt_batch';
 set role authenticated;
-select pg_temp.expect_error('a received date after the batch''s pieces were recorded is refused',
-  format($$select public.set_batch_received_on('%s', public.manila_today() - 2)$$, :'rpt_batch'), 'were recorded on');
-select pg_temp.expect_error('the same rule when changing supplier, date and note',
-  format($$select public.update_batch_details('%s', '{"supplier": "X", "received_on": "%s"}')$$, :'rpt_batch', public.manila_today() - 2),
-  'were recorded on');
-reset role;
-update public.stock_batches set received_on = public.manila_today() where id = :'rpt_batch';
-set role authenticated;
-select public.update_batch_details(:'rpt_batch', format('{"supplier": "Kept", "received_on": "%s"}', public.manila_today())::jsonb);
-select pg_temp.check('a supplier or note can still be saved when the date is unchanged',
-  (select supplier = 'Kept' and received_on = public.manila_today() from public.stock_batches where id = :'rpt_batch'));
+select public.set_batch_received_on(:'rpt_batch', public.manila_today() - 1);
+select pg_temp.check('a received date after the day its pieces were recorded is fine (entered before it arrived)',
+  (select received_on = public.manila_today() - 1 from public.stock_batches where id = :'rpt_batch'));
+select public.update_batch_details(:'rpt_batch', format('{"supplier": "Kept", "received_on": "%s", "ordered_on": "%s"}', public.manila_today(), public.manila_today() - 4)::jsonb);
+select pg_temp.check('supplier, order day and received day are saved together',
+  (select supplier = 'Kept' and received_on = public.manila_today() and ordered_on = public.manila_today() - 4 from public.stock_batches where id = :'rpt_batch'));
+select pg_temp.expect_error('a batch can''t arrive before it was ordered',
+  format($$select public.set_batch_received_on('%s', public.manila_today() - 5)$$, :'rpt_batch'), 'was ordered on');
+select pg_temp.expect_error('the same when changing supplier, date and note',
+  format($$select public.update_batch_details('%s', '{"supplier": "X", "received_on": "%s"}')$$, :'rpt_batch', public.manila_today() - 5),
+  'can''t arrive before it was ordered');
 set request.jwt.claim.sub = '22222222-2222-2222-2222-222222222222';
 select pg_temp.expect_error('staff can''t change a batch''s date',
   format($$select public.set_batch_received_on('%s', public.manila_today() - 6)$$, :'rpt_batch'), 'Only owners and managers');
 set request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
+select public.update_batch_details(:'rpt_batch', format('{"supplier": "Kept", "received_on": "%s", "ordered_on": ""}', public.manila_today())::jsonb);
 select public.set_batch_received_on(:'rpt_batch', public.manila_today() - 6);
-select pg_temp.check('the owner can change it too, to the day the pieces were recorded or earlier',
-  (select received_on = public.manila_today() - 6 from public.stock_batches where id = :'rpt_batch'));
+select pg_temp.check('the owner can clear the order day and change the date too',
+  (select received_on = public.manila_today() - 6 and ordered_on is null from public.stock_batches where id = :'rpt_batch'));
 select pg_temp.expect_error('an unknown batch',
   $$select public.set_batch_received_on('00000000-0000-4000-8000-000000000000', public.manila_today())$$, 'no longer exists');
 reset role;
 select pg_temp.check('nobody signed out can change a batch''s date', not has_function_privilege('anon', 'public.set_batch_received_on(uuid, date)', 'execute'));
+select pg_temp.check('nothing reads the old paid-from-funds flag', not exists (select 1 from pg_proc where prosrc ilike '%paid_from_funds%'));
 
+-- ───────── Orders: ordered, paid, arrived (owners and managers) ─────────
+set role authenticated;
+set request.jwt.claim.sub = '33333333-3333-3333-3333-333333333333';
+select public.save_product(null, '{"brand": "Ord", "name": "Lychee", "price_cents": 30000}') as ord_a \gset
+select public.save_product(null, '{"brand": "Ord", "name": "Melon", "price_cents": 30000}') as ord_b \gset
+select public.set_restock_set_aside(100000, 'For the next order');
+select public.finance_report(public.manila_today() - 3650, public.manila_today()) as ofin0 \gset
+-- ₱750 + ₱480 of pods and ₱20 shipping = ₱1,250; ₱500 down with the owner's money.
+select public.order_batch(format('{"supplier": " Vape Hub ", "ordered_on": "%s", "shipping_cents": 2000,
+  "items": [{"product_id": "%s", "qty": 5, "unit_cost_cents": 15000}, {"product_id": "%s", "qty": 3, "unit_cost_cents": 16000}],
+  "payment": {"amount_cents": 50000, "source": "owner"}}', public.manila_today() - 3, :'ord_a', :'ord_b')::jsonb) as ord \gset
+select pg_temp.check('an order waits off the shelf: numbered, its order day, not arrived, its lines, no stock',
+  (select batch_no = (select max(batch_no) from public.stock_batches) and supplier = 'Vape Hub'
+          and ordered_on = public.manila_today() - 3 and received_on is null from public.stock_batches where id = :'ord')
+  and (select count(*) = 2 and sum(qty) = 8 from public.batch_order_lines where batch_id = :'ord')
+  and (select sum(on_hand) = 0 from public.products where id in (:'ord_a', :'ord_b'))
+  and not exists (select 1 from public.stock_movements where batch_id = :'ord'));
+select pg_temp.check('the downpayment is recorded on the order day, with whose money',
+  (select count(*) = 1 and sum(amount_cents) = 50000 and bool_and(source = 'owner' and paid_on = public.manila_today() - 3)
+     from public.batch_payments where batch_id = :'ord'));
+select public.finance_report(public.manila_today() - 3650, public.manila_today()) as ofin1 \gset
+select pg_temp.check('finance: the order is stock on the way, the rest is owed to the supplier, the owner''s money is capital; cash unchanged',
+  (:'ofin1'::jsonb -> 'end' ->> 'on_the_way')::numeric = (:'ofin0'::jsonb -> 'end' ->> 'on_the_way')::numeric + 125000
+  and (:'ofin1'::jsonb -> 'end' ->> 'owed_suppliers')::numeric = (:'ofin0'::jsonb -> 'end' ->> 'owed_suppliers')::numeric + 75000
+  and (:'ofin1'::jsonb -> 'end' ->> 'capital')::numeric = (:'ofin0'::jsonb -> 'end' ->> 'capital')::numeric + 50000
+  and (:'ofin1'::jsonb -> 'end' ->> 'cash')::numeric = (:'ofin0'::jsonb -> 'end' ->> 'cash')::numeric
+  and (:'ofin1'::jsonb -> 'end' ->> 'inventory')::numeric = (:'ofin0'::jsonb -> 'end' ->> 'inventory')::numeric);
+select pg_temp.check('finance: the balance adds up with an order on the way',
+  ((:'ofin1'::jsonb -> 'end' ->> 'cash')::numeric + (:'ofin1'::jsonb -> 'end' ->> 'receivables')::numeric
+   + (:'ofin1'::jsonb -> 'end' ->> 'inventory')::numeric + (:'ofin1'::jsonb -> 'end' ->> 'on_the_way')::numeric)
+  = ((:'ofin1'::jsonb -> 'end' ->> 'tax_payable')::numeric + (:'ofin1'::jsonb -> 'end' ->> 'owed_suppliers')::numeric
+     + (:'ofin1'::jsonb -> 'end' ->> 'capital')::numeric + (:'ofin1'::jsonb -> 'end' ->> 'retained')::numeric));
+select public.finance_report(public.manila_today() - 3650, public.manila_today() - 4) -> 'end' as ofin_before \gset
+select public.finance_report(public.manila_today() - 3650, public.manila_today() - 3) -> 'end' as ofin_day \gset
+select pg_temp.check('finance: the order and its downpayment count from the order day, not before',
+  (:'ofin_day'::jsonb ->> 'on_the_way')::numeric - (:'ofin_before'::jsonb ->> 'on_the_way')::numeric = 125000
+  and (:'ofin_day'::jsonb ->> 'paid_owner')::numeric - (:'ofin_before'::jsonb ->> 'paid_owner')::numeric = 50000
+  and (:'ofin_day'::jsonb ->> 'owed_suppliers')::numeric - (:'ofin_before'::jsonb ->> 'owed_suppliers')::numeric = 75000);
+select pg_temp.check('spare cash keeps back what is owed to suppliers',
+  (:'ofin1'::jsonb -> 'now' ->> 'supplier_reserve')::numeric = greatest(0, (:'ofin1'::jsonb -> 'end' ->> 'owed_suppliers')::numeric)
+  and (:'ofin1'::jsonb -> 'now' ->> 'spare_cash')::numeric = (:'ofin1'::jsonb -> 'now' ->> 'cash')::numeric
+      - (:'ofin1'::jsonb -> 'now' ->> 'tax_reserve')::numeric - (:'ofin1'::jsonb -> 'now' ->> 'supplier_reserve')::numeric
+      - (:'ofin1'::jsonb -> 'now' ->> 'inventory_reserve')::numeric);
+select pg_temp.check('finance lists the order with what is paid and owed',
+  exists (select 1 from jsonb_array_elements(:'ofin1'::jsonb -> 'suppliers') e
+           where e ->> 'batch_id' = :'ord' and (e ->> 'on_the_way')::boolean and (e ->> 'cost_cents')::int = 125000
+             and (e ->> 'paid_cents')::int = 50000 and (e ->> 'owed_cents')::int = 75000));
+select pg_temp.check('the company''s part of the order uses what was kept for the next restock, and Finance asks again',
+  (public.company_funds() ->> 'set_aside_used_cents')::int = 75000 and (public.company_funds() ->> 'kept_cents')::int = 25000
+  and (public.company_funds() ->> 'needs_decision')::boolean);
+select pg_temp.expect_error('no stock goes into a batch on the way',
+  format($$select public.adjust_stock('%s', 'restock', 1, null, null, '%s')$$, :'ord_a', :'ord'), 'still on the way');
+select pg_temp.expect_error('nor a new product''s starting pieces',
+  format($$select public.save_product(null, '{"name": "Early", "price_cents": 100, "opening_qty": 2, "batch_id": "%s"}')$$, :'ord'), 'still on the way');
+select pg_temp.expect_error('its received date waits for Arrived',
+  format($$select public.set_batch_received_on('%s', public.manila_today())$$, :'ord'), 'hasn''t arrived yet');
+select public.update_batch_details(:'ord', format('{"supplier": "Vape Hub", "ordered_on": "%s", "note": "PO 12"}', public.manila_today() - 2)::jsonb);
+select pg_temp.check('an order''s supplier, order day and note can be changed',
+  (select ordered_on = public.manila_today() - 2 and note = 'PO 12' and received_on is null from public.stock_batches where id = :'ord'));
+select pg_temp.expect_error('a payment can''t be more than is still owed',
+  format($$select public.add_batch_payment('%s', '{"amount_cents": 80000, "source": "company"}')$$, :'ord'), 'Only ₱750.00 is still to pay');
+select pg_temp.expect_error('whose money paid is checked',
+  format($$select public.add_batch_payment('%s', '{"amount_cents": 100, "source": "friend"}')$$, :'ord'), 'Pick whose money paid');
+select pg_temp.expect_error('it can''t arrive before it was ordered',
+  format($$select public.arrive_batch('%s', '{"received_on": "%s"}')$$, :'ord', public.manila_today() - 3), 'was ordered on');
+select pg_temp.expect_error('something has to arrive',
+  format($$select public.arrive_batch('%s', '{"items": [{"line_id": "%s", "qty": 0}, {"line_id": "%s", "qty": 0}]}')$$, :'ord',
+    (select id from public.batch_order_lines where batch_id = :'ord' and product_id = :'ord_a'),
+    (select id from public.batch_order_lines where batch_id = :'ord' and product_id = :'ord_b')), 'at least one product');
+select pg_temp.check('a refused arrival changes nothing',
+  (select received_on is null from public.stock_batches where id = :'ord') and not exists (select 1 from public.stock_movements where batch_id = :'ord'));
+-- Arrived yesterday, one Melon short, the rest paid on pick-up from the company fund.
+select public.arrive_batch(:'ord', format('{"received_on": "%s", "items": [{"line_id": "%s", "qty": 2}], "payment": {"amount_cents": 59000, "source": "company"}}',
+  public.manila_today() - 1, (select id from public.batch_order_lines where batch_id = :'ord' and product_id = :'ord_b'))::jsonb);
+select pg_temp.check('Arrived puts what came on the shelf (one short) as restocks in the batch, at the ordered cost',
+  (select received_on = public.manila_today() - 1 from public.stock_batches where id = :'ord')
+  and (select on_hand = 5 from public.products where id = :'ord_a') and (select on_hand = 2 from public.products where id = :'ord_b')
+  and (select count(*) = 2 and sum(delta) = 7 and bool_and(kind = 'restock') from public.stock_movements where batch_id = :'ord')
+  and (select cost_cents = 15000 from public.product_costs where product_id = :'ord_a')
+  and (select qty = 3 from public.batch_order_lines where batch_id = :'ord' and product_id = :'ord_b'));
+select pg_temp.check('what was paid on pick-up is recorded on the arrival day',
+  (select count(*) = 1 from public.batch_payments where batch_id = :'ord' and source = 'company' and amount_cents = 59000 and paid_on = public.manila_today() - 1));
+select public.finance_report(public.manila_today() - 3650, public.manila_today()) as ofin2 \gset
+select pg_temp.check('finance: arrived, it is inventory at what came (₱750 + ₱320 + ₱20), fully paid; cash down by the pick-up payment',
+  (:'ofin2'::jsonb -> 'end' ->> 'on_the_way')::numeric = (:'ofin0'::jsonb -> 'end' ->> 'on_the_way')::numeric
+  and (:'ofin2'::jsonb -> 'end' ->> 'inventory')::numeric = (:'ofin0'::jsonb -> 'end' ->> 'inventory')::numeric + 109000
+  and (:'ofin2'::jsonb -> 'end' ->> 'owed_suppliers')::numeric = (:'ofin0'::jsonb -> 'end' ->> 'owed_suppliers')::numeric
+  and (:'ofin2'::jsonb -> 'end' ->> 'cash')::numeric = (:'ofin0'::jsonb -> 'end' ->> 'cash')::numeric - 59000
+  and not exists (select 1 from jsonb_array_elements(:'ofin2'::jsonb -> 'suppliers') e where e ->> 'batch_id' = :'ord'));
+select pg_temp.check('finance: the day before it arrived, it was still on the way',
+  (public.finance_report(public.manila_today() - 3650, public.manila_today() - 2) -> 'end' ->> 'on_the_way')::numeric
+  = (:'ofin2'::jsonb -> 'end' ->> 'on_the_way')::numeric + 109000);
+select pg_temp.expect_error('a batch arrives once', format($$select public.arrive_batch('%s')$$, :'ord'), 'already arrived');
+select pg_temp.expect_error('once paid in full, no more payments',
+  format($$select public.add_batch_payment('%s', '{"amount_cents": 100, "source": "company"}')$$, :'ord'), 'already paid in full');
+-- Put back on the way (tapped Arrived by mistake), then arrived as ordered with nothing paid on pick-up.
+select public.undo_batch_arrival(:'ord');
+select pg_temp.check('an arrival can be undone while nothing sold: the pieces come off the shelf, what came is the order again, payments stay',
+  (select received_on is null and ordered_on = public.manila_today() - 2 from public.stock_batches where id = :'ord')
+  and (select sum(on_hand) = 0 from public.products where id in (:'ord_a', :'ord_b'))
+  and not exists (select 1 from public.stock_movements where batch_id = :'ord')
+  and (select count(*) = 2 and sum(qty) = 7 from public.batch_order_lines where batch_id = :'ord')
+  and (select count(*) = 2 from public.batch_payments where batch_id = :'ord'));
+select public.arrive_batch(:'ord', format('{"items": [{"line_id": "%s", "qty": 3}]}',
+  (select id from public.batch_order_lines where batch_id = :'ord' and product_id = :'ord_b'))::jsonb);
+select pg_temp.check('Arrived again, today, with the third Melon: ₱160 still owed for it',
+  (select received_on = public.manila_today() from public.stock_batches where id = :'ord')
+  and (select on_hand = 3 from public.products where id = :'ord_b')
+  and exists (select 1 from jsonb_array_elements(public.finance_report(public.manila_today(), public.manila_today()) -> 'suppliers') e
+               where e ->> 'batch_id' = :'ord' and (e ->> 'owed_cents')::int = 16000 and not (e ->> 'on_the_way')::boolean));
+select public.add_batch_payment(:'ord', format('{"amount_cents": 16000, "source": "investment", "paid_on": "%s", "note": " Balance "}', public.manila_today())::jsonb) as ord_pay \gset
+select pg_temp.check('paying the rest with an investment: paid in full, and it counts as owner capital',
+  (select note = 'Balance' and source = 'investment' from public.batch_payments where id = :'ord_pay')
+  and not exists (select 1 from jsonb_array_elements(public.finance_report(public.manila_today(), public.manila_today()) -> 'suppliers') e
+                   where e ->> 'batch_id' = :'ord')
+  and (public.finance_report(public.manila_today(), public.manila_today()) -> 'end' ->> 'capital')::numeric
+      = (:'ofin0'::jsonb -> 'end' ->> 'capital')::numeric + 50000 + 16000);
+select public.update_batch_payment(:'ord_pay', format('{"amount_cents": 10000, "source": "company", "paid_on": "%s"}', public.manila_today())::jsonb);
+select pg_temp.check('a payment can be changed', (select amount_cents = 10000 and source = 'company' and note is null from public.batch_payments where id = :'ord_pay'));
+select pg_temp.expect_error('a changed payment is still at most what is owed',
+  format($$select public.update_batch_payment('%s', '{"amount_cents": 16001, "source": "company"}')$$, :'ord_pay'), 'Only ₱160.00');
+select public.delete_batch_payment(:'ord_pay');
+select pg_temp.check('and removed', not exists (select 1 from public.batch_payments where id = :'ord_pay'));
+select public.complete_sale(format('{"client_ref": "dddddddd-0000-4000-8000-000000000001", "payment_method": "cash", "tendered_cents": 30000, "age_verified": true, "items": [{"product_id": "%s", "quantity": 1}]}', :'ord_a')::jsonb);
+select pg_temp.expect_error('once a piece sold, the batch can''t go back on the way',
+  format($$select public.undo_batch_arrival('%s')$$, :'ord'), 'were sold');
+-- A delivery received in one step, not paid yet; then reserved pieces stop it going back on the way.
+select public.receive_batch(format('{"items": [{"product_id": "%s", "qty": 4, "unit_cost_cents": 15000}], "payment": {"amount_cents": 0}}', :'ord_b')::jsonb) as ord_rcv \gset
+select pg_temp.check('a delivery received with nothing paid yet is owed in full',
+  not exists (select 1 from public.batch_payments where batch_id = :'ord_rcv')
+  and exists (select 1 from jsonb_array_elements(public.finance_report(public.manila_today(), public.manila_today()) -> 'suppliers') e
+               where e ->> 'batch_id' = :'ord_rcv' and (e ->> 'owed_cents')::int = 60000));
+select public.reserve_product(format('{"product_id": "%s", "customer_name": "Lia", "qty": 6}', :'ord_b')::jsonb) as ord_res \gset
+select pg_temp.expect_error('reserved pieces stop a batch going back on the way',
+  format($$select public.undo_batch_arrival('%s')$$, :'ord_rcv'), 'reserved or no longer on the shelf');
+select public.close_reservation(:'ord_res');
+select public.undo_batch_arrival(:'ord_rcv');
+select pg_temp.check('a batch received in one step goes back on the way as an order of what came, dated the day it arrived',
+  (select received_on is null and ordered_on = public.manila_today() from public.stock_batches where id = :'ord_rcv')
+  and (select count(*) = 1 and sum(qty) = 4 and min(unit_cost_cents) = 15000 from public.batch_order_lines where batch_id = :'ord_rcv')
+  and (select on_hand = 3 from public.products where id = :'ord_b'));
+select pg_temp.check('its statement shows what it was ordered at and nothing on the shelf',
+  (select goods_cents = 60000 and received = 0 and stock_cents = 0 from public.batch_statements() where batch_id = :'ord_rcv'));
+select public.add_batch_payment(:'ord_rcv', '{"amount_cents": 1000, "source": "company"}') as rcv_pay \gset
+select pg_temp.expect_error('an order with money paid on it can''t be removed', format($$select public.delete_batch_order('%s')$$, :'ord_rcv'), 'Remove its payments first');
+select pg_temp.expect_error('an arrived batch isn''t removed as an order', format($$select public.delete_batch_order('%s')$$, :'ord'), 'already arrived');
+select public.delete_batch_payment(:'rcv_pay');
+select public.delete_batch_order(:'ord_rcv');
+select pg_temp.check('a cancelled order is removed with its lines',
+  not exists (select 1 from public.stock_batches where id = :'ord_rcv') and not exists (select 1 from public.batch_order_lines where batch_id = :'ord_rcv'));
+-- Paid in full when ordered: "rest" is the whole cost.
+select public.order_batch(format('{"shipping_cents": 500, "items": [{"product_id": "%s", "qty": 2, "unit_cost_cents": 15000}], "payment": {"amount_cents": "rest", "source": "company"}}', :'ord_b')::jsonb) as ord_full \gset
+select pg_temp.check('an order paid in full when ordered: one payment of its whole cost',
+  (select count(*) = 1 and sum(amount_cents) = 30500 and bool_and(source = 'company') from public.batch_payments where batch_id = :'ord_full'));
+select public.arrive_batch(:'ord_full', '{"payment": {"amount_cents": "rest", "source": "company"}}');
+select pg_temp.check('nothing more to pay on pick-up when it was paid in full',
+  (select count(*) = 1 from public.batch_payments where batch_id = :'ord_full'));
+-- An order to pay on pick-up.
+select public.order_batch(format('{"items": [{"product_id": "%s", "qty": 2, "unit_cost_cents": 15000}]}', :'ord_a')::jsonb) as ord_cop \gset
+select pg_temp.check('an order to pay on pick-up has no payments, is ordered today and owed in full',
+  not exists (select 1 from public.batch_payments where batch_id = :'ord_cop')
+  and (select ordered_on = public.manila_today() from public.stock_batches where id = :'ord_cop')
+  and exists (select 1 from jsonb_array_elements(public.finance_report(public.manila_today(), public.manila_today()) -> 'suppliers') e
+               where e ->> 'batch_id' = :'ord_cop' and (e ->> 'owed_cents')::int = 30000 and (e ->> 'on_the_way')::boolean));
+select pg_temp.expect_error('an order date in the future is refused',
+  format($$select public.order_batch('{"ordered_on": "%s", "items": [{"product_id": "%s", "qty": 1}]}')$$, public.manila_today() + 1, :'ord_a'), 'last 60 days');
+select pg_temp.expect_error('an order needs pieces', $$select public.order_batch('{"items": []}')$$, 'at least one product');
+select pg_temp.expect_error('an order can''t pay more than it costs',
+  format($$select public.order_batch('{"items": [{"product_id": "%s", "qty": 1, "unit_cost_cents": 100}], "payment": {"amount_cents": 101}}')$$, :'ord_a'), 'Only ₱1.00');
+set request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
+select pg_temp.expect_error('a batch on the way has no report yet', format($$select public.batch_report('%s')$$, :'ord_cop'), 'hasn''t arrived yet');
+select public.batch_report(:'ord') as ord_rpt \gset
+select pg_temp.check('the batch report says when it was ordered, what it cost and whose money paid',
+  (:'ord_rpt'::jsonb ->> 'ordered_on')::date = public.manila_today() - 2 and (:'ord_rpt'::jsonb ->> 'cost_cents')::int = 125000
+  and (:'ord_rpt'::jsonb ->> 'paid_owner_cents')::int = 50000 and (:'ord_rpt'::jsonb ->> 'paid_company_cents')::int = 59000
+  and (:'ord_rpt'::jsonb ->> 'paid_investment_cents')::int = 0);
+select public.finance_report(public.manila_today() - 3650, public.manila_today()) as ofin3 \gset
+select pg_temp.check('finance: the balance adds up with orders on the way, paid in parts and owed',
+  ((:'ofin3'::jsonb -> 'end' ->> 'cash')::numeric + (:'ofin3'::jsonb -> 'end' ->> 'receivables')::numeric
+   + (:'ofin3'::jsonb -> 'end' ->> 'inventory')::numeric + (:'ofin3'::jsonb -> 'end' ->> 'on_the_way')::numeric)
+  = ((:'ofin3'::jsonb -> 'end' ->> 'tax_payable')::numeric + (:'ofin3'::jsonb -> 'end' ->> 'owed_suppliers')::numeric
+     + (:'ofin3'::jsonb -> 'end' ->> 'capital')::numeric + (:'ofin3'::jsonb -> 'end' ->> 'retained')::numeric)
+  and (:'ofin3'::jsonb -> 'end' ->> 'on_the_way')::numeric > 0 and (:'ofin3'::jsonb -> 'end' ->> 'owed_suppliers')::numeric > 0);
+select pg_temp.check('batch statements still add up to Finance''s stock on the shelf',
+  (select abs(sum(stock_cents) - (:'ofin3'::jsonb -> 'end' ->> 'inventory')::numeric) <= count(*) from public.batch_statements()));
+select pg_temp.check('every period adds up too: cash flow from opening to closing, and a month''s balance',
+  (select bool_and(
+     ((r -> 'end' ->> 'cash')::numeric + (r -> 'end' ->> 'receivables')::numeric + (r -> 'end' ->> 'inventory')::numeric + (r -> 'end' ->> 'on_the_way')::numeric)
+     = ((r -> 'end' ->> 'tax_payable')::numeric + (r -> 'end' ->> 'owed_suppliers')::numeric + (r -> 'end' ->> 'capital')::numeric + (r -> 'end' ->> 'retained')::numeric))
+     from (select public.finance_report(public.manila_today() - 3650, public.manila_today() - k) as r from generate_series(0, 5) k) x));
+set request.jwt.claim.sub = '22222222-2222-2222-2222-222222222222';
+select pg_temp.expect_error('staff can''t order stock', format($$select public.order_batch('{"items": [{"product_id": "%s", "qty": 1}]}')$$, :'ord_a'), 'Only owners and managers');
+select pg_temp.expect_error('staff can''t mark an order arrived', format($$select public.arrive_batch('%s')$$, :'ord_cop'), 'Only owners and managers');
+select pg_temp.expect_error('staff can''t record supplier payments', format($$select public.add_batch_payment('%s', '{"amount_cents": 100, "source": "company"}')$$, :'ord_cop'), 'Only owners and managers');
+select pg_temp.expect_error('staff can''t undo an arrival', format($$select public.undo_batch_arrival('%s')$$, :'ord'), 'Only owners and managers');
+select pg_temp.expect_error('staff can''t remove an order', format($$select public.delete_batch_order('%s')$$, :'ord_cop'), 'Only owners and managers');
+select pg_temp.check('staff see no order lines or supplier payments',
+  (select count(*) = 0 from public.batch_order_lines) and (select count(*) = 0 from public.batch_payments));
+select pg_temp.expect_error('staff can''t call the internal batch money', $$select * from public.batch_money()$$, 'permission denied');
+select pg_temp.expect_error('nor put a batch back on the way directly', format($$select public.batch_back_on_the_way('%s')$$, :'ord'), 'permission denied');
+reset role;
+select pg_temp.check('nobody signed out can order, receive or pay',
+  not has_function_privilege('anon', 'public.order_batch(jsonb)', 'execute')
+  and not has_function_privilege('anon', 'public.arrive_batch(uuid, jsonb)', 'execute')
+  and not has_function_privilege('anon', 'public.add_batch_payment(uuid, jsonb)', 'execute')
+  and not has_function_privilege('anon', 'public.undo_batch_arrival(uuid)', 'execute'));
+
+-- ───────── Orders: what the review found ─────────
+set role authenticated;
+set request.jwt.claim.sub = '33333333-3333-3333-3333-333333333333';
+select public.save_product(null, '{"brand": "Rev", "name": "Kiwi", "price_cents": 30000}') as rv_k \gset
+select public.save_product(null, '{"brand": "Rev", "name": "Plum", "price_cents": 30000}') as rv_p \gset
+-- A later shelf count of the same product (named on another batch) stops the batch going back on the way.
+select public.receive_batch(format('{"items": [{"product_id": "%s", "qty": 5, "unit_cost_cents": 10000}]}', :'rv_k')::jsonb) as rv_b1 \gset
+select public.order_batch(format('{"items": [{"product_id": "%s", "qty": 10, "unit_cost_cents": 10000}]}', :'rv_k')::jsonb) as rv_b2 \gset
+select public.arrive_batch(:'rv_b2');
+reset role;
+-- The count comes a moment after the arrival.
+update public.stock_movements set created_at = created_at - interval '1 minute' where batch_id = :'rv_b2';
+set role authenticated;
+select public.adjust_stock(:'rv_k', 'count', 15, null, null, :'rv_b1');
+select pg_temp.expect_error('a later count of its products stops a batch going back on the way',
+  format($$select public.undo_batch_arrival('%s')$$, :'rv_b2'), 'counted on the shelf after it arrived');
+select pg_temp.check('and the shelf is left as counted', (select on_hand = 15 from public.products where id = :'rv_k'));
+-- Undo keeps what changed after the arrival: a product added and a cost fixed.
+select public.order_batch(format('{"items": [{"product_id": "%s", "qty": 4, "unit_cost_cents": 10000}]}', :'rv_p')::jsonb) as rv_b3 \gset
+select public.arrive_batch(:'rv_b3');
+select public.adjust_stock(:'rv_k', 'restock', 2, 12000, null, :'rv_b3');
+select public.edit_stock_change((select id from public.stock_movements where batch_id = :'rv_b3' and product_id = :'rv_p'), 4, 11000);
+select public.undo_batch_arrival(:'rv_b3');
+select pg_temp.check('back on the way, the order is what came: pieces added and costs fixed after it arrived are kept',
+  (select count(*) = 2 and sum(qty) = 6 and sum(qty * unit_cost_cents) = 4 * 11000 + 2 * 12000 from public.batch_order_lines where batch_id = :'rv_b3')
+  and (select on_hand = 15 from public.products where id = :'rv_k') and (select on_hand = 0 from public.products where id = :'rv_p'));
+-- One batch paid ahead doesn't cancel what another still owes.
+select public.order_batch(format('{"items": [{"product_id": "%s", "qty": 2, "unit_cost_cents": 50000}], "payment": {"amount_cents": "rest", "source": "company"}}', :'rv_p')::jsonb) as rv_over \gset
+select public.arrive_batch(:'rv_over', format('{"items": [{"line_id": "%s", "qty": 1}]}', (select id from public.batch_order_lines where batch_id = :'rv_over'))::jsonb);
+select public.finance_report(public.manila_today(), public.manila_today()) -> 'now' as rv_now \gset
+reset role;
+select pg_temp.check('what is held back for suppliers is each batch''s debt, not netted against a batch paid ahead',
+  (:'rv_now'::jsonb ->> 'supplier_reserve')::numeric = (select sum(greatest(0, owed_cents)) from public.batch_money())
+  and exists (select 1 from public.batch_money() where batch_id = :'rv_over' and owed_cents = -50000));
+set role authenticated;
+select public.update_batch_payment((select id from public.batch_payments where batch_id = :'rv_over'),
+  format('{"amount_cents": 100000, "source": "owner", "paid_on": "%s", "note": "Fixed"}', public.manila_today() - 1)::jsonb);
+select pg_temp.check('a payment on a batch paid ahead can still get its day, whose money and note fixed',
+  (select source = 'owner' and paid_on = public.manila_today() - 1 and note = 'Fixed' from public.batch_payments where batch_id = :'rv_over'));
+select pg_temp.expect_error('but not go up',
+  format($$select public.update_batch_payment('%s', '{"amount_cents": 100001, "source": "owner"}')$$, (select id from public.batch_payments where batch_id = :'rv_over')),
+  'is still to pay');
+-- Pieces with no cost: paid in full can't be worked out; any amount can be recorded.
+select public.order_batch(format('{"items": [{"product_id": "%s", "qty": 3}]}', :'rv_p')::jsonb) as rv_nc \gset
+select pg_temp.expect_error('paid in full is refused while a piece has no cost',
+  format($$select public.arrive_batch('%s', '{"payment": {"amount_cents": "rest", "source": "company"}}')$$, :'rv_nc'), 'no cost per piece');
+select pg_temp.check('and nothing arrived', (select received_on is null from public.stock_batches where id = :'rv_nc'));
+select public.add_batch_payment(:'rv_nc', '{"amount_cents": 45000, "source": "company"}');
+select pg_temp.check('an amount paid is recorded even though the cost isn''t entered yet',
+  (select sum(amount_cents) = 45000 from public.batch_payments where batch_id = :'rv_nc'));
+-- An arrival date moved later than the day its pieces were recorded: the books never go below zero in between.
+select public.receive_batch(format('{"items": [{"product_id": "%s", "qty": 2, "unit_cost_cents": 10000}]}', :'rv_p')::jsonb) as rv_late \gset
+reset role;
+update public.stock_movements set created_at = created_at - interval '3 days' where batch_id = :'rv_late';
+update public.batch_payments set paid_on = public.manila_today() - 3 where batch_id = :'rv_late';
+update public.stock_batches set received_on = public.manila_today() - 3 where id = :'rv_late';
+set role authenticated;
+select public.finance_report(public.manila_today() - 3650, public.manila_today() - 2) -> 'end' as rv_before \gset
+select public.set_batch_received_on(:'rv_late', public.manila_today());
+select public.finance_report(public.manila_today() - 3650, public.manila_today() - 2) -> 'end' as rv_after \gset
+select pg_temp.check('moving the arrival date later doesn''t change the books for the days before: the pieces were already there',
+  (:'rv_after'::jsonb ->> 'inventory')::numeric = (:'rv_before'::jsonb ->> 'inventory')::numeric
+  and (:'rv_after'::jsonb ->> 'owed_suppliers')::numeric = (:'rv_before'::jsonb ->> 'owed_suppliers')::numeric
+  and (:'rv_after'::jsonb ->> 'on_the_way')::numeric = (:'rv_before'::jsonb ->> 'on_the_way')::numeric);
+-- An order with an expense charged to it isn't removed; then it is, once the expense moves.
+select public.order_batch(format('{"items": [{"product_id": "%s", "qty": 1, "unit_cost_cents": 100}]}', :'rv_p')::jsonb) as rv_exp \gset
+select public.add_expense(format('{"batch_id": "%s", "category": "other", "amount_cents": 500}', :'rv_exp')::jsonb) as rv_e \gset
+select pg_temp.expect_error('an order with an expense charged to it says so', format($$select public.delete_batch_order('%s')$$, :'rv_exp'), 'expenses charged to it');
+select public.update_expense(:'rv_e', format('{"category": "other", "amount_cents": 500, "spent_on": "%s", "batch_id": ""}', public.manila_today())::jsonb);
+select public.delete_batch_order(:'rv_exp');
+select pg_temp.check('once the expense is moved, it is removed', not exists (select 1 from public.stock_batches where id = :'rv_exp'));
+-- Deleting a product keeps a batch that has supplier payments; an order left empty goes.
+set request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
+select public.save_product(null, '{"brand": "Rev", "name": "Gone", "price_cents": 30000}') as rv_g \gset
+select public.receive_batch(format('{"items": [{"product_id": "%s", "qty": 1, "unit_cost_cents": 10000}]}', :'rv_g')::jsonb) as rv_gb \gset
+select public.order_batch(format('{"items": [{"product_id": "%s", "qty": 1, "unit_cost_cents": 10000}]}', :'rv_g')::jsonb) as rv_go \gset
+select public.delete_product(:'rv_g', false);
+select pg_temp.check('deleting a test product removes the batch and the order left with nothing, with what was paid for them',
+  not exists (select 1 from public.stock_batches where id in (:'rv_gb', :'rv_go'))
+  and not exists (select 1 from public.batch_payments where batch_id = :'rv_gb'));
+select public.finance_report(public.manila_today() - 3650, public.manila_today()) as rv_fin \gset
+select pg_temp.check('finance still adds up, and batch statements still tie to the stock on the shelf',
+  ((:'rv_fin'::jsonb -> 'end' ->> 'cash')::numeric + (:'rv_fin'::jsonb -> 'end' ->> 'receivables')::numeric
+   + (:'rv_fin'::jsonb -> 'end' ->> 'inventory')::numeric + (:'rv_fin'::jsonb -> 'end' ->> 'on_the_way')::numeric)
+  = ((:'rv_fin'::jsonb -> 'end' ->> 'tax_payable')::numeric + (:'rv_fin'::jsonb -> 'end' ->> 'owed_suppliers')::numeric
+     + (:'rv_fin'::jsonb -> 'end' ->> 'capital')::numeric + (:'rv_fin'::jsonb -> 'end' ->> 'retained')::numeric)
+  and (select abs(sum(stock_cents) - (:'rv_fin'::jsonb -> 'end' ->> 'inventory')::numeric) <= count(*) from public.batch_statements()));
+reset role;
+select pg_temp.check('stock on the way = what the orders on the way cost; owed = cost − paid, batch by batch',
+  (:'rv_fin'::jsonb -> 'end' ->> 'on_the_way')::numeric = (select coalesce(sum(cost_cents), 0) from public.batch_money() where received_on is null)
+  and (:'rv_fin'::jsonb -> 'end' ->> 'owed_suppliers')::numeric = (select sum(owed_cents) from public.batch_money()));
+
+select pg_temp.check('no stock is ever in a batch that is on the way',
+  not exists (select 1 from public.stock_movements m join public.stock_batches b on b.id = m.batch_id where b.received_on is null));
+set role authenticated;
+set request.jwt.claim.sub = '33333333-3333-3333-3333-333333333333';
+select pg_temp.expect_error('a cost per piece above ₱100,000 is refused',
+  format($$select public.order_batch('{"items": [{"product_id": "%s", "qty": 500, "unit_cost_cents": 5000000000}]}')$$, :'rv_p'), 'Cost per piece must be');
+select pg_temp.expect_error('each line needs a product',
+  $$select public.order_batch('{"items": [{"qty": 2}]}')$$, 'Pick a product for each line');
+select public.order_batch(format('{"ordered_on": "%s", "items": [{"product_id": "%s", "qty": 2, "unit_cost_cents": 1000}]}', public.manila_today() - 1, :'rv_p')::jsonb) as rv_ln \gset
+select pg_temp.expect_error('Arrived only takes the order''s own lines',
+  format($$select public.arrive_batch('%s', '{"items": [{"line_id": "%s", "qty": 1}]}')$$, :'rv_ln', gen_random_uuid()), 'for each product in this order');
+-- A payment dated before the order day: the books count the order from the payment, never as money paid ahead.
+select public.add_batch_payment(:'rv_ln', format('{"amount_cents": 500, "source": "company", "paid_on": "%s"}', public.manila_today() - 3)::jsonb);
+select public.finance_report(public.manila_today() - 3650, public.manila_today() - 3) -> 'end' as rv_early \gset
+select pg_temp.check('a payment before the order day counts the order from that day, not as money paid ahead',
+  (:'rv_early'::jsonb ->> 'suppliers_ahead')::numeric = 0);
+select public.delete_batch_payment((select id from public.batch_payments where batch_id = :'rv_ln'));
+select public.delete_batch_order(:'rv_ln');
+reset role;
 reset role;
 select case when ok then 'ok   ' else 'FAIL ' end || name as result from results;
 select count(*) filter (where not ok) as failures, count(*) as checks from results;

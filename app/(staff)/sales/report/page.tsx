@@ -129,11 +129,11 @@ export default async function BatchReportPage({ searchParams }: { searchParams: 
     body = (
       <EmptyState
         title="No batches yet."
-        text="The report compares batches. Receive a delivery as a batch under Restock, and its report shows here."
+        text="The report compares batches. Order stock under Restock and tap Arrived when it comes; its report shows here once it has arrived."
         action={
-          <Link className="btn btn--money" href="/restock/receive">
+          <Link className="btn btn--money" href="/restock/order">
             <Icon name="plus" />
-            Receive batch
+            Order stock
           </Link>
         }
       />
@@ -846,7 +846,7 @@ function Statement({
     ["Pieces sold", (f) => (f.st.left > 0 ? `${f.st.sold} (${nb(`${f.st.left} left`)})` : String(f.st.sold))],
     ["Average price per piece", (f) => (f.avgPrice === null ? "–" : pesos(Math.round(f.avgPrice)))],
     ["Cost per piece, with shipping", (f) => (f.landedEach === null ? "–" : pesos(Math.round(f.landedEach), 2))],
-    ["Paid for by", (f) => (f.paidFromFunds ? "company funds" : "the owners")],
+    ["Paid for with", (f) => (f.paidBy ?? "not paid yet") + (f.owedSupplier > 0 ? ` (${pesos(f.owedSupplier)} still owed)` : "")],
     ["Profit and loss"],
     ["Gross sales", (f) => pesos(f.st.gross)],
     ["Discounts", (f) => cost(f.st.discounts)],
@@ -974,8 +974,8 @@ function NextSteps({ a, b, others, newestId }: { a: BatchFigures; b: BatchFigure
   if (a.id === newestId && a.st.sold > 0 && a.st.left > 0 && a.st.left <= Math.max(3, Math.round(a.st.received * 0.1))) {
     steps.push(
       <>
-        <strong>Receive the next delivery as a batch as soon as it arrives</strong> (Restock → Receive batch): {a.title} is almost
-        sold out.
+        <strong>Order the next batch now, and tap Arrived on it the day it comes</strong> (Restock → Order stock): {a.title} is
+        almost sold out.
       </>,
     );
   }

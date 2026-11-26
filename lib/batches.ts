@@ -4,11 +4,15 @@ import { formatManilaDate } from "@/lib/time";
 
 export type BatchOption = { id: string; label: string };
 
-/** Every batch, newest first, labelled "Batch 3 · Supplier · 9 Nov". Owners and managers. */
+/**
+ * Every batch that has arrived, newest first, labelled "Batch 3 · Supplier · 9 Nov". An order still on the way
+ * can't take stock until it arrives. Owners and managers.
+ */
 export async function loadBatchOptions(supabase: ServerSupabase): Promise<BatchOption[]> {
   const { data } = await supabase
     .from("stock_batches")
     .select("id, batch_no, supplier, received_on")
+    .not("received_on", "is", null)
     .order("received_on", { ascending: false })
     .order("batch_no", { ascending: false });
   return ((data ?? []) as { id: string; batch_no: number; supplier: string | null; received_on: string }[]).map((b) => ({

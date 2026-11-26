@@ -1,7 +1,7 @@
 "use client";
 
 // Edit forms for money records, each folded behind an "Edit" button on its row:
-// expenses (owners and managers), capital put in and distributions (owner), batch details.
+// expenses (owners and managers), capital put in and distributions (owner), batch details and dates.
 import { useState, type ReactNode } from "react";
 import {
   setBatchReceivedOn,
@@ -78,13 +78,29 @@ function Peso({ id, name, value, invalid, label }: { id: string; name: string; v
   );
 }
 
-function DateField({ id, name, value, min, max, label }: { id: string; name: string; value: string; min?: string; max: string; label: string }) {
+function DateField({
+  id,
+  name,
+  value,
+  min,
+  max,
+  label,
+  optional,
+}: {
+  id: string;
+  name: string;
+  value: string;
+  min?: string;
+  max: string;
+  label: string;
+  optional?: boolean;
+}) {
   return (
     <div className="field">
       <label className="field__label" htmlFor={id}>
-        {label}
+        {label} {optional && <span className="optional">(optional)</span>}
       </label>
-      <input id={id} name={name} type="date" className="input" defaultValue={value} min={min} max={max} required />
+      <input id={id} name={name} type="date" className="input" defaultValue={value} min={min} max={max} required={!optional} />
     </div>
   );
 }
@@ -269,33 +285,44 @@ export function BatchDateForm({
   );
 }
 
+/** A batch's supplier, order day, arrival day (once it has arrived: Arrived sets it) and note. */
 export function BatchDetailsForm({
   batch: b,
   today,
   earliest,
 }: {
-  batch: { id: string; supplier: string | null; received_on: string; note: string | null };
+  batch: { id: string; supplier: string | null; received_on: string | null; ordered_on: string | null; note: string | null };
   today: string;
   earliest: string;
 }) {
   const [open, setOpen] = useState(false);
   const [state, onSubmit, pending] = useFormAction<RestockFormState>(updateBatchDetails.bind(null, b.id), null);
+  const arrived = b.received_on !== null;
   if (!open) {
     return (
       <button type="button" className="text-btn" onClick={() => setOpen(true)}>
-        Edit supplier, date or note
+        {arrived ? "Edit supplier, dates or note" : "Edit supplier, order date or note"}
       </button>
     );
   }
   return (
     <Shell label="Edit batch details" state={state} pending={pending} onSubmit={onSubmit} onCancel={() => setOpen(false)}>
-      <div className="field">
+      <div className="field span-all">
         <label className="field__label" htmlFor="bd-supplier">
           Supplier <span className="optional">(optional)</span>
         </label>
         <input id="bd-supplier" name="supplier" className="input" maxLength={60} defaultValue={b.supplier ?? ""} />
       </div>
-      <DateField id="bd-date" name="received_on" label="Arrived on" value={b.received_on} min={earliest} max={today} />
+      <DateField
+        id="bd-ordered"
+        name="ordered_on"
+        label="Ordered on"
+        value={b.ordered_on ?? ""}
+        min={earliest}
+        max={today}
+        optional={arrived}
+      />
+      {arrived && <DateField id="bd-date" name="received_on" label="Arrived on" value={b.received_on!} min={earliest} max={today} />}
       <Note id="bd-note" value={b.note} />
     </Shell>
   );

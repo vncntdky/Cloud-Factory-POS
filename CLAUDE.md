@@ -34,17 +34,27 @@ rules. The SOPs and app handbook live in `lib/help.ts` (shown in the app under H
 - **Batches**: every supplier delivery is a batch. Every restock, count and loss names its batch
   (`adjust_stock` requires `p_batch`); a new product's starting pieces need a batch. Sales match batches
   **first in, first out** (`batch_matches`, `batch_sales`).
+- **Orders** (`supabase/migrations/20261126000000_batch_orders.sql`): a batch can be ordered first (`order_batch`,
+  `stock_batches.ordered_on`, `received_on` null = on the way, pieces in `batch_order_lines`) and marked Arrived
+  (`arrive_batch` makes the restock movements). Nothing goes on the shelf, or into a batch, while it is on the way
+  (trigger on `stock_movements`). `undo_batch_arrival` puts it back while nothing sold, was counted or is reserved.
+  The arrival date can be any day from the order day to today.
+- **Supplier payments** (`batch_payments`: amount, day, source company | owner | investment) replace the old
+  "paid from company funds" flag. Owner's money and investment both count as owner capital.
 - **Landed cost** per piece = its cost + the batch's restocking fees (shipping, tax, MOOE, other) ÷ pieces received.
 - **Finance** (`supabase/migrations/20261118000000_finance.sql`, `lib/finance.ts`, Sales → Finance):
-  - Profit & loss is accrual; cash flow is cash; balance: cash + receivables + inventory = tax payable + owner
-    capital + profit kept. A DB test checks the identity — keep it passing.
-  - **Owner capital** = capital entries + any batch with "paid from company funds" off (Batch 1 was paid by
-    the owners).
-  - **Safe to distribute** = lower of profit kept and spare cash (cash − tax reserve − inventory reserve).
+  - Profit & loss is accrual; cash flow is cash; balance: cash + receivables + inventory + stock on the way =
+    tax payable + owed to suppliers + owner capital + profit kept. A batch's cost counts from its order day and
+    moves into inventory on its arrival day; company-fund payments leave cash on the day paid. DB tests check
+    the identity — keep them passing.
+  - **Owner capital** = capital entries + supplier payments with the owner's money or an investment (Batch 1
+    was paid by the owners).
+  - **Safe to distribute** = lower of profit kept and spare cash (cash − tax reserve − owed to suppliers −
+    inventory reserve).
     `release_profits` / `update_fund_release` refuse more. Split owner : manager is a setting (2 : 1 now).
   - Percentage tax estimate = `settings.tax_rate_bp` × net sales (owner sets it; default 3%, currently 0%).
   - Inventory reserve = what the owners decided to keep for the next restock (`fund_set_asides`); the next
-    fund-paid batch uses it up, then Finance asks again.
+    order the company fund pays for (now or on pick-up) uses it up, then Finance asks again.
 - Owner can edit every money record (expenses, capital, distributions, batch details, tax rate, split);
   managers can edit expenses and batches; staff sell, reserve and collect.
 
@@ -53,7 +63,7 @@ rules. The SOPs and app handbook live in `lib/help.ts` (shown in the app under H
 1. **Migration**: `supabase/migrations/YYYYMMDDHHMMSS_name.sql`, then add checks to `supabase/tests/pos_test.sql`.
 2. **Database tests** on a throwaway local Postgres 16 (needs the `postgresql` package; any data dir):
    `PGHOST=<socket dir> PGPORT=<port> PGUSER=postgres bash supabase/tests/run.sh` → prints `failures | checks`
-   (258 checks, 0 failures at hand-off).
+   (337 checks, 0 failures at hand-off).
 3. **Apply live** with the Supabase connector's `apply_migration` (same SQL). Changes that delete or update
    data may ask the owner to confirm.
 4. **Live data checks** as the owner, read-only, in a transaction:

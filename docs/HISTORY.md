@@ -103,6 +103,27 @@ the bottom. Commits on `main` hold the code for each step.
     pieces can't be on the shelf before the batch arrived); the details edit checks this only when the date changes.
     The report's days, pace and payback count from the new date.
 
+29. **Order stock, then Arrived; payments to suppliers** (26 Nov, after the owner asked for it): Restock → **Order
+    stock** records an order the day it is ordered (supplier, pieces and cost per piece, restocking costs). Its
+    pieces wait off the shelf, **On the way**, until someone taps **Arrived** on its page: the day it came, the
+    pieces that came (fewer is fine), what was paid on pick-up. Each payment to the supplier is recorded with its
+    day and whose money paid: **Company fund**, **Owner's money** or **Investment** (both owner capital, as the
+    owner decided). An order is paid in full, with a downpayment, or cash on pick-up; anything later is
+    **Record a payment** on the batch page (edit, remove too). Receive batch still records stock that is already
+    here (Paid in full / Part paid / Not paid yet). A batch can go **back on the way** if tapped by mistake (none
+    of its pieces sold, counted or reserved), and a cancelled order can be removed once nothing is paid on it.
+    The arrival date can now be changed any time, to any day from the order day (the "can't be after the pieces
+    were recorded" rule from item 28 is gone).
+    Finance: a batch's cost counts from the day it was ordered as **Stock on the way**, and moves into Inventory
+    the day it arrived; company-fund payments leave cash on the day paid; what isn't paid is **Owed to suppliers**
+    (held back from Safe to distribute, listed under Orders and suppliers on Balance). Cash flow shows one line,
+    Paid for stock. Reorder counts pieces on the way (they aren't suggested twice), lists the orders on the way,
+    and shows how many days recent orders took to arrive, with **Use N days for delivery**.
+    `supabase/migrations/20261126000000_batch_orders.sql` (batch_payments replaces paid_from_funds: each batch
+    got one payment of its cost on the day it arrived; Batch 1 with the owner's money).
+    `20261126000100_batch3_on_the_way.sql`: Batch 3 (entered 25 Nov to show its money, ₱7,214 paid in full from the
+    company fund) was put back on the way, as the owner asked; tap Arrived on it when it comes.
+
 ## Decisions the owner made
 
 - Funds show gross sales, net sales and "floating" (unpaid and non-cash money).
@@ -111,6 +132,12 @@ the bottom. Commits on `main` hold the code for each step.
 - Instead of a fixed reserve, the owners set an inventory reserve for each next restock.
 - Only owners and managers see costs, the dashboard and Finance; staff sell, reserve and collect.
 - Restocking: plan for a 5–7 day delivery gap (the app's plan is 7 days delivery + 3 buffer, 14 days cover).
+- (26 Nov) Stock is recorded when it is ordered; money paid at order time leaves the books that day. Each payment
+  says whose money paid: company fund, owner's money or investment. Owner's money and investment both count as
+  owner capital (never paid back, never profit). An order is paid in full, with a downpayment, or cash on pick-up.
+- (26 Nov) The arrival date can be changed any time. Batch 3 (entered 25 Nov, paid in full from the company fund)
+  hadn't arrived: it waits on the way until Arrived.
+- (26 Nov) The reorder plan counts what is on the way and shows how long orders take to arrive.
 
 ## Live state at hand-off (11 Nov 2026)
 
@@ -134,11 +161,10 @@ the bottom. Commits on `main` hold the code for each step.
 ## Open items
 
 - Not built yet (need a workflow decided): monthly close, nightly drawer count, cash split by drawer /
-  e-wallet / bank, supplier bills (payables), accountant export, VAT (only above ₱3M yearly sales).
+  e-wallet / bank, accountant export, VAT (only above ₱3M yearly sales).
+- Adding pieces to a batch after it arrived (Add a product to this batch, Fix) changes its cost, so the batch then
+  shows money to pay the supplier until a payment is recorded (or more paid than it cost, if pieces were removed).
 - Editing or undoing a recorded customer payment (suggested next).
-- Money paid to a supplier before the stock arrives isn't recorded: until the batch is received, Finance cash
-  reads high by that amount (and so does "Should be in the register" when it was paid from the drawer). A
-  "paid, on the way" entry would fix it.
 - The register figure takes every payment as cash from the drawer. Recording how each payment was made
   (cash, GCash, bank) and cash taken out to deposit would make it exact; a nightly drawer count would too.
 - A recorded loss isn't used up first in, first out: after the product is restocked, the lost pieces can

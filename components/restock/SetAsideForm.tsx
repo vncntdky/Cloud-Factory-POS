@@ -1,7 +1,7 @@
 "use client";
 
 // Finance → Inventory reserve: decide how much the business keeps for the next restock. Owners and managers.
-// Batches paid from the fund that come in after the decision use it up; then this asks again.
+// Orders and deliveries the company fund pays for, recorded after the decision, use it up; then this asks again.
 import { useState } from "react";
 import { setRestockSetAside, type RestockFormState } from "@/app/(staff)/restock/actions";
 import { Icon } from "@/components/Icon";
@@ -20,7 +20,7 @@ export type SetAside = {
   note: string | null;
   lastBatchNo: number | null;
   lastBatchCents: number | null;
-  /** Spare cash now (cash − tax not yet paid). */
+  /** Spare cash now (cash − tax not yet paid − what is still owed to suppliers). */
   balance: number;
 };
 
@@ -46,9 +46,9 @@ export function SetAsideForm({ s }: { s: SetAside }) {
             <p className="notice__title">
               {s.setAt === null
                 ? "How much should the business keep for the next restock?"
-                : `Batch ${s.lastBatchNo} came in and was paid from the company funds. How much should the business keep for the next one?`}
+                : `Batch ${s.lastBatchNo} was ordered, and the company fund pays for it (now or on pick-up). How much should the business keep for the next one?`}
             </p>
-            <p>What you keep is held back from distributions until the next batch is paid for.</p>
+            <p>What you keep is held back from distributions until the next order uses it.</p>
           </div>
         </div>
       )}

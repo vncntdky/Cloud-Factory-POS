@@ -175,13 +175,24 @@ const B3 = "bbbbbbbb-0000-4000-8000-000000000003";
   check("the comparison stays after saving", (await page.getByLabel("Compare with").inputValue()) === B1 && new URL(page.url()).searchParams.get("vs") === B1);
   const log2 = (await (await fetch("http://127.0.0.1:54321/__log")).json()).log.filter((l) => l.rpc === "set_batch_received_on");
   check("only the date is sent", log2.length === 1 && log2[0].body.p_batch === B2 && log2[0].body.p_date === earlier, JSON.stringify(log2.map((l) => l.body)));
-  // A date after the batch's pieces were recorded is refused with the reason.
+  // A later date is fine (a batch can be entered before it arrives); before the day it was ordered is refused.
+  const todayIso = new Date(Date.now() + 8 * 3600000).toISOString().slice(0, 10);
   await page.getByRole("button", { name: "Change the date Batch 2 arrived" }).click();
-  await page.getByLabel("Arrived on").fill(current);
-  await page.getByLabel("Arrived on").fill(new Date(Date.now() + 8 * 3600000).toISOString().slice(0, 10));
+  await page.getByLabel("Arrived on").fill(todayIso);
   await page.getByRole("button", { name: "Save changes" }).click();
-  await page.getByText(/were recorded on .*so it can't have arrived later/).waitFor();
-  check("a date after its pieces were recorded is refused, saying why", (await page.getByText(/so it can't have arrived later/).count()) === 1);
+  // The URL already says date=saved from the first change: wait for the save itself.
+  let movedTo = null;
+  for (let k = 0; k < 50 && movedTo !== todayIso; k++) {
+    await page.waitForTimeout(100);
+    movedTo = (await (await fetch("http://127.0.0.1:54321/__log")).json()).batches.find((b) => b.id === B2)?.received_on;
+  }
+  await page.getByRole("button", { name: "Change the date Batch 2 arrived" }).waitFor();
+  check("the date can move later than the day its pieces were recorded", movedTo === todayIso, String(movedTo));
+  await page.getByRole("button", { name: "Change the date Batch 2 arrived" }).click();
+  await page.getByLabel("Arrived on").fill(new Date(Date.now() + 8 * 3600000 - 5 * 86400000).toISOString().slice(0, 10));
+  await page.getByRole("button", { name: "Save changes" }).click();
+  await page.getByText(/was ordered on .*so it can't arrive before that/).waitFor();
+  check("a date before the day it was ordered is refused, saying why", (await page.getByText(/can't arrive before that/).count()) === 1);
   await page.getByRole("button", { name: "Cancel" }).click();
 
   // From a batch's page.

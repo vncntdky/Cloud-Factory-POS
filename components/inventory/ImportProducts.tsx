@@ -214,7 +214,7 @@ export function ImportProducts() {
               {adding ? "Adding…" : toAdd === 0 ? "Nothing new to add" : `Add ${plural(toAdd, "product")}`}
             </button>
           </div>
-          <p className="t-sm muted">They start with 0 pieces. Receive their stock with Restock → Receive batch.</p>
+          <p className="t-sm muted">They start with 0 pieces. Order their stock with Restock → Order stock, or receive it with Receive batch.</p>
         </div>
       )}
     </section>

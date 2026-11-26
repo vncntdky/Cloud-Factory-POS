@@ -17,10 +17,19 @@ export type FinTotals = {
   opex_by_category: Record<string, number>;
   tax_paid: number;
   tax_rate_bp: number;
-  fund_goods: number;
-  owner_goods: number;
-  fund_fees: number;
-  owner_fees: number;
+  /** Stock from before batches, paid from the till the day it came in. */
+  loose_goods: number;
+  /** Every batch's cost in full (goods + restocking fees), from the day it was ordered. */
+  ordered: number;
+  /** The same, from the day it arrived. */
+  arrived: number;
+  /** Paid to suppliers, by whose money. */
+  paid_company: number;
+  paid_owner: number;
+  paid_investment: number;
+  /** What each batch still owes its supplier, added up / what was paid more than batches cost. */
+  suppliers_owed: number;
+  suppliers_ahead: number;
   capital_cash: number;
   distributions: number;
   // derived
@@ -29,6 +38,10 @@ export type FinTotals = {
   cash: number;
   receivables: number;
   inventory: number;
+  /** Ordered, not arrived yet, at cost. */
+  on_the_way: number;
+  /** Ordered or received, not paid yet (negative = paid ahead). */
+  owed_suppliers: number;
   capital: number;
   tax_payable: number;
   retained: number;
@@ -42,8 +55,8 @@ export type FinTotals = {
 export type RegisterNow = {
   cash_received: number;
   capital_cash: number;
+  /** Paid for stock from the company fund (suppliers, restocking fees). */
   stock: number;
-  fees: number;
   /** Operating expenses without payment fees. */
   expenses: number;
   payment_fees?: number;
@@ -58,6 +71,8 @@ export type FinanceNow = {
   cash: number;
   retained: number;
   tax_reserve: number;
+  /** What is still owed to suppliers: held back like the tax. */
+  supplier_reserve?: number;
   inventory_reserve: number;
   spare_cash: number;
   safe_to_distribute: number;
@@ -72,6 +87,17 @@ export type FinanceReport = {
   now: FinanceNow;
   first_day: string | null;
   receivables: { sale_id: string; customer_name: string | null; cents: number; days: number }[];
+  /** Batches on the way or not fully paid, today. */
+  suppliers?: {
+    batch_id: string;
+    batch_no: number;
+    cost_cents: number;
+    paid_cents: number;
+    owed_cents: number;
+    on_the_way: boolean;
+    ordered_on: string;
+    received_on: string | null;
+  }[];
 };
 
 const n = (v: unknown) => Number(v ?? 0);
@@ -122,15 +148,15 @@ export function profitAndLoss(r: FinanceReport) {
 /** The period's cash flow (cash: counted when money moves). Opening + each line = closing. */
 export function cashFlow(r: FinanceReport) {
   const d = (k: keyof FinTotals) => n(r.end[k]) - n(r.start[k]);
-  const ownerStock = d("owner_goods") + d("owner_fees");
   return {
     opening: n(r.start.cash),
     capitalCash: d("capital_cash"),
-    capitalStock: ownerStock,
     receipts: d("collected"),
     receiptsBy: diffMap(r.start.collected_by_method ?? {}, r.end.collected_by_method ?? {}),
-    goods: d("fund_goods") + d("owner_goods"),
-    fees: d("fund_fees") + d("owner_fees"),
+    /** Paid to suppliers from the company fund (goods and restocking fees), and stock from before batches. */
+    stockPaid: d("paid_company") + d("loose_goods"),
+    /** Paid to suppliers with the owners' money or an investment: not cash, shown for the record. */
+    stockPaidByOwners: d("paid_owner") + d("paid_investment"),
     opex: d("opex"),
     taxPaid: d("tax_paid"),
     distributions: d("distributions"),
@@ -141,16 +167,20 @@ export function cashFlow(r: FinanceReport) {
 /** What the business holds at the end of the period. Assets = owed + owners' share. */
 export function balance(r: FinanceReport) {
   const e = r.end;
-  const assets = n(e.cash) + n(e.receivables) + n(e.inventory);
+  // Owed to suppliers is each batch's own debt; a batch paid ahead is an asset, not netted against it.
+  const assets = n(e.cash) + n(e.receivables) + n(e.inventory) + n(e.on_the_way) + n(e.suppliers_ahead);
   return {
     cash: n(e.cash),
     receivables: n(e.receivables),
     inventory: n(e.inventory),
+    onTheWay: n(e.on_the_way),
+    paidAhead: n(e.suppliers_ahead),
     assets,
     taxPayable: n(e.tax_payable),
+    owedSuppliers: n(e.suppliers_owed),
     capital: n(e.capital),
     capitalCash: n(e.capital_cash),
-    capitalStock: n(e.owner_goods) + n(e.owner_fees),
+    capitalStock: n(e.paid_owner) + n(e.paid_investment),
     profitEarned: n(e.net_profit),
     distributions: n(e.distributions),
     retained: n(e.retained),
