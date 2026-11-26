@@ -167,6 +167,18 @@
   "formula": "gmroi_30",
   "as_of": "2026-11-26 18:59"
  },
+ "line_gp_per_flavour_day_weighted_Black_TEO": {
+  "value": 50.1158,
+  "unit": "PHP/flavour-day",
+  "formula": "Σ w·sold·landed margin ÷ Σ weighted shelf-days",
+  "as_of": "2026-11-26 18:59"
+ },
+ "line_gp_per_flavour_day_weighted_XBLACK_MAX": {
+  "value": 87.8187,
+  "unit": "PHP/flavour-day",
+  "formula": "Σ w·sold·landed margin ÷ Σ weighted shelf-days",
+  "as_of": "2026-11-26 18:59"
+ },
  "line_pace_ex_launch_xmax": {
   "value": 2.3439,
   "unit": "pieces/day",
@@ -255,6 +267,12 @@
   "value": 0.9,
   "unit": "share",
   "formula": "next purchase took a flavour not bought before",
+  "as_of": "2026-11-26 18:59"
+ },
+ "bridge_oct_nov_availability_share": {
+  "value": 0.5332,
+  "unit": "share",
+  "formula": "(days with stock + flavours on the shelf) ÷ change",
   "as_of": "2026-11-26 18:59"
  },
  "bridge_oct_nov_1a": {

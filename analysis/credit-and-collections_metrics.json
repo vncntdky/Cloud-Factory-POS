@@ -281,6 +281,12 @@
   "formula": "credit share x value-weighted days to collect",
   "as_of": "2026-11-26"
  },
+ "credit_share_last_30_days": {
+  "value": 0.6949,
+  "unit": "share",
+  "formula": "Not paid yet sales / net sales, 28 Oct - 26 Nov",
+  "as_of": "2026-11-26"
+ },
  "owed_days_of_sales_today": {
   "value": 3.6195,
   "unit": "days",

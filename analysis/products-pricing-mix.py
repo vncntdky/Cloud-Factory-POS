@@ -373,6 +373,15 @@ print(LT[["first24", "pace_ex", "gp_day_ex", "avg_pcs", "avg_inv", "gmroi_cycle"
 xm, bt = LT.loc["XBLACK MAX"], LT.loc["Black TEO"]
 for k in ("gp_day", "gp_flavour_day", "gp_day_ex", "gmroi_30"):
     put(f"line_{k}_xmax", xm[k], "PHP or x", k); put(f"line_{k}_bteo", bt[k], "PHP or x", k)
+# What the app would show (recency-weighted like design v2: Σ w·sold·margin ÷ Σ weighted shelf-days, by category)
+print("line scorecard as the engine would compute it (half-life H, by category):")
+for cat, g in prod[prod.stocked].groupby("category"):
+    gpw = (g["wsold"] * g["margin"]).sum() / P; ex = g["expo"].sum()
+    raw_days = sum(instock_days(p) for p in g.pid)
+    print(f"   {cat:22s} ₱{gpw / ex:6.2f} gross profit a day per flavour on the shelf (weighted); "
+          f"{raw_days:5.1f} flavour-days on the shelf")
+    put(f"line_gp_per_flavour_day_weighted_{g.line.iloc[0].replace(' ', '_')}", gpw / ex, "PHP/flavour-day",
+        "Σ w·sold·landed margin ÷ Σ weighted shelf-days")
 put("line_pace_ex_launch_xmax", xm["pace_ex"], "pieces/day", "first 24 h after arrival left out")
 put("line_pace_ex_launch_bteo", bt["pace_ex"], "pieces/day", "first 24 h after arrival left out")
 # Batch 3 lines (no sales yet): margin per piece and what they would earn at each known line's pace
@@ -580,6 +589,10 @@ print(f"November: {nov_['days']:.2f} days, open {nov_['open']:.2f}, {kk['f2']:.2
 for k, v in eff:
     print(f"   {k:36s} ₱{v:+8.2f} a day   ₱{30 * v:+9,.0f} per 30 days   {pct(v / total) if total else '':>7s} of the change")
 print(f"   {'= change in net profit':36s} ₱{total:+8.2f} a day   ₱{30 * total:+9,.0f} per 30 days")
+avail = eff[0][1] + eff[1][1]
+print(f"   being in stock (1a + 1b) = ₱{avail:+.2f} a day = {pct(avail / total)} of the change; "
+      f"sales per flavour (1c) = {pct(eff[2][1] / total)}")
+put("bridge_oct_nov_availability_share", avail / total, "share", "(days with stock + flavours on the shelf) ÷ change")
 for k, v in eff:
     put("bridge_oct_nov_" + k.split()[0], v, "PHP/day", k)
 put("bridge_oct_nov_total", total, "PHP/day", "Nov − Oct net profit a day")
