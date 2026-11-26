@@ -1,7 +1,8 @@
 // Reorder plan for the Restock tab. A product's pace is the pieces it sold in the last
 // PACE_DAYS days (or since it was first stocked, if that's sooner) divided by those days.
-//   Reorder point   = pace × (lead days + buffer days): order when the shelf is down to this.
-//   Suggested order = pace × (lead + buffer + cover days) − on the shelf, rounded up.
+// What counts as in stock is the shelf (less what's reserved) plus pieces already ordered and on the way.
+//   Reorder point   = pace × (lead days + buffer days): order when stock is down to this.
+//   Suggested order = pace × (lead + buffer + cover days) − in stock, rounded up.
 export const PACE_DAYS = 28;
 
 export type RestockPlan = { lead: number; buffer: number; cover: number };
@@ -19,6 +20,8 @@ export type ProductPlan = {
   daysLeft: number | null;
   /** Suggested low-stock alert level; null with no sales (keep the current one). */
   reorderPoint: number | null;
+  /** Pieces already ordered, on the way: they count toward what's in stock. */
+  onOrder: number;
   /** Pieces to order now; 0 when the shelf is above the reorder point. */
   suggest: number;
   status: PlanStatus;
@@ -26,21 +29,39 @@ export type ProductPlan = {
   basedOnDays: number;
 };
 
-export function planProduct(onHand: number, pace: Pace | undefined, plan: RestockPlan): ProductPlan {
+export function planProduct(onHand: number, pace: Pace | undefined, plan: RestockPlan, onOrder = 0): ProductPlan {
   const days = pace?.days ?? 0;
   const sold = pace?.sold ?? 0;
+  const coming = Math.max(0, onOrder);
   if (!pace || sold <= 0 || days <= 0) {
-    return { perDay: 0, daysLeft: null, reorderPoint: null, suggest: 0, status: "idle", basedOnDays: days };
+    return { perDay: 0, daysLeft: null, reorderPoint: null, onOrder: coming, suggest: 0, status: "idle", basedOnDays: days };
   }
   const perDay = sold / days;
   const reorderPoint = Math.ceil(perDay * (plan.lead + plan.buffer));
   const target = Math.ceil(perDay * (plan.lead + plan.buffer + plan.cover));
   const stock = Math.max(0, onHand);
+  // Days until the shelf is empty: only what's on it.
   const daysLeft = stock / perDay;
-  // "Soon": the shelf reaches the reorder point within a week.
-  const status: PlanStatus = stock <= reorderPoint ? "order" : stock - 7 * perDay <= reorderPoint ? "soon" : "ok";
-  const suggest = status === "ok" ? 0 : Math.max(0, target - stock);
-  return { perDay, daysLeft, reorderPoint, suggest, status, basedOnDays: days };
+  // Whether to order counts what's already on the way, so the same pieces aren't ordered twice.
+  const position = stock + coming;
+  // "Soon": stock reaches the reorder point within a week.
+  const status: PlanStatus = position <= reorderPoint ? "order" : position - 7 * perDay <= reorderPoint ? "soon" : "ok";
+  const suggest = status === "ok" ? 0 : Math.max(0, target - position);
+  return { perDay, daysLeft, reorderPoint, onOrder: coming, suggest, status, basedOnDays: days };
+}
+
+/** Days each recent order took to arrive (ordered → arrived), newest first, and their average (rounded up). */
+export function leadTimes(batches: { batch_no: number; ordered_on: string | null; received_on: string | null }[], last = 5) {
+  const gaps = batches
+    .filter((b) => b.ordered_on && b.received_on)
+    .sort((a, b) => b.batch_no - a.batch_no)
+    .slice(0, last)
+    .map((b) => ({
+      batchNo: b.batch_no,
+      days: Math.round((Date.parse(`${b.received_on}T00:00:00Z`) - Date.parse(`${b.ordered_on}T00:00:00Z`)) / 86_400_000),
+    }));
+  const average = gaps.length ? Math.ceil(gaps.reduce((n, g) => n + g.days, 0) / gaps.length) : null;
+  return { gaps, average };
 }
 
 /** "1.4 / day", "3 / week" for slow sellers. */

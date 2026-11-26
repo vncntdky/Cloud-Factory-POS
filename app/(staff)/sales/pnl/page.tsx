@@ -185,7 +185,7 @@ async function StatementsView({
   today: string;
   isOwner: boolean;
 }) {
-  const [{ report, error, value }, fundsRes, releasesRes, splitRes, capitalRes, ownerBatchesRes] = await Promise.all([
+  const [{ report, error, value }, fundsRes, releasesRes, splitRes, capitalRes, ownerBatchesRes, batchNosRes] = await Promise.all([
     loadReport(supabase, sp.period, today),
     view === "overview" ? supabase.rpc("company_funds") : Promise.resolve({ data: null }),
     view === "overview"
@@ -200,8 +200,9 @@ async function StatementsView({
       ? supabase.from("capital_contributions").select("id, amount_cents, note, put_in_on").order("put_in_on", { ascending: false })
       : Promise.resolve({ data: [] }),
     view === "balance"
-      ? supabase.from("stock_batches").select("id, batch_no, received_on").eq("paid_from_funds", false).order("batch_no")
+      ? supabase.from("batch_payments").select("id, batch_id, amount_cents, paid_on, source, note").in("source", ["owner", "investment"]).order("paid_on")
       : Promise.resolve({ data: [] }),
+    view === "balance" ? supabase.from("stock_batches").select("id, batch_no") : Promise.resolve({ data: [] }),
   ]);
   if (error || !report) {
     return <Notice danger>Couldn&apos;t load the finances. {friendlyError(error)}</Notice>;
@@ -212,6 +213,7 @@ async function StatementsView({
   const pl = profitAndLoss(report);
   const cf = cashFlow(report);
   const bs = balance(report);
+  const batchNo = new Map(((batchNosRes.data ?? []) as { id: string; batch_no: number }[]).map((b) => [b.id, b.batch_no]));
   const now = report.now;
   const reg = now.register ?? null;
   const elsewhere = reg ? Object.entries(reg.elsewhere_by_method ?? {}).filter(([, v]) => Number(v) !== 0) : [];
@@ -220,10 +222,9 @@ async function StatementsView({
   const toLabel = formatDay(report.to);
   const bridge = [
     { label: "Opening cash", cents: cf.opening, kind: "total" as const },
-    { label: "Owner capital", cents: cf.capitalCash + cf.capitalStock, kind: "in" as const },
+    { label: "Owner capital", cents: cf.capitalCash, kind: "in" as const },
     { label: "Customer receipts", cents: cf.receipts, kind: "in" as const },
-    { label: "Stock bought", cents: cf.goods, kind: "out" as const },
-    { label: "Restocking fees", cents: cf.fees, kind: "out" as const },
+    { label: "Paid for stock", cents: cf.stockPaid, kind: "out" as const },
     { label: "Operating expenses", cents: cf.opex, kind: "out" as const },
     { label: "Taxes paid", cents: cf.taxPaid, kind: "out" as const },
     { label: "Owner draws", cents: cf.distributions, kind: "out" as const },
@@ -308,8 +309,7 @@ async function StatementsView({
               <dl className="cost-list">
                 <Line label="Cash sales and collections" hint="everything paid in cash since opening" cents={Number(reg.cash_received)} />
                 {Number(reg.capital_cash) !== 0 && <Line label="Owner capital put in" cents={Number(reg.capital_cash)} />}
-                <Line label="Stock bought" hint="batches paid from company funds" cents={Number(reg.stock)} out />
-                <Line label="Restocking fees" hint="shipping, tax, MOOE, other" cents={Number(reg.fees)} out />
+                <Line label="Paid for stock" hint="to suppliers from the company fund: goods and restocking costs" cents={Number(reg.stock)} out />
                 <Line
                   label="Expenses"
                   hint={paymentFees !== 0 ? "without payment fees: those come off the e-wallet or bank" : undefined}
@@ -350,8 +350,8 @@ async function StatementsView({
                 <li>Higher by a starting float not recorded as owner capital.</li>
                 <li>Lower by cash taken out of the drawer to keep or deposit.</li>
                 <li>
-                  Lower by cash from the drawer paid to a supplier for stock that hasn&apos;t arrived. The app counts it when you
-                  receive the batch.
+                  Lower by cash from the drawer paid to a supplier but not recorded yet. Record each payment on the batch&apos;s
+                  page (orders too), on the day it was paid.
                 </li>
                 <li>Lower by owner capital put in by GCash or bank.</li>
               </ul>
@@ -373,6 +373,9 @@ async function StatementsView({
                 <Line label="Profit kept in the business" hint="profit earned, less distributions" cents={Number(now.retained)} />
                 <Line label="Cash" cents={Number(now.cash)} sub />
                 <Line label="Tax reserve" hint="estimated tax not yet paid" cents={Number(now.tax_reserve)} out sub />
+                {Number(now.supplier_reserve ?? 0) !== 0 && (
+                  <Line label="Owed to suppliers" hint="orders and deliveries not paid yet" cents={Number(now.supplier_reserve)} out sub />
+                )}
                 <Line label="Inventory reserve" hint="kept for the next restock" cents={Number(now.inventory_reserve)} out sub />
                 <Line label="Spare cash" cents={Number(now.spare_cash)} total />
                 <Line label="Safe to distribute" hint="the lower of profit kept and spare cash" cents={Math.max(0, Number(now.safe_to_distribute))} total />
@@ -400,7 +403,10 @@ async function StatementsView({
                   <Basis>Today</Basis>
                 </div>
                 {sp.kept === "1" && <p className="t-sm notice-inline">Saved: the business keeps that for the next restock.</p>}
-                <ReserveCard funds={fundsRes.data as Funds | null} spare={Number(now.cash) - Number(now.tax_reserve)} />
+                <ReserveCard
+                  funds={fundsRes.data as Funds | null}
+                  spare={Number(now.cash) - Number(now.tax_reserve) - Number(now.supplier_reserve ?? 0)}
+                />
               </section>
 
               <section className="card stack" aria-labelledby="ar-t">
@@ -518,19 +524,27 @@ async function StatementsView({
           <dl className="cost-list">
             <Line label="Opening cash" cents={cf.opening} total />
             <Line label="Owner capital put in" cents={cf.capitalCash} />
-            {cf.capitalStock !== 0 && <Line label="Stock paid by the owners" hint="also in Stock bought below" cents={cf.capitalStock} />}
             <Line label="Customer receipts" cents={cf.receipts} />
             {Object.entries(cf.receiptsBy).map(([m, v]) => (
               <Line key={m} label={PAYMENT_METHOD_LABELS[m as SaleMethod] ?? m} cents={v} sub />
             ))}
-            <Line label="Stock bought" cents={cf.goods} out />
-            <Line label="Restocking fees" hint="shipping, tax, MOOE, other" cents={cf.fees} out />
+            <Line label="Paid for stock" hint="to suppliers from the company fund: goods and restocking costs, on the day paid" cents={cf.stockPaid} out />
             <Line label="Operating expenses" cents={cf.opex} out />
             <Line label="Taxes paid" cents={cf.taxPaid} out />
             <Line label="Owner distributions" cents={cf.distributions} out />
             <Line label="Closing cash" cents={cf.closing} total />
           </dl>
-          <p className="t-sm muted">Counted when money moves. Sales not paid yet come in here when they&apos;re collected.</p>
+          <p className="t-sm muted">
+            Counted when money moves. Sales not paid yet come in here when they&apos;re collected; stock comes out when it&apos;s
+            paid for, even before it arrives.
+            {cf.stockPaidByOwners !== 0 && (
+              <>
+                {" "}
+                Stock paid with the owners&apos; money or an investment (<Money cents={cf.stockPaidByOwners} />) isn&apos;t cash: it is
+                owner capital, on Balance.
+              </>
+            )}
+          </p>
         </section>
       )}
 
@@ -551,19 +565,59 @@ async function StatementsView({
               <Line label="Cash" hint="drawer, e-wallets and bank" cents={bs.cash} />
               <Line label="Receivables" hint="sales not paid yet" cents={bs.receivables} />
               <Line label="Inventory at cost" hint="pieces on the shelf at landed cost" cents={bs.inventory} />
+              {bs.onTheWay !== 0 && <Line label="Stock on the way" hint="ordered, not arrived yet, at cost" cents={bs.onTheWay} />}
               <Line label="Total assets" cents={bs.assets} total />
               <Line label="Tax payable (est.)" cents={bs.taxPayable} sub />
+              {bs.owedSuppliers !== 0 && (
+                <Line label="Owed to suppliers" hint="ordered or received, not paid yet" cents={bs.owedSuppliers} sub />
+              )}
               <Line label="Owner capital" cents={bs.capital} sub />
               <Line label="Profit earned" cents={bs.profitEarned} sub />
               <Line label="Owner distributions" cents={bs.distributions} out sub />
-              <Line label="Owed + owners' share" cents={bs.taxPayable + bs.ownersShare} total />
+              <Line label="Owed + owners' share" cents={bs.taxPayable + bs.owedSuppliers + bs.ownersShare} total />
             </dl>
             <p className="t-sm muted">
               {bs.capital > 0
                 ? `The owners put in ₱${(bs.capital / 100).toLocaleString("en-PH")}; the business now holds ₱${(bs.assets / 100).toLocaleString("en-PH")}.`
-                : "Both totals always match: everything the business holds is either owed (tax) or belongs to the owners."}
+                : "Both totals always match: everything the business holds is either owed (tax, suppliers) or belongs to the owners."}
             </p>
           </section>
+
+          {(report.suppliers ?? []).length > 0 && (
+            <section className="card stack" id="suppliers" aria-labelledby="sup-t">
+              <div className="card__head">
+                <h2 className="card__title" id="sup-t">
+                  Orders and suppliers
+                </h2>
+                <Basis>Today</Basis>
+              </div>
+              <ul className="list list--plain" role="list">
+                {(report.suppliers ?? []).map((b) => (
+                  <li key={b.batch_id}>
+                    <Link className="list-row list-row--compact" href={`/restock/batches/${b.batch_id}#payments`}>
+                      <span className="list-row__main">
+                        <span className="list-row__title">
+                          <span>Batch {b.batch_no}</span>
+                          {b.on_the_way && <span className="chip chip--info">On the way</span>}
+                        </span>
+                        <span className="list-row__meta">
+                          Ordered {formatManilaDate(b.ordered_on)} · costs <Money cents={Number(b.cost_cents)} /> · paid{" "}
+                          <Money cents={Number(b.paid_cents)} />
+                        </span>
+                      </span>
+                      <span className="list-row__trail">
+                        <span className={Number(b.owed_cents) > 0 ? "num text-alert" : "num"}>
+                          {Number(b.owed_cents) > 0 ? <Money cents={Number(b.owed_cents)} /> : Number(b.owed_cents) < 0 ? "paid ahead" : "paid"}
+                        </span>
+                        {Number(b.owed_cents) > 0 && <span className="t-caption muted">owed</span>}
+                      </span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+              <p className="t-sm muted">Tap a batch to record a payment or mark it arrived.</p>
+            </section>
+          )}
 
           <section className="card stack" id="capital" aria-labelledby="cap-t">
             <div className="card__head">
@@ -575,15 +629,20 @@ async function StatementsView({
               </span>
             </div>
             <ul className="list list--plain" role="list">
-              {((ownerBatchesRes.data ?? []) as { id: string; batch_no: number; received_on: string }[]).map((b) => (
-                <li key={b.id} className="list-row list-row--compact">
+              {(
+                (ownerBatchesRes.data ?? []) as { id: string; batch_id: string; amount_cents: number; paid_on: string; source: string; note: string | null }[]
+              ).map((p) => (
+                <li key={p.id} className="list-row list-row--compact">
                   <span className="list-row__main">
                     <span className="list-row__title">
-                      <span>Batch {b.batch_no} stock, paid by the owners</span>
+                      <span>
+                        <Money cents={Number(p.amount_cents)} /> {p.source === "investment" ? "investment" : "owner's money"} for{" "}
+                        {batchNo.get(p.batch_id) ? `Batch ${batchNo.get(p.batch_id)}` : "a batch"}
+                      </span>
                     </span>
                     <span className="list-row__meta">
-                      {formatManilaDate(b.received_on)} · switch it on its{" "}
-                      <Link href={`/restock/batches/${b.id}#pnl`}>batch page</Link> if the fund paid
+                      {formatManilaDate(p.paid_on)}
+                      {p.note && ` · ${p.note}`} · change it on the <Link href={`/restock/batches/${p.batch_id}#payments`}>batch page</Link>
                     </span>
                   </span>
                 </li>
@@ -729,7 +788,12 @@ async function BatchesView({ supabase, isOwner, sp }: { supabase: ServerSupabase
     .map(({ batch, rows: lines }) => {
       const t = totals(lines);
       // A batch's arrival date, or when the first piece came in for stock from before batches.
-      return { batch, since: batch.received_on ?? t.firstIn, st: batchStatement(statements.get(batch.id ?? ""), batch, expenses, taxRateBp) };
+      // An order still on the way: the day it was ordered.
+      return {
+        batch,
+        since: batch.received_on ?? batch.ordered_on ?? t.firstIn,
+        st: batchStatement(statements.get(batch.id ?? ""), batch, expenses, taxRateBp),
+      };
     })
     .sort((a, b) => a.since.slice(0, 10).localeCompare(b.since.slice(0, 10)) || (a.batch.batch_no ?? -1) - (b.batch.batch_no ?? -1))
     .map((r) => {
@@ -889,7 +953,11 @@ async function BatchesView({ supabase, isOwner, sp }: { supabase: ServerSupabase
                           {batch.supplier && ` · ${batch.supplier}`}
                         </a>
                         <span className="t-caption muted pnl-when">
-                          {batch.received_on ? formatManilaDate(batch.received_on) : `from ${formatManilaDate(since)}`}
+                          {batch.received_on
+                            ? formatManilaDate(batch.received_on)
+                            : batch.id
+                              ? `on the way, ordered ${formatManilaDate(since)}`
+                              : `from ${formatManilaDate(since)}`}
                         </span>
                       </td>
                       <td role="cell" data-label="Sold" className="num">
@@ -1000,7 +1068,12 @@ async function BatchesView({ supabase, isOwner, sp }: { supabase: ServerSupabase
                       {batch.supplier && ` · ${batch.supplier}`}
                     </span>
                     <span className="cat__meta">
-                      {batch.received_on ? `Arrived ${formatManilaDate(batch.received_on)}` : `From ${formatManilaDate(since)}`} ·{" "}
+                      {batch.received_on
+                        ? `Arrived ${formatManilaDate(batch.received_on)}`
+                        : batch.id
+                          ? `On the way, ordered ${formatManilaDate(since)}`
+                          : `From ${formatManilaDate(since)}`}{" "}
+                      ·{" "}
                       {st.sold} of {st.received} pcs sold
                     </span>
                   </span>

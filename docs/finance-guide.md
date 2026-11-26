@@ -1,7 +1,8 @@
 # Finance guide
 
 How the money screens (Sales → Finance) work. Amounts are worked out live from sales, payments, stock,
-batches, expenses, owner capital and distributions. Pick **Since opening** or any month at the top.
+batches and what was paid to suppliers for them, expenses, owner capital and distributions. Pick **Since
+opening** or any month at the top.
 
 ## The statements
 
@@ -26,24 +27,29 @@ batches, expenses, owner capital and distributions. Pick **Since opening** or an
 |---|---|
 | Opening cash | Closing cash of the day before the period |
 | + Owner capital put in | Capital entries (Balance → Record capital put in) |
-| + Stock paid by the owners | A batch not paid from company funds; also in Stock bought, so it nets to zero |
 | + Customer receipts | Paid at the till, plus later collections, on the day collected |
-| − Stock bought | Every restock at its cost per piece |
-| − Restocking fees | Shipping, tax, MOOE and other on each batch |
+| − Paid for stock | Payments to suppliers from the company fund, on the day paid (goods and restocking costs, before or after the stock arrives) |
 | − Operating expenses | As in Profit & loss |
 | − Taxes paid | Expenses recorded as Taxes paid |
 | − Owner distributions | Distributions recorded by the owner |
 | **Closing cash** | The result (the Overview draws it as a waterfall) |
+
+Stock paid with the owner's money or an investment isn't cash: it is owner capital, on Balance.
 
 ### Balance — as of the period's last day
 
 | What the business holds | | Owed + owners' share | |
 |---|---|---|---|
 | Cash | closing cash | Tax payable (est.) | tax estimated − taxes paid |
-| Receivables | net sales − collected | Owner capital | cash put in + stock paid by the owners |
-| Inventory at cost | stock bought + fees − cost of goods sold ± count differences | Profit earned | all net profit to date |
+| Receivables | net sales − collected | Owed to suppliers | every batch's cost − what was paid for it |
+| Inventory at cost | batches that arrived (goods + fees) − cost of goods sold ± count differences | Owner capital | cash put in + supplier payments with the owner's money or an investment |
+| Stock on the way | orders not arrived yet, at cost | Profit earned | all net profit to date |
 | | | Owner distributions | subtracted |
 | **Total assets** | | **Owed + owners' share** | always equals total assets |
+
+A batch's cost in full (its pieces at cost + shipping, tax, MOOE, other) counts from the day it was ordered, as
+Stock on the way, and moves into Inventory the day it arrived. Each payment to the supplier counts on the day it
+was paid. Under the balance, **Orders and suppliers** lists every order still on the way or not fully paid.
 
 ### In the register — Today (Overview)
 
@@ -51,7 +57,7 @@ batches, expenses, owner capital and distributions. Pick **Since opening** or an
 |---|---|
 | Cash sales and collections | Everything paid in cash since opening, at the till or collected later |
 | + Owner capital put in | Capital entries |
-| − Stock bought, restocking fees | Batches paid from company funds |
+| − Paid for stock | Supplier payments from the company fund |
 | − Expenses, taxes paid, owner distributions | As in Cash flow, without payment fees (they come off the e-wallet or bank) |
 | **Should be in the register** | Count the drawer against this |
 | Received by GCash, Maya, card, bank | Everything that came in that way since opening; it never reached the drawer |
@@ -60,7 +66,7 @@ The app doesn't record which pocket paid for stock, fees or expenses, so it take
 cash from the drawer. Count the drawer and compare; the card lists the same reasons. Your count is higher by
 anything paid by GCash or bank (stock, restock costs, an expense, a tax or a distribution) and by a starting
 float not recorded as owner capital. It is lower by cash taken out to keep or deposit, by drawer cash paid
-to a supplier for stock that hasn't arrived (the app counts a batch when it is received), and by owner
+to a supplier but not recorded yet (record each payment on its batch, the day it was paid), and by owner
 capital put in by GCash or bank. For one day only, use Sales → Daily sales.
 
 ### Batches — Accrual, since opening
@@ -93,14 +99,23 @@ batch's row, and each batch's own page has the full statement.
 
 - **Landed cost.** A piece costs what was paid for it plus its share of its batch's shipping, tax, MOOE and
   other fees, split evenly over the pieces received.
-- **Owner capital is never sales or profit.** Money the owners put in is recorded on Balance. A batch with
-  *Paid from company funds* off (Batch 1) also counts as capital.
+- **Orders, then Arrived.** Stock is ordered in the app the day it is ordered (Restock → Order stock): its pieces
+  wait off the shelf, on the way, until someone taps **Arrived**. Stock already here can be received in one step
+  (Receive batch).
+- **Paying suppliers.** Each payment for a batch is recorded with its day and whose money paid: **Company fund**
+  (comes out of cash), **Owner's money** or **Investment** (both owner capital). An order can be paid in full, with a
+  downpayment, or on pick-up; what isn't paid yet is Owed to suppliers. Payments can be added, edited or removed
+  on the batch's page.
+- **Owner capital is never sales or profit.** Money the owners put in is recorded on Balance. Stock paid with the
+  owner's money or an investment (Batch 1) also counts as capital.
 - **Tax is estimated, then settled.** The owner's rate × net sales is tax payable. Paying it = an expense
   under Taxes paid: it lowers tax payable and cash, not profit.
-- **Two reserves come before any payout.** Tax reserve = tax not yet paid. Inventory reserve = what the
-  owners keep for the next restock; the next fund-paid batch's cost comes out of it.
-- **Safe to distribute** = the lower of profit kept (profit earned − distributions) and spare cash (cash −
-  both reserves). The app refuses more, so capital can't be paid out as profit by mistake.
+- **Reserves come before any payout.** Tax reserve = tax not yet paid. What is still owed to suppliers is held
+  back too. Inventory reserve = what the owners keep for the next restock; the next order's cost that the
+  company fund pays comes out of it, and Finance asks again.
+- **Safe to distribute** = the lower of profit kept (profit earned − distributions) and spare cash (cash − tax
+  reserve − owed to suppliers − inventory reserve). The app refuses more, so capital or a supplier's money can't
+  be paid out as profit by mistake.
 - **Split.** Distributions are split owner : manager by the profit split (2 : 1 now). Only the owner records
   distributions, capital, the tax rate and the split; managers see everything.
 
@@ -112,8 +127,10 @@ batch's row, and each batch's own page has the full statement.
 | Distributions: amount, date, note (capped at safe to distribute) | Finance → Overview → Distributed → Edit | Owner |
 | Owner capital: amount, date, note | Finance → Balance → Edit | Owner |
 | Expenses: type, amount, date, note, batch | Restock → Expenses, or a batch page → Edit | Owner, manager |
-| Batch supplier, date, note | Batch page → Edit supplier, date or note | Owner, manager |
-| Batch restocking costs, paid from company funds | Batch page → Profit and loss | Owner, manager |
+| Batch supplier, order day, arrival day, note | Batch page → Edit supplier, dates or note (owner: also the batch's Report) | Owner, manager |
+| Batch restocking costs | Batch page → Edit restock costs | Owner, manager |
+| Payments to the supplier: amount, day, whose money, note | Batch page → Paid to the supplier | Owner, manager |
+| Arrived by mistake, cancelled order | Batch page → Not here yet? / Order cancelled? | Owner, manager |
 | Pieces and cost of each restock, count, loss | Batch or product page → Fix | Owner, manager |
 | Inventory reserve | Finance → Overview | Owner, manager |
 
@@ -124,7 +141,8 @@ With last month picked at the top of Finance, owner and manager together:
 1. Every expense entered, including payment fees and tax paid.
 2. Profit & loss: net sales, gross margin, net profit vs the month before.
 3. Cash flow: where the cash went.
-4. Balance: the two totals match; inventory value looks right.
+4. Balance: the two totals match; inventory value looks right; Stock on the way and Owed to suppliers match the
+   open orders.
 5. Receivables: chase 8–30 days; decide on anything over 30.
 6. Set the inventory reserve for the next order.
 7. The owner records the distribution, up to Safe to distribute.

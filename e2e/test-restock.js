@@ -97,10 +97,10 @@ async function context(browser, viewport) {
   check("alerts set to reorder points", st.products[0].reorder_at === 20 && st.products[7].reorder_at === 5);
   check("alerts button gone once they match", (await page.getByRole("button", { name: /Update low-stock alerts/ }).count()) === 0);
 
-  // 4. Receive the suggested order as a batch
-  await page.getByRole("link", { name: "Receive this order" }).click();
-  await page.waitForURL(/\/restock\/receive\?suggested=1/, { waitUntil: "commit" });
-  check("receive form starts at the suggested order", (await page.getByLabel("Pieces of XBLACK MAX Pods · Mint").inputValue()) === "44");
+  // 4. Order the suggested pieces: they wait on the way, count as in stock, then Arrived puts them on the shelf.
+  await page.getByRole("link", { name: "Order this" }).click();
+  await page.waitForURL(/\/restock\/order\?suggested=1/, { waitUntil: "commit" });
+  check("order form starts at the suggested order", (await page.getByLabel("Pieces of XBLACK MAX Pods · Mint").inputValue()) === "44");
   check("running total", /112 pcs/.test(await page.locator(".actionbar__total").innerText()));
   await page.fill("#b-supplier", "Cloud Supply");
   await page.getByLabel("Pieces of XBLACK MAX Pods · Grape").fill("");
@@ -111,16 +111,49 @@ async function context(browser, viewport) {
   await page.fill("#cost-other-label", "Courier");
   check("total with restock costs", /₱21,\d{3}/.test(await page.locator(".actionbar__meta").innerText()), await page.locator(".actionbar__meta").innerText());
   check("total follows edits", /104 pcs/.test(await page.locator(".actionbar__total").innerText()));
-  await page.screenshot({ path: `${DIR}/shots/r-desk-receive.png`, fullPage: true });
-  await page.getByRole("button", { name: "Receive batch" }).last().click();
-  await page.waitForURL(/\/restock\/batches\/[0-9a-f-]{36}\?received=1$/, { waitUntil: "commit" });
+  // A downpayment with the owner's money: the rest is shown as due on pick-up.
+  await page.getByRole("radio", { name: "Downpayment" }).click();
+  await page.fill("#pay-amount", "5000");
+  await page.getByRole("radio", { name: "Owner's money" }).click();
+  check("the order shows what is left to pay on pick-up", /₱1\d,\d{3}(\.\d\d)? to pay on pick-up/.test(await page.locator('section[aria-labelledby="pay-t"]').innerText()),
+    (await page.locator('section[aria-labelledby="pay-t"]').innerText()).replace(/\s+/g, " "));
+  await page.screenshot({ path: `${DIR}/shots/r-desk-order.png`, fullPage: true });
+  await page.getByRole("button", { name: "Save order" }).click();
+  await page.waitForURL(/\/restock\/batches\/[0-9a-f-]{36}\?ordered=1$/, { waitUntil: "commit" });
+  const orderUrl = page.url().replace(/\?.*$/, "");
   st = await mock("/__log");
-  const rb = st.log.filter((l) => l.rpc === "receive_batch").at(-1)?.body.p;
-  check("batch sent with 4 products", rb && rb.items.length === 4 && rb.supplier === "Cloud Supply");
+  const rb = st.log.filter((l) => l.rpc === "order_batch").at(-1)?.body.p;
+  check("order sent with 4 products, today's date and the downpayment", rb && rb.items.length === 4 && rb.supplier === "Cloud Supply"
+    && rb.payment.amount_cents === 500000 && rb.payment.source === "owner" && /^\d{4}-\d{2}-\d{2}$/.test(rb.ordered_on), JSON.stringify(rb?.payment));
   const mintItem = rb?.items.find((i) => i.product_id.endsWith("0000000010"));
   check("restock costs sent", rb?.shipping_cents === 45000 && rb?.other_cents === 5000 && rb?.tax_cents === 0 && rb?.other_label === "Courier", JSON.stringify({ s: rb?.shipping_cents, o: rb?.other_cents, l: rb?.other_label }));
   check("pieces and new cost per piece sent", mintItem?.qty === 44 && mintItem?.unit_cost_cents === 20000, JSON.stringify(mintItem));
-  await page.getByText("Batch 2 received: 104 pcs on the shelf.").waitFor();
+  await page.getByText("Batch 2 ordered: 104 pcs on the way.").waitFor();
+  const pay = (await page.locator("#payments").innerText()).replace(/\s+/g, " ");
+  check("the order's page: on the way, the downpayment with whose money, what is still to pay", /On the way/.test(await page.locator("main").innerText())
+    && /Owner's money/.test(pay) && /₱5,000/.test(pay) && /still to pay/.test(pay), pay.slice(0, 200));
+  check("nothing on the shelf yet", st.products[0].on_hand === 4);
+  // The reorder plan counts what is on the way: Mint isn't suggested again.
+  await page.goto(`${BASE}/restock`);
+  const coming = (await page.locator(".kpi").allInnerTexts()).map((t) => t.replace(/\s+/g, " ")).find((t) => /On the way/i.test(t)) ?? "";
+  check("Reorder shows the pieces on the way", /104 pcs/.test(coming), coming);
+  const mintRow = (await page.locator('a[href$="0000000010"]').innerText()).replace(/\s+/g, " ");
+  check("a product with pieces on the way says so and isn't suggested again", /44 on the way/.test(mintRow) && !/order \d/.test(mintRow), mintRow);
+  check("the order is listed under On the way", /Batch 2 · Cloud Supply/.test(await page.locator('section[aria-labelledby="coming-t"]').innerText()));
+  // Arrived: one Mint short, the rest paid on pick-up from the company fund.
+  await page.goto(orderUrl);
+  await page.getByRole("button", { name: "Arrived" }).click();
+  await page.getByLabel("Pieces of XBLACK MAX Pods · Mint that came").fill("43");
+  check("Arrived shows what is still to pay after a short delivery", /₱1\d,\d{3}/.test(await page.locator('form[aria-label="Batch 2 arrived"]').innerText()));
+  await page.getByRole("button", { name: "Put 103 pcs on the shelf" }).click();
+  await page.waitForURL(/\?arrived=1$/, { waitUntil: "commit" });
+  st = await mock("/__log");
+  const ab = st.log.filter((l) => l.rpc === "arrive_batch").at(-1)?.body;
+  check("Arrived sends the day, what came and the pick-up payment",
+    ab && /^\d{4}-\d{2}-\d{2}$/.test(ab.p.received_on) && ab.p.items.length === 4 && ab.p.items.some((i) => i.qty === 43) && ab.p.payment.amount_cents === "rest" && ab.p.payment.source === "company",
+    JSON.stringify(ab?.p));
+  await page.getByText("Batch 2 arrived: 103 pcs on the shelf.").waitFor();
+  check("paid in full on pick-up", /Paid in full/.test(await page.locator("#payments").innerText()));
   check("new batch page shows 0% sold", /0%/.test(await page.locator(".kpi--hero").innerText()));
 
   // 5. Batches

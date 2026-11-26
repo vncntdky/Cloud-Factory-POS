@@ -13,6 +13,8 @@ import { AddToBatchForm } from "@/components/restock/AddToBatchForm";
 import { BatchDetailsForm } from "@/components/finance/EditForms";
 import { BatchPnlCard } from "@/components/restock/BatchPnlCard";
 import { MakeBatchForm } from "@/components/restock/MakeBatchForm";
+import { ArriveForm, BatchPayments, DeleteOrder, UndoArrival } from "@/components/restock/OrderForms";
+import { BatchCostsForm } from "@/components/restock/BatchCostsForm";
 import { requireActiveStaff } from "@/lib/auth";
 import { friendlyError } from "@/lib/db-errors";
 import { pesos, productLabel, saleNo } from "@/lib/format";
@@ -20,7 +22,20 @@ import { isUuid } from "@/lib/ids";
 import { can } from "@/lib/permissions";
 import { paceLabel } from "@/lib/restock";
 import { addDays, formatManilaDate, manilaToday } from "@/lib/time";
-import { batchStatement, batchTitle, loadBatches, loadBatchStatements, piecesLeft, totals, type BatchRow } from "../../data";
+import {
+  batchStatement,
+  batchTitle,
+  loadBatches,
+  loadBatchStatements,
+  onTheWay,
+  orderGap,
+  piecesLeft,
+  totals,
+  type Batch,
+  type BatchPayment,
+  type BatchRow,
+  type OrderLine,
+} from "../../data";
 
 export const dynamic = "force-dynamic";
 
@@ -72,6 +87,10 @@ export default async function BatchPage({
     added?: string;
     fixed?: string;
     details?: string;
+    ordered?: string;
+    arrived?: string;
+    back?: string;
+    paid?: string;
   }>;
 }) {
   const { id } = await params;
@@ -148,7 +167,18 @@ export default async function BatchPage({
     );
   }
 
-  const { batch, rows } = entry;
+  const { batch, rows, lines, payments, money } = entry;
+  if (batch.id !== null && onTheWay(batch)) {
+    return (
+      <OrderPage
+        batch={{ ...batch, id: batch.id }}
+        lines={lines.map((l) => ({ ...l, label: names.get(l.product_id) ?? "Removed product" }))}
+        payments={payments}
+        money={money}
+        sp={sp}
+      />
+    );
+  }
   const t = totals(rows);
   const left = t.left;
   const share = t.received > 0 ? t.sold / t.received : 0;
@@ -157,6 +187,9 @@ export default async function BatchPage({
   const sortedRows = [...rows].sort((a, b) => b.sold / b.received - a.sold / a.received || (names.get(a.product_id) ?? "").localeCompare(names.get(b.product_id) ?? ""));
   const title = batchTitle(batch);
   const returnTo = `/restock/batches/${id}`;
+  const gap = orderGap(batch);
+  // Nothing sold, counted or lost yet: it can still go back on the way (the database checks again, reservations too).
+  const untouched = t.sold === 0 && ![...moves.values()].flat().some((m) => m.kind === "count" || m.kind === "waste");
   const st = batchStatement(statements.get(batch.id ?? ""), batch, expenses, taxRateBp);
   const buyers = new Set(owedSales.map((s) => (s.customer_name ?? "").trim().toLowerCase())).size;
 
@@ -214,10 +247,29 @@ export default async function BatchPage({
                 </p>
                 <p>
                   Its sales show here as the pieces sell.
-                  {batch.paid_from_funds && (
+                  {payments.some((p) => p.source === "company") && (
                     <>
                       {" "}
-                      It was paid from the company funds: <Link href="/sales/pnl#next-restock">decide what to keep for the next restock</Link>.
+                      It was paid from the company fund: <Link href="/sales/pnl#next-restock">decide what to keep for the next restock</Link>.
+                    </>
+                  )}
+                </p>
+              </div>
+            </div>
+          )}
+          {sp.arrived === "1" && (
+            <div className="notice notice--success" role="status">
+              <Icon name="check" />
+              <div>
+                <p className="notice__title">
+                  {title} arrived: {t.received} pcs on the shelf.
+                </p>
+                <p>
+                  They sell after the older pieces of each product.
+                  {money.owed > 0 && (
+                    <>
+                      {" "}
+                      <Money cents={money.owed} /> is still owed to the supplier: record it below when you pay.
                     </>
                   )}
                 </p>
@@ -229,16 +281,20 @@ export default async function BatchPage({
             {batch.received_on
               ? `Arrived ${formatManilaDate(batch.received_on)}`
               : `Opening stock and single restocks from ${formatManilaDate(t.firstIn)}, before batches were recorded`}
+            {batch.ordered_on && gap !== null && ` · ordered ${formatManilaDate(batch.ordered_on)}, ${gapWords(gap)}`}
             {batch.supplier && ` · ${batch.supplier}`}
             {batch.note && ` · ${batch.note}`}
           </p>
           {sp.details === "saved" && <p className="t-sm notice-inline">Batch details saved.</p>}
           {batch.id !== null && batch.received_on && (
-            <BatchDetailsForm
-              batch={{ id: batch.id, supplier: batch.supplier, received_on: batch.received_on, note: batch.note }}
-              today={manilaToday()}
-              earliest={addDays(manilaToday(), -400)}
-            />
+            <div className="row row--wrap">
+              <BatchDetailsForm
+                batch={{ id: batch.id, supplier: batch.supplier, received_on: batch.received_on, ordered_on: batch.ordered_on, note: batch.note }}
+                today={manilaToday()}
+                earliest={addDays(manilaToday(), -400)}
+              />
+              {untouched && <UndoArrival batchId={batch.id} title={title} pieces={t.received} />}
+            </div>
           )}
 
           <KpiGrid aria-label="Batch sales">
@@ -330,6 +386,21 @@ export default async function BatchPage({
             </section>
           )}
 
+          {batch.id !== null && (
+            <BatchPayments
+              batchId={batch.id}
+              title={title}
+              cost={money.cost}
+              goods={money.goods}
+              fees={money.fees}
+              paid={money.paid}
+              payments={payments}
+              onTheWay={false}
+              today={manilaToday()}
+              earliest={addDays(manilaToday(), -400)}
+              flash={sp.paid}
+            />
+          )}
           {batch.id === null && <MakeBatchForm />}
           {batch.id !== null && (
             <BatchPnlCard
@@ -402,6 +473,143 @@ export default async function BatchPage({
             Sales are matched first in, first out: a product&apos;s older pieces sell before this batch&apos;s. Counts and
             losses recorded for this batch change what&apos;s left. Tap Fix to correct pieces or cost entered by mistake.
           </p>
+        </div>
+      </Main>
+    </>
+  );
+}
+
+/** "the same day", "1 day to arrive", "3 days to arrive". */
+function gapWords(days: number) {
+  return days <= 0 ? "arrived the same day" : `${days} day${days === 1 ? "" : "s"} to arrive`;
+}
+
+type OrderBatch = Batch & { id: string };
+
+/** A batch still on the way: what was ordered, Arrived, payments, restock costs, details. */
+function OrderPage({
+  batch,
+  lines,
+  payments,
+  money,
+  sp,
+}: {
+  batch: OrderBatch;
+  lines: (OrderLine & { label: string })[];
+  payments: BatchPayment[];
+  money: { goods: number; fees: number; cost: number; paid: number; owed: number };
+  sp: { ordered?: string; back?: string; paid?: string; details?: string; costs?: string };
+}) {
+  const title = batchTitle(batch);
+  const today = manilaToday();
+  const pieces = lines.reduce((n, l) => n + l.qty, 0);
+  const since = batch.ordered_on ? Math.max(0, Math.round((Date.parse(`${today}T00:00:00Z`) - Date.parse(`${batch.ordered_on}T00:00:00Z`)) / DAY_MS)) : null;
+  return (
+    <>
+      <Topbar title={title} backHref="/restock?view=batches" backLabel="Back to batches" />
+      <Main>
+        <div className="stack stack-6 narrow">
+          {sp.ordered === "1" && (
+            <div className="notice notice--success" role="status">
+              <Icon name="check" />
+              <div>
+                <p className="notice__title">
+                  {title} ordered: {pieces} pcs on the way.
+                </p>
+                <p>
+                  Tap Arrived when it comes in, and its pieces go on the shelf.
+                  {payments.some((p) => p.source === "company") && (
+                    <>
+                      {" "}
+                      It was paid from the company fund: <Link href="/sales/pnl#next-restock">decide what to keep for the next restock</Link>.
+                    </>
+                  )}
+                </p>
+              </div>
+            </div>
+          )}
+          {sp.back === "1" && (
+            <div className="notice notice--success" role="status">
+              <Icon name="check" />
+              <div>
+                <p className="notice__title">{title} is back on the way.</p>
+                <p>Its pieces are off the shelf until you tap Arrived.</p>
+              </div>
+            </div>
+          )}
+          <p className="t-sm muted">
+            <span className="chip chip--info">On the way</span>{" "}
+            {batch.ordered_on && `Ordered ${formatManilaDate(batch.ordered_on)}`}
+            {since !== null && ` (${since === 0 ? "today" : `${since} day${since === 1 ? "" : "s"} ago`})`}
+            {batch.supplier && ` · ${batch.supplier}`}
+            {batch.note && ` · ${batch.note}`}
+          </p>
+          {sp.details === "saved" && <p className="t-sm notice-inline">Order details saved.</p>}
+          <BatchDetailsForm
+            batch={{ id: batch.id, supplier: batch.supplier, received_on: null, ordered_on: batch.ordered_on, note: batch.note }}
+            today={today}
+            earliest={addDays(today, -400)}
+          />
+
+          <ArriveForm
+            batchId={batch.id}
+            title={title}
+            lines={lines.map((l) => ({ id: l.id, label: l.label, qty: l.qty, unit_cost_cents: l.unit_cost_cents }))}
+            owed={money.owed}
+            orderedOn={batch.ordered_on ?? addDays(today, -400)}
+            today={today}
+          />
+
+          <section className="card card--flush" aria-labelledby="ordered-t">
+            <div className="card__head">
+              <h2 className="card__title" id="ordered-t">
+                Ordered
+              </h2>
+              <span className="t-caption muted">{pieces} pcs</span>
+            </div>
+            <ul className="list list--plain" role="list">
+              {lines.map((l) => (
+                <li key={l.id} className="list-row list-row--compact">
+                  <span className="list-row__main">
+                    <span className="list-row__title">
+                      <span>{l.label}</span>
+                    </span>
+                    <span className="list-row__meta">
+                      {l.unit_cost_cents === null ? "no cost entered" : `${pesos(l.unit_cost_cents)} each`}
+                    </span>
+                  </span>
+                  <span className="list-row__trail">
+                    <span className="num">{l.qty} pcs</span>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </section>
+
+          <BatchPayments
+            batchId={batch.id}
+            title={title}
+            cost={money.cost}
+            goods={money.goods}
+            fees={money.fees}
+            paid={money.paid}
+            payments={payments}
+            onTheWay
+            today={today}
+            earliest={addDays(today, -400)}
+            flash={sp.paid}
+          />
+
+          <section className="card stack" aria-labelledby="costs-t">
+            <h2 className="card__title" id="costs-t">
+              Restock costs
+            </h2>
+            {sp.costs === "saved" && <p className="t-sm notice-inline">Restock costs saved.</p>}
+            <p className="t-sm muted">Shipping, tax, MOOE and other costs on top of the goods. Add them now or when it arrives.</p>
+            <BatchCostsForm id={batch.id} batch={batch} />
+          </section>
+
+          <DeleteOrder batchId={batch.id} title={title} paid={money.paid} />
         </div>
       </Main>
     </>

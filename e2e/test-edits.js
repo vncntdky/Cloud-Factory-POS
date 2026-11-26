@@ -95,13 +95,23 @@ const last = async (rpc) => (await log()).filter((l) => l.rpc === rpc).at(-1)?.b
 
   // Batch details
   await page.goto(`${B}/restock/batches/${B1}`);
-  await page.getByRole("button", { name: "Edit supplier, date or note" }).click();
+  await page.getByRole("button", { name: "Edit supplier, dates or note" }).click();
   await page.fill("#bd-supplier", "Vape Hub");
   await page.fill("#bd-note", "Receipt 1123");
+  // The order day can't be after the arrival day.
+  const arrived = await page.locator("#bd-date").inputValue();
+  const after = new Date(Date.parse(arrived + "T00:00:00Z") + 86400000).toISOString().slice(0, 10);
+  await page.fill("#bd-ordered", after);
+  await page.locator("form[aria-label='Edit batch details']").getByRole("button", { name: "Save changes" }).click();
+  await page.getByText(/can't arrive before it was ordered/).waitFor();
+  check("an order day after the arrival day is refused, saying why", true);
+  const before = new Date(Date.parse(arrived + "T00:00:00Z") - 3 * 86400000).toISOString().slice(0, 10);
+  await page.fill("#bd-ordered", before);
   await page.locator("form[aria-label='Edit batch details']").getByRole("button", { name: "Save changes" }).click();
   await page.waitForURL(/details=saved/, { waitUntil: "commit" });
   await page.getByText("Batch details saved.").waitFor();
-  check("batch details edited", (await last("update_batch_details"))?.p?.supplier === "Vape Hub" && /Vape Hub/.test(await page.locator("main").innerText()));
+  check("batch details edited, with the day it was ordered", (await last("update_batch_details"))?.p?.supplier === "Vape Hub" && (await last("update_batch_details"))?.p?.ordered_on === before
+    && /Vape Hub/.test(await page.locator("main").innerText()) && /ordered .*, 3 days to arrive/.test(await page.locator("main").innerText()));
   check("no sideways scroll", !(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)));
 
   if (ROLE === "manager") {

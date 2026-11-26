@@ -32,12 +32,12 @@ const txt = (s) => s.replace(/\s+/g, " ");
     /₱9,600/.test(kpis[2]) && /50\.0%/.test(kpis[3]) && /₱3,572/.test(kpis[4]) && /37\.2%/.test(kpis[4]) && /₱2,186/.test(kpis[5]), kpis.slice(2).join(" | "));
   const reg = txt(await page.locator("#register").innerText());
   check("register card: cash in, less everything paid out; e-wallet money is not in it",
-    /Cash sales and collections.*₱7,720/.test(reg) && /Stock bought.*\(₱4,950\)/.test(reg) && /Restocking fees.*\(₱244\)/.test(reg) && /Expenses \(₱940\)/.test(reg)
+    /Cash sales and collections.*₱7,720/.test(reg) && /Paid for stock to suppliers from the company fund: goods and restocking costs \(₱5,194\)/.test(reg) && /Expenses \(₱940\)/.test(reg)
       && /Should be in the register ₱1,586/.test(reg) && /Received by GCash since opening · it went there, not into the drawer ₱600/.test(reg) && /All money drawer, e-wallets and bank · same as Closing cash ₱2,186/.test(reg)
       && /when you count the drawer, your count is/.test(reg) && /Higher by anything you paid by GCash or bank: stock, restock costs, an expense, a tax or a distribution/.test(reg)
-      && /Higher by a starting float/.test(reg) && /Lower by cash taken out of the drawer/.test(reg) && /Lower by cash from the drawer paid to a supplier for stock that hasn't arrived/.test(reg)
+      && /Higher by a starting float/.test(reg) && /Lower by cash taken out of the drawer/.test(reg) && /Lower by cash from the drawer paid to a supplier but not recorded yet/.test(reg)
       && /Lower by owner capital put in by GCash or bank/.test(reg), reg.slice(0, 520));
-  check("overview: cash bridge has 9 bars", (await page.locator(".fin-wf rect").count()) === 9);
+  check("overview: cash bridge has 8 bars", (await page.locator(".fin-wf rect").count()) === 8);
   check("overview: receivables by age name who owes", /RODS ₱960/.test(await page.locator("#ar-t").locator("xpath=../..").innerText()));
   check("overview: no sideways scroll", await noScroll());
   await page.screenshot({ path: `${DIR}/shots/fin-${ROLE}-overview.png`, fullPage: false });
@@ -68,7 +68,7 @@ const txt = (s) => s.replace(/\s+/g, " ");
   await page.waitForURL(/view=cash/, { waitUntil: "commit" });
   await page.locator("#cf-t").waitFor();
   const cf = txt(await page.locator("#cf-t").locator("xpath=../..").innerText());
-  check("cash flow: opening + money in − money out = closing", /Opening cash ₱0/.test(cf) && /Customer receipts ₱8,320/.test(cf) && /Stock bought \(₱9,750\)/.test(cf) && /Restocking fees.*\(₱244\)/.test(cf) && /Closing cash ₱/.test(cf), cf.slice(0, 300));
+  check("cash flow: opening + money in − money out = closing", /Opening cash ₱0/.test(cf) && /Customer receipts ₱8,320/.test(cf) && /Paid for stock .*\(₱5,194\)/.test(cf) && /Stock paid with the owners' money or an investment \(₱4,800\) isn't cash/.test(cf) && /Closing cash ₱/.test(cf), cf.slice(0, 300));
   check("cash flow: no sideways scroll", await noScroll());
   await page.screenshot({ path: `${DIR}/shots/fin-${ROLE}-cash.png` });
 

@@ -26,7 +26,8 @@ export const GOLDEN_RULES = [
   "Every count and loss names the batch the pieces came from.",
   "Ring up every sale in the app at the moment it happens, even when the buyer pays later.",
   "Wrong entry? Use Fix, Edit or Void on that entry (undo for a distribution). Don't enter an opposite entry to cancel it out.",
-  "Money only leaves the business three ways, each entered in the app: a batch (the stock and its restock costs), an expense, or an owner distribution (owner only). Money the owners put in is recorded as owner capital, never as a sale.",
+  "Order stock in the app the day you order it, and tap Arrived on it the day it comes in.",
+  "Money only leaves the business three ways, each entered in the app: a payment to a supplier on its batch (the day it was paid), an expense, or an owner distribution (owner only). Money the owners put in is recorded as owner capital, never as a sale.",
 ];
 
 export const WHO_DOES_WHAT: { task: string; owner: boolean; manager: boolean; staff: boolean }[] = [
@@ -34,7 +35,7 @@ export const WHO_DOES_WHAT: { task: string; owner: boolean; manager: boolean; st
   { task: "Add or change a product photo", owner: true, manager: true, staff: true },
   { task: "Add products, change prices and costs", owner: true, manager: true, staff: false },
   { task: "Give a discount above the staff limit", owner: true, manager: true, staff: false },
-  { task: "Receive batches, count, record losses, fix stock", owner: true, manager: true, staff: false },
+  { task: "Order and receive stock, pay suppliers, count, record losses, fix stock", owner: true, manager: true, staff: false },
   { task: "Void a sale, see past days", owner: true, manager: true, staff: false },
   { task: "Expenses, dashboard, Finance (view)", owner: true, manager: true, staff: false },
   { task: "Set the inventory reserve for the next restock", owner: true, manager: true, staff: false },
@@ -99,7 +100,7 @@ export const SOPS: Sop[] = [
           {
             text: "Pieces on the shelf now:",
             sub: [
-              "Arriving with a delivery? Leave it at 0, then receive the pieces with SOP 3.",
+              "Ordering it, or arriving with a delivery? Leave it at 0, then order or receive the pieces with SOP 3.",
               "Already on the shelf? Enter the pieces and pick the Batch they came in.",
             ],
           },
@@ -114,7 +115,7 @@ export const SOPS: Sop[] = [
           "In Excel, set the Barcode column to Text before typing barcodes (select the column, then Format Cells, Text). Otherwise Excel turns long barcodes into numbers like 4.8E+12 and drops leading zeros.",
           "Save or download the sheet as CSV, then tap Choose CSV file and pick it.",
           "Check the list. New rows will be added; Already in the app rows (same brand, product and flavour) are skipped and never changed; a Fix this row says what to fix. Fix those rows in the sheet and choose the file again: nothing is added until every row is right.",
-          "Tap Add (it shows how many). They start with 0 pieces: receive their stock with SOP 3, and add photos on each product's page.",
+          "Tap Add (it shows how many). They start with 0 pieces: order or receive their stock with SOP 3, and add photos on each product's page.",
         ],
       },
       {
@@ -130,7 +131,7 @@ export const SOPS: Sop[] = [
         title: "Stop selling it",
         steps: [
           "In Product details, untick For sale and tap Save changes.",
-          "It leaves the Sell screen, the reorder plan and Receive batch. Its history and batches stay. Find it in Inventory under Not for sale.",
+          "It leaves the Sell screen, the reorder plan, Order stock and Receive batch. Its history and batches stay. Find it in Inventory under Not for sale.",
           "To sell it again, tick For sale and tap Save changes.",
         ],
       },
@@ -155,27 +156,47 @@ export const SOPS: Sop[] = [
   },
   {
     no: 3,
-    title: "Receive a batch (supplier delivery)",
+    title: "Order stock, and tap Arrived when it comes",
     who: "Owner or manager.",
-    when: "The day a supplier delivery arrives, before any of it is sold.",
+    when: "The day you order from a supplier, and the day the order comes in, before any of it is sold.",
     roles: MGR,
     parts: [
       {
+        title: "Order",
         steps: [
-          "Count the pieces in the delivery against the supplier's receipt. Set aside damaged pieces.",
-          "Go to Restock and tap Receive batch. If you ordered the suggested order, tap Receive this order instead: each product starts at the pieces suggested. Change them to what really came.",
-          "Enter the Supplier, Arrived on (the day it came, up to 60 days back) and a Note (for example the receipt number).",
-          "Leave Paid from company funds ticked, unless the owners paid for this stock with their own money.",
-          "For each product that came in, enter the pieces and the cost per piece. Use the category chips or Find a product to get to it faster. A new cost replaces the product's cost from now on.",
+          "Go to Restock and tap Order stock. Ordering the suggested order? On Reorder, tap Order this instead: each product starts at the pieces suggested.",
+          "Enter the Supplier, Ordered on (the day you ordered, up to 60 days back) and a Note (for example the order number).",
+          "For each product you ordered, enter the pieces and the cost per piece. Use the category chips or Find a product to get to it faster.",
           "A product that isn't listed: if it's new, add it first with SOP 2 (0 pieces). If it's under Not for sale in Inventory, tick For sale on its page first (SOP 2).",
-          "Under Restock costs, tap Add and enter shipping, tax, MOOE and any other fee for this delivery.",
-          "Check the total at the bottom (pieces, and the cost with fees), then tap Receive batch.",
+          "Under Restock costs, tap Add and enter the shipping, tax, MOOE and other fees you already know. You can add the rest when it arrives.",
+          "Under Payment, pick how it was paid: Paid in full, Downpayment (enter the amount paid now) or Cash on pick-up (nothing paid yet).",
+          "Then pick Whose money paid: Company fund (what sales brought in), Owner's money or Investment. Owner's money and investment count as owner capital, not as the shop's cash.",
+          "Tap Save order. It shows under Restock → Batches with On the way. Its pieces are not on the shelf yet and can't be sold, but the reorder plan counts them so they aren't ordered twice.",
+          "If the company fund paid or will pay for it, tap “decide what to keep for the next restock” on its page (or go to Sales → Finance) and set the inventory reserve (SOP 14).",
+        ],
+      },
+      {
+        title: "When it arrives",
+        steps: [
+          "Count the pieces against the supplier's receipt. Set aside damaged pieces.",
+          "Open the order (Restock → Batches, or On the way on Reorder) and tap Arrived.",
+          "Arrived on starts at today; change it if it came another day. Under Pieces that came, change a number if fewer came (0 if none did).",
+          "Under Paid on pick-up, pick Paid the rest, Paid part (enter the amount) or Nothing now, and whose money paid.",
+          "Tap Put N pcs on the shelf. They sell after the older pieces of each product.",
           "Record any damaged pieces from step 1 with SOP 6, in this batch.",
-          "If it was paid from company funds, tap “decide what to keep for the next restock” on the batch page (or go to Sales → Finance) and set the inventory reserve for the next order (SOP 14).",
+          "Tapped Arrived by mistake? On the batch page, tap Not here yet? Put it back on the way (only while none of its pieces were sold, counted or reserved).",
+        ],
+      },
+      {
+        title: "Stock that is already here",
+        steps: [
+          "Bought and brought in the same day, without an order in the app: on Restock → Batches, tap Receive batch.",
+          "Fill it in like an order, with Arrived on instead of Ordered on. Under Payment, pick Paid in full, Part paid or Not paid yet, and whose money paid.",
+          "Tap Receive batch: the pieces go on the shelf at once.",
         ],
       },
     ],
-    check: "The batch page shows every product with the right pieces, and the shelf count of each product went up by that number. In its Profit and loss, What the batch cost in full shows Goods, Shipping, Tax and MOOE that match the supplier's receipt.",
+    check: "The batch page shows every product with the right pieces, and the shelf count of each product went up by that number. Paid to the supplier lists each payment with whose money it was, and shows Paid in full once everything is paid.",
   },
   {
     no: 4,
@@ -208,17 +229,25 @@ export const SOPS: Sop[] = [
         ],
       },
       {
-        title: "Paid from company funds ticked wrong",
+        title: "Payments to the supplier",
         steps: [
-          "On the batch page, in the Profit and loss card, read the line under Edit restock costs: “Paid from company funds” or “Not paid from company funds”.",
-          "Tap Not from the fund if the owners paid for this stock themselves, or Paid from the fund if the shop's money paid. Not from the fund counts the batch's cost as owner capital (Finance → Balance).",
+          "Paid the rest later (on pick-up or after)? On the batch page, under Paid to the supplier, tap Record a payment. The amount starts at what is still to pay. Enter the day it was paid, whose money paid and a note, then tap Save payment.",
+          "Wrong amount, day or whose money? Tap Edit next to the payment. Entered by mistake? Tap the bin next to it.",
+          "The app refuses a payment above what is still to pay. If the pieces or costs were fixed after it was paid, check the payments again.",
+        ],
+      },
+      {
+        title: "An order that was cancelled",
+        steps: [
+          "If anything was paid on it and the supplier gave it back, remove those payments first (bin next to each).",
+          "On the order's page, tap Order cancelled? Remove it, then Remove Batch N.",
         ],
       },
       {
         title: "Wrong supplier, date or note",
         steps: [
-          "On the batch page, under the date it arrived, tap Edit supplier, date or note. Change the Supplier, Arrived on or Note, then tap Save changes.",
-          "Owner: the date can also be changed on the batch's report (Sales → Finance → Report): tap Change the date it arrived, pick the day, then Save changes. A batch can't have arrived after the day its pieces were recorded in the app.",
+          "On the batch page, tap Edit supplier, dates or note (Edit supplier, order date or note while it is on the way). Change the Supplier, Ordered on, Arrived on or Note, then tap Save changes.",
+          "The arrival day can be changed any time, to any day from the day it was ordered to today. Owner: it can also be changed on the batch's report (Sales → Finance → Report): tap Change the date it arrived, pick the day, then Save changes.",
         ],
       },
     ],
@@ -481,19 +510,19 @@ export const SOPS: Sop[] = [
           "Open Sales → Dashboard. Note net sales against the previous period, profit per piece, and still owed. Use the category filter to check each category.",
           "Look at Best sellers (how fast they sell, days of stock left) and Slowest movers. Plan a discount or stop reordering the slowest ones.",
           "Open Sales → Finance → Profit & loss. Read net sales, gross margin and net profit, and compare with last month (pick the month at the top).",
-          "Open Cash flow. Check where the cash went: stock bought, fees, expenses, taxes and distributions.",
+          "Open Cash flow. Check where the cash went: paid for stock, expenses, taxes and distributions.",
           {
             text: "On Overview, read Should be in the register. Tap it to see how it's worked out. Then count the drawer. Your count should be that figure:",
             sub: [
               "plus anything you paid by GCash or bank,",
               "plus a starting float not recorded as owner capital,",
               "minus cash taken out to keep or deposit,",
-              "minus cash from the drawer paid for stock that hasn't arrived,",
+              "minus cash from the drawer paid to a supplier but not recorded yet (record it on the batch, SOP 4),",
               "minus owner capital put in by GCash or bank.",
             ],
           },
           "Still a difference? Look through the week's sales and expenses for a missing or wrong entry.",
-          "Open Balance. Total assets and Owed + owners' share must match. Check the inventory value looks right for what's on the shelf.",
+          "Open Balance. Total assets and Owed + owners' share must match. Check the inventory value looks right for what's on the shelf, and that Stock on the way and Owed to suppliers match your open orders (listed under Orders and suppliers).",
           "Open Batches. It always covers since opening. Read the running net profit: each batch's net profit so far, the owner's and the manager's share of it, and the running total. After general expenses it ends at Shop net profit so far, the same as Net profit on Profit & loss with Since opening picked.",
           "Tap a batch to see every line: sales, discounts, what the pieces sold cost, each expense, how much of the batch's cost is still to earn back, and its owner / manager split. The shares are a guide, not a payout: what can be paid out is Safe to distribute.",
           "Owner: open Report (after Batches, or Report on a batch's page). It compares the newest batch with the one before: net profit, how fast it sold, the day it earned back its cost, where each peso went, who still owes and how each flavour sold. Pick another batch at the top; under Compare with, pick another batch, All batches (every batch on the charts and in the statement) or Nothing.",
@@ -508,15 +537,16 @@ export const SOPS: Sop[] = [
     no: 14,
     title: "Plan the next restock and set the inventory reserve",
     who: "Owner or manager.",
-    when: "At the weekly review, when products show low stock, and right after a batch is received.",
+    when: "At the weekly review, when products show low stock, and right after you order.",
     roles: MGR,
     parts: [
       {
         title: "Plan the order",
         steps: [
           "Go to Restock. Check the plan once: tap Change these days and set Batch arrives in, Spare days and Each order lasts, then tap Save plan.",
-          "Read the suggested order. It uses how fast each product sells, minus what's on the shelf and reserved.",
-          "Adjust for what you know (a flavour being discontinued, a promo coming), then tap Copy order list and paste it in your message to the supplier.",
+          "Read the suggested order. It uses how fast each product sells, minus what's on the shelf (less what's reserved) and what's already on the way. On the way lists your open orders.",
+          "Under How it's worked out, Order to arrival shows how many days your recent orders took from ordering to Arrived. Tap Use N days for delivery to plan with that.",
+          "Adjust for what you know (a flavour being discontinued, a promo coming), then tap Copy order list and paste it in your message to the supplier. Tap Order this to record the order (SOP 3).",
           "If you see Update low-stock alerts (with a number), tap it. It sets each selling product's low-stock alert to its reorder point, so the badge comes on at the right time.",
         ],
       },
@@ -526,7 +556,7 @@ export const SOPS: Sop[] = [
           "Go to Sales → Finance. On the Overview, find the Inventory reserve card. If it isn't asking you, tap Change the amount.",
           "Pick a quick amount (Same as Batch N, All spare cash, Nothing) or type the expected cost of the order, including shipping. Restock shows the suggested order “about ₱X at cost” as a guide.",
           "Read “Leaves ₱X of spare cash”, add a note (for example “Black TEO reorder”), and tap Keep this amount.",
-          "When the order arrives, receive it with SOP 3. If it is paid from company funds, its cost comes off the reserve, and Finance asks you to decide again.",
+          "When you order (SOP 3), the part the company fund pays, now or on pick-up, comes off the reserve, and Finance asks you to decide again.",
         ],
       },
     ],
@@ -542,7 +572,7 @@ export const SOPS: Sop[] = [
       {
         steps: [
           "Make sure the expenses are entered (SOP 11) and the inventory reserve is set (SOP 14).",
-          "Go to Sales → Finance and read Safe to distribute. It is the lower of profit kept in the business and spare cash (cash minus the tax reserve and the inventory reserve).",
+          "Go to Sales → Finance and read Safe to distribute. It is the lower of profit kept in the business and spare cash (cash minus the tax reserve, what is still owed to suppliers and the inventory reserve).",
           "Tap Record distribution. The amount starts at the full safe amount. Change it if you pay out less. The app refuses more than Safe to distribute.",
           "Check the shares shown under the amount: “Owner gets ₱X, manager ₱Y”. They follow the profit split in Finance settings (SOP 16).",
           "Add a note (for example “Batch 1 profit, week of 10 Nov”), then tap Distribute ₱X. It is dated today (change the date with Edit, step 7).",
@@ -557,7 +587,7 @@ export const SOPS: Sop[] = [
     no: 16,
     title: "Owner capital, tax rate and profit split (owner)",
     who: "Owner only.",
-    when: "When the owners put money or stock into the business; when the tax setup is confirmed; when the owners agree a new profit split.",
+    when: "When the owners put money into the business or pay for stock; when the tax setup is confirmed; when the owners agree a new profit split.",
     roles: ["owner"],
     parts: [
       {
@@ -571,9 +601,9 @@ export const SOPS: Sop[] = [
       {
         title: "Stock the owners paid for",
         steps: [
-          "When receiving a batch the owners paid for themselves, untick Paid from company funds (SOP 3).",
-          "Its cost then counts as owner capital automatically. It shows under Owner capital on Balance.",
-          "Ticked wrong when receiving? Open the batch page and, on the Profit and loss card, tap Not from the fund (the owners paid) or Paid from the fund (the business paid).",
+          "When ordering or receiving stock paid with the owner's own money or an investment, pick Owner's money or Investment under Whose money paid (SOP 3). The same for a payment recorded later (SOP 4).",
+          "That payment then counts as owner capital automatically. It shows under Owner capital on Balance, with its batch.",
+          "Picked wrong? Open the batch page and, under Paid to the supplier, tap Edit next to the payment and pick the right one.",
         ],
       },
       {
@@ -637,7 +667,7 @@ export const SCREENS: { screen: string; who: string; what: string; href: string;
     who: "Owner, manager",
     href: "/sales/pnl",
     managers: true,
-    what: "Overview (safe to distribute, what should be in the register, where the cash went, distributions, inventory reserve, who owes, and Finance settings: the owner's tax rate and split), Profit & loss, Cash flow, Balance with owner capital, and Batches: the running net profit with each batch's owner and manager share, and each batch's full statement. Owner: Report compares one batch with another, with charts by day, where each peso went, who still owes, each flavour and the two statements side by side.",
+    what: "Overview (safe to distribute, what should be in the register, where the cash went, distributions, inventory reserve, who owes, and Finance settings: the owner's tax rate and split), Profit & loss, Cash flow, Balance with owner capital, stock on the way and what is owed to suppliers, and Batches: the running net profit with each batch's owner and manager share, and each batch's full statement. Owner: Report compares one batch with another, with charts by day, where each peso went, who still owes, each flavour and the two statements side by side.",
   },
   {
     screen: "Inventory",
@@ -650,7 +680,7 @@ export const SCREENS: { screen: string; who: string; what: string; href: string;
     who: "Owner, manager",
     href: "/restock",
     managers: true,
-    what: "Reorder: the suggested order, with Receive this order, Copy order list and Update low-stock alerts. Receive batch. Batches: each delivery's sales, what's still owed, and its net profit so far with the owner and manager shares; a batch's page has its profit and loss, restock costs, expenses, and Fix for each product line. Expenses.",
+    what: "Reorder: the suggested order (counting what's on the way), orders on the way, how many days orders took to arrive, with Order this, Copy order list and Update low-stock alerts. Order stock, and Receive batch for stock already here. Batches: orders on the way, each delivery's sales, what customers still owe, what is still to pay suppliers, and its net profit so far with the owner and manager shares; an order's page has Arrived and its payments; a batch's page has its payments, profit and loss, restock costs, expenses, and Fix for each product line. Expenses.",
   },
   {
     screen: "Collectibles (Owed on a phone)",
@@ -719,29 +749,50 @@ export const PICTURES: { id: string; title: string; sop: number; img: string; al
     ],
   },
   {
-    id: "receive-delivery",
-    title: "Receive a batch: the delivery",
+    id: "order-details",
+    title: "Order stock: the order",
     sop: 3,
-    img: "/help/receive-delivery.webp",
-    alt: "Receive batch: supplier, date, paid from company funds",
+    img: "/help/order-details.webp",
+    alt: "Order stock: supplier, the day it was ordered",
     managers: true,
-    steps: [
-      "Enter the supplier.",
-      "Set the date it arrived.",
-      "Leave Paid from company funds ticked, unless the owners paid for this stock themselves.",
-    ],
+    steps: ["Enter the supplier.", "Set the day you ordered."],
   },
   {
-    id: "receive-pieces",
-    title: "Receive a batch: the pieces",
+    id: "order-pieces",
+    title: "Order stock: the pieces",
     sop: 3,
-    img: "/help/receive-pieces.webp",
-    alt: "Receive batch: categories, pieces and cost, Receive batch",
+    img: "/help/order-pieces.webp",
+    alt: "Order stock: categories, pieces and cost, Save order",
     managers: true,
     steps: [
       "Tap a category to shorten the list.",
-      "Enter the pieces received and the cost per piece for each product.",
-      "Check the total, then tap Receive batch.",
+      "Enter the pieces ordered and the cost per piece for each product.",
+      "Check the total, then tap Save order.",
+    ],
+  },
+  {
+    id: "order-payment",
+    title: "Order stock: the payment",
+    sop: 3,
+    img: "/help/order-payment.webp",
+    alt: "Order stock: paid in full, downpayment or cash on pick-up, and whose money paid",
+    managers: true,
+    steps: [
+      "Pick how it was paid: in full, a downpayment, or cash on pick-up.",
+      "Pick whose money paid: company fund, owner's money or investment.",
+    ],
+  },
+  {
+    id: "order-arrived",
+    title: "When it arrives: Arrived",
+    sop: 3,
+    img: "/help/order-arrived.webp",
+    alt: "Arrived: the day, the pieces that came, paid on pick-up, put on the shelf",
+    managers: true,
+    steps: [
+      "Check the day it arrived.",
+      "Change a number if fewer pieces came.",
+      "Pick what was paid on pick-up and whose money, then tap Put N pcs on the shelf below.",
     ],
   },
   {
@@ -781,7 +832,7 @@ export const PICTURES: { id: string; title: string; sop: number; img: string; al
     alt: "Owner distributions: profit kept, cash, reserves, spare cash, safe to distribute, Record distribution",
     managers: true,
     steps: [
-      "Profit kept and spare cash (cash minus the tax and inventory reserves). Safe to distribute is the lower of the two.",
+      "Profit kept and spare cash (cash minus the tax reserve, anything still owed to suppliers and the inventory reserve). Safe to distribute is the lower of the two.",
       "Owner only: tap Record distribution and enter up to the safe amount.",
     ],
   },
@@ -809,7 +860,12 @@ export const PICTURES: { id: string; title: string; sop: number; img: string; al
 ];
 
 export const WORDS: { word: string; meaning: string; managers?: boolean }[] = [
-  { word: "Batch", meaning: "One supplier delivery, numbered Batch 1, 2, 3. Every piece that comes in, and every count or loss, belongs to a batch." },
+  { word: "Batch", meaning: "One supplier order or delivery, numbered Batch 1, 2, 3. Every piece that comes in, and every count or loss, belongs to a batch." },
+  {
+    word: "On the way / Arrived",
+    meaning: "An order recorded in the app whose stock hasn't come yet. Its pieces aren't on the shelf and can't be sold. Tap Arrived on its page when it comes in: then they are.",
+    managers: true,
+  },
   { word: "On the shelf", meaning: "The pieces the app says are in the shop now. A sale lowers it; a restock raises it; a count resets it." },
   { word: "Reserved / Free to sell", meaning: "Pieces held for a named customer / pieces anyone can buy." },
   { word: "Low-stock alert at", meaning: "The shelf count that turns on the low-stock badge for a product." },
@@ -834,8 +890,18 @@ export const WORDS: { word: string; meaning: string; managers?: boolean }[] = [
     meaning: "A sale whose buyer pays later. It counts as a sale the day it's rung up, but the money only comes in once it's collected. Collectibles shows who still owes. Finance shows it under Receivables.",
   },
   {
-    word: "Paid from company funds",
-    meaning: "A batch bought with the shop's money. Batch 1 was paid by the owners, so its cost counts as owner capital.",
+    word: "Company fund / Owner's money / Investment",
+    meaning: "Whose money paid a supplier. Company fund = the shop's money from sales: it comes out of cash. Owner's money and investment count as owner capital (Batch 1 was paid by the owners).",
+    managers: true,
+  },
+  {
+    word: "Downpayment / Cash on pick-up",
+    meaning: "Part of an order paid when ordering, the rest when you pick it up / nothing paid until pick-up. What isn't paid yet shows as still to pay on the batch, and as Owed to suppliers in Finance.",
+    managers: true,
+  },
+  {
+    word: "Stock on the way / Owed to suppliers",
+    meaning: "On Balance: orders not arrived yet, at cost / what is still to pay suppliers for orders and deliveries. Owed to suppliers is held back from Safe to distribute.",
     managers: true,
   },
   {
@@ -847,10 +913,10 @@ export const WORDS: { word: string; meaning: string; managers?: boolean }[] = [
   { word: "Gross profit / margin", meaning: "Net sales minus cost of goods sold; the margin is that as a % of net sales.", managers: true },
   { word: "Operating expenses", meaning: "Salaries, rent, utilities, supplies, payment fees and other costs of running the shop.", managers: true },
   { word: "Percentage tax (est.)", meaning: "An estimate of the tax on net sales at the owner's rate (3% by default). Record the tax you pay under Taxes paid.", managers: true },
-  { word: "Cash", meaning: "Money the business holds: drawer, e-wallets and bank. Collected sales and capital in, minus stock, fees, expenses, taxes and distributions out.", managers: true },
+  { word: "Cash", meaning: "Money the business holds: drawer, e-wallets and bank. Collected sales and capital in, minus what was paid for stock from the company fund, expenses, taxes and distributions out.", managers: true },
   {
     word: "Should be in the register",
-    meaning: "The paper cash the shop should hold today: cash received and owner capital put in since opening, minus everything paid out (except payment fees, which come off the e-wallet or bank). The app takes every payment as cash from the drawer. So your count is higher by anything paid by GCash or bank and by a float not recorded as capital. It is lower by cash taken out to keep or deposit, by drawer cash paid for stock that hasn't arrived, and by capital put in by GCash or bank.",
+    meaning: "The paper cash the shop should hold today: cash received and owner capital put in since opening, minus everything paid out (except payment fees, which come off the e-wallet or bank). The app takes every payment as cash from the drawer. So your count is higher by anything paid by GCash or bank and by a float not recorded as capital. It is lower by cash taken out to keep or deposit, by drawer cash paid to a supplier but not recorded yet, and by capital put in by GCash or bank.",
     managers: true,
   },
   { word: "Net profit so far", meaning: "A batch's profit on the pieces sold so far: net sales, minus what those pieces cost with their share of restocking fees, minus the batch's expenses. All batches, minus general expenses, give the net profit in Profit & loss.", managers: true },
@@ -860,17 +926,17 @@ export const WORDS: { word: string; meaning: string; managers?: boolean }[] = [
     managers: true,
   },
   { word: "Receivables", meaning: "Sales not paid yet. Shown by age: 0–7, 8–30 and over 30 days.", managers: true },
-  { word: "Owner capital", meaning: "Money or stock the owners put into the business. Not a sale and not profit.", managers: true },
+  { word: "Owner capital", meaning: "Money the owners put into the business, and stock paid with the owner's money or an investment. Not a sale and not profit.", managers: true },
   { word: "Profit kept", meaning: "All profit earned so far minus what's been distributed (retained earnings).", managers: true },
   { word: "Tax reserve", meaning: "Estimated tax not yet paid. Held back from distributions.", managers: true },
   {
     word: "Inventory reserve",
-    meaning: "The amount you decided to keep for the next restock. The cost of the next batch paid from company funds comes out of it; then Finance asks again.",
+    meaning: "The amount you decided to keep for the next restock. The next order the company fund pays for (now or on pick-up) comes out of it; then Finance asks again.",
     managers: true,
   },
   {
     word: "Safe to distribute",
-    meaning: "The lower of profit kept and spare cash (cash minus the tax and inventory reserves). Only the owner records distributions, shared by the profit split in Finance settings.",
+    meaning: "The lower of profit kept and spare cash (cash minus the tax reserve, what is owed to suppliers and the inventory reserve). Only the owner records distributions, shared by the profit split in Finance settings.",
     managers: true,
   },
   { word: "Void / Delete", meaning: "Void cancels a real sale and keeps it on record. Delete removes a test sale completely (owner only)." },
@@ -900,10 +966,12 @@ export const PROBLEMS: { see: string; doThis: string; managers?: boolean }[] = [
   { see: "A product missing from a batch", doThis: "Batch page → Add a product to this batch (SOP 4).", managers: true },
   {
     see: "A delivery came more than 60 days ago and Arrived on won't go back that far",
-    doThis: "Receive the batch with today's date, then on its page tap Edit supplier, date or note and set the real date, or change it on the batch's report (SOP 4). It can be earlier than the day the pieces were recorded, not later.",
+    doThis: "Receive the batch with today's date, then on its page tap Edit supplier, dates or note and set the real date, or change it on the batch's report (SOP 4).",
     managers: true,
   },
-  { see: "Change stock asks for a batch and none fits", doThis: "Receive the delivery as a batch first (SOP 3).", managers: true },
+  { see: "Change stock asks for a batch and none fits", doThis: "Receive the delivery as a batch first, or tap Arrived on its order (SOP 3). An order still on the way can't take stock.", managers: true },
+  { see: "Stock was ordered but the app shows it on the shelf", doThis: "Open its batch and tap Not here yet? Put it back on the way, then tap Arrived when it comes (SOP 3).", managers: true },
+  { see: "A supplier was paid but the batch still shows money to pay", doThis: "Batch page → Paid to the supplier → Record a payment, with the day it was paid and whose money (SOP 4).", managers: true },
   {
     see: "Import says a row needs fixing, or Nothing was added",
     doThis: "Fix each row marked Fix this in your sheet, save it as CSV again and choose the file again. Nothing is added until every row is right. A barcode shown like 4.8E+12 was changed by Excel: set the Barcode column to Text and type it again (SOP 2).",
@@ -923,12 +991,12 @@ export const PROBLEMS: { see: string; doThis: string; managers?: boolean }[] = [
   },
   {
     see: "Cash doesn't match Finance → Should be in the register",
-    doThis: "That figure is all the paper cash since opening. Payments by GCash or bank, a float, cash taken out, drawer cash paid for stock before it arrived and capital put in by bank all make your count differ: follow SOP 13 step 6.",
+    doThis: "That figure is all the paper cash since opening. Payments by GCash or bank, a float, cash taken out, drawer cash paid to a supplier but not recorded yet and capital put in by bank all make your count differ: follow SOP 13 step 6.",
     managers: true,
   },
   {
     see: "Safe to distribute is ₱0",
-    doThis: "Profit kept or spare cash is ₱0 or less. Read the lines in the Owner distributions card to see which. Collect what's owed, wait for sales, or lower the inventory reserve (SOP 14).",
+    doThis: "Profit kept or spare cash is ₱0 or less. Read the lines in the Owner distributions card to see which. Collect what's owed, wait for sales, pay what's owed to suppliers and record it (SOP 4), or lower the inventory reserve (SOP 14).",
     managers: true,
   },
   { see: "A distribution was entered by mistake", doThis: "Owner taps undo next to it in the Distributed list (SOP 15).", managers: true },

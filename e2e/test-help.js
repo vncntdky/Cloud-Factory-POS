@@ -27,7 +27,13 @@ const DIR = __dirname;
     }
     await page.locator("#pics-t").waitFor();
     const pics = await page.locator("#pics-t ~ details").count();
-    check(`${label}: handbook pictures (${pics})`, ROLE === "cashier" ? pics === 4 : pics === 11);
+    check(`${label}: handbook pictures (${pics})`, ROLE === "cashier" ? pics === 4 : pics === 13);
+    if (ROLE !== "cashier") {
+      // The ordering pictures are there and load.
+      await page.locator("details#order-arrived summary").click();
+      await page.locator("details#order-arrived img").waitFor();
+      check(`${label}: the Arrived picture loads`, await page.locator("details#order-arrived img").evaluate((i) => i.complete && i.naturalWidth > 0));
+    }
     await page.locator("details#sell summary").click();
     await page.locator("details#sell img").waitFor();
     const loaded = await page.locator("details#sell img").evaluate((i) => i.complete && i.naturalWidth > 0);

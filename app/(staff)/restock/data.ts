@@ -1,7 +1,8 @@
 // Data for the Restock tab, shared by its pages and actions. Owners and managers only (the
 // database functions return nothing to anyone else).
 import type { ServerSupabase } from "@/lib/auth";
-import { DEFAULT_PLAN, PACE_DAYS, planProduct, type Pace, type ProductPlan, type RestockPlan } from "@/lib/restock";
+import type { PaymentSource } from "@/lib/supplier-payments";
+import { DEFAULT_PLAN, PACE_DAYS, leadTimes, planProduct, type Pace, type ProductPlan, type RestockPlan } from "@/lib/restock";
 
 export type RestockProduct = {
   id: string;
@@ -20,7 +21,7 @@ export type RestockProduct = {
 };
 
 export async function loadReorderPlan(supabase: ServerSupabase) {
-  const [products, pace, settings, costs, held] = await Promise.all([
+  const [products, pace, settings, costs, held, batches, lines] = await Promise.all([
     supabase
       .from("products")
       .select("id, brand, name, variant, on_hand, reorder_at, category_id, photo_path")
@@ -32,6 +33,8 @@ export async function loadReorderPlan(supabase: ServerSupabase) {
     supabase.from("settings").select("restock_lead_days, restock_buffer_days, restock_cover_days").maybeSingle(),
     supabase.from("product_costs").select("product_id, cost_cents"),
     supabase.from("reservations").select("product_id, qty").eq("status", "active"),
+    supabase.from("stock_batches").select("id, batch_no, supplier, ordered_on, received_on").order("batch_no", { ascending: false }),
+    supabase.from("batch_order_lines").select("batch_id, product_id, qty"),
   ]);
   const s = settings.data as { restock_lead_days: number; restock_buffer_days: number; restock_cover_days: number } | null;
   const plan: RestockPlan = s
@@ -49,16 +52,38 @@ export async function loadReorderPlan(supabase: ServerSupabase) {
   const heldBy = new Map<string, number>();
   for (const r of (held.data ?? []) as { product_id: string; qty: number }[])
     heldBy.set(r.product_id, (heldBy.get(r.product_id) ?? 0) + r.qty);
+  // Orders still on the way, and the pieces each product has coming.
+  const allBatches = (batches.data ?? []) as OrderBatch[];
+  const coming = allBatches.filter((b) => b.received_on === null);
+  const comingIds = new Set(coming.map((b) => b.id));
+  const onOrderBy = new Map<string, number>();
+  const piecesBy = new Map<string, number>();
+  for (const l of (lines.data ?? []) as { batch_id: string; product_id: string; qty: number }[])
+    if (comingIds.has(l.batch_id)) {
+      onOrderBy.set(l.product_id, (onOrderBy.get(l.product_id) ?? 0) + l.qty);
+      piecesBy.set(l.batch_id, (piecesBy.get(l.batch_id) ?? 0) + l.qty);
+    }
   type Row = Omit<RestockProduct, "plan" | "lastSoldAt" | "cost_cents" | "reserved">;
   const rows: RestockProduct[] = ((products.data ?? []) as Row[]).map((p) => ({
     ...p,
     cost_cents: costBy.get(p.id) ?? null,
     reserved: heldBy.get(p.id) ?? 0,
-    plan: planProduct(p.on_hand - (heldBy.get(p.id) ?? 0), paceBy.get(p.id), plan),
+    plan: planProduct(p.on_hand - (heldBy.get(p.id) ?? 0), paceBy.get(p.id), plan, onOrderBy.get(p.id) ?? 0),
     lastSoldAt: paceBy.get(p.id)?.lastSoldAt ?? null,
   }));
-  return { products: rows, plan, error: products.error ?? pace.error ?? null };
+  return {
+    products: rows,
+    plan,
+    /** Orders on the way, oldest first. */
+    onTheWay: [...coming].reverse().map((b) => ({ ...b, pieces: piecesBy.get(b.id) ?? 0 })),
+    /** How long recent orders took to arrive. */
+    lead: leadTimes(allBatches),
+    // Without the orders, pieces already on the way would be suggested again.
+    error: products.error ?? pace.error ?? batches.error ?? lines.error ?? null,
+  };
 }
+
+type OrderBatch = { id: string; batch_no: number; supplier: string | null; ordered_on: string | null; received_on: string | null };
 
 export type BatchRow = {
   batch_id: string | null;
@@ -92,9 +117,53 @@ export type Batch = {
   mooe_cents: number;
   other_cents: number;
   other_label: string | null;
-  /** Bought with the company funds (new batches are, unless switched off). */
-  paid_from_funds: boolean;
+  /** The day it was ordered; null when it was only recorded on arrival. */
+  ordered_on: string | null;
 };
+
+/** A batch still on the way: ordered, not arrived (no received date yet). */
+export function onTheWay(b: Batch) {
+  return b.id !== null && b.received_on === null;
+}
+
+/** A piece of an order still on the way (its pieces aren't on the shelf yet). */
+export type OrderLine = {
+  id: string;
+  batch_id: string;
+  product_id: string;
+  qty: number;
+  unit_cost_cents: number | null;
+};
+
+/** Money paid to the supplier for a batch, and whose money it was. */
+export type BatchPayment = {
+  id: string;
+  batch_id: string;
+  amount_cents: number;
+  paid_on: string;
+  source: PaymentSource;
+  note: string | null;
+};
+
+/** Days from ordered to arrived (0 = the same day); null without both dates. */
+export function orderGap(b: Pick<Batch, "ordered_on" | "received_on">) {
+  if (!b.ordered_on || !b.received_on) return null;
+  return Math.round((Date.parse(`${b.received_on}T00:00:00Z`) - Date.parse(`${b.ordered_on}T00:00:00Z`)) / 86_400_000);
+}
+
+/**
+ * A batch's cost in full (goods + restocking fees) and what is paid: the pieces that came in, or for an order
+ * still on the way the pieces ordered. Matches the database's batch_money().
+ */
+export function batchMoney(batch: Batch, rows: BatchRow[], lines: OrderLine[], payments: BatchPayment[]) {
+  const fees = batch.shipping_cents + batch.tax_cents + batch.mooe_cents + batch.other_cents;
+  const goods = onTheWay(batch)
+    ? lines.reduce((n, l) => n + l.qty * (l.unit_cost_cents ?? 0), 0)
+    : rows.reduce((n, r) => n + Number(r.received_cost_cents), 0);
+  const cost = goods + fees;
+  const paid = payments.reduce((n, p) => n + Number(p.amount_cents), 0);
+  return { goods, fees, cost, paid, owed: cost - paid };
+}
 
 const NO_BATCH: Batch = {
   id: null,
@@ -108,7 +177,7 @@ const NO_BATCH: Batch = {
   mooe_cents: 0,
   other_cents: 0,
   other_label: null,
-  paid_from_funds: false,
+  ordered_on: null,
 };
 
 /** Pieces of a batch line still on the shelf: received − sold, after its counts and losses. */
@@ -170,11 +239,11 @@ export type Expense = {
 
 /** Every batch (newest first) with its rows; stock received outside a batch is the last entry (id null). */
 export async function loadBatches(supabase: ServerSupabase) {
-  const [batches, rows, expenses] = await Promise.all([
+  const [batches, rows, expenses, lines, payments] = await Promise.all([
     supabase
       .from("stock_batches")
       .select(
-        "id, batch_no, supplier, received_on, note, created_at, shipping_cents, tax_cents, mooe_cents, other_cents, other_label, paid_from_funds",
+        "id, batch_no, supplier, received_on, ordered_on, note, created_at, shipping_cents, tax_cents, mooe_cents, other_cents, other_label",
       )
       .order("batch_no", { ascending: false }),
     supabase.rpc("batch_sales"),
@@ -182,18 +251,32 @@ export async function loadBatches(supabase: ServerSupabase) {
       .from("expenses")
       .select("id, batch_id, spent_on, category, amount_cents, note")
       .order("spent_on", { ascending: false }),
+    supabase.from("batch_order_lines").select("id, batch_id, product_id, qty, unit_cost_cents").order("created_at").order("id"),
+    supabase
+      .from("batch_payments")
+      .select("id, batch_id, amount_cents, paid_on, source, note")
+      .order("paid_on")
+      .order("created_at"),
   ]);
   const all = (rows.data ?? []) as BatchRow[];
-  const list = ((batches.data ?? []) as Batch[]).map((b) => ({ batch: b, rows: all.filter((r) => r.batch_id === b.id) }));
+  const allLines = (lines.data ?? []) as OrderLine[];
+  const allPayments = (payments.data ?? []) as BatchPayment[];
+  const list = ((batches.data ?? []) as Batch[]).map((b) => {
+    const mine = all.filter((r) => r.batch_id === b.id);
+    const myLines = allLines.filter((l) => l.batch_id === b.id);
+    const myPayments = allPayments.filter((p) => p.batch_id === b.id);
+    return { batch: b, rows: mine, lines: myLines, payments: myPayments, money: batchMoney(b, mine, myLines, myPayments) };
+  });
   const loose = all.filter((r) => r.batch_id === null);
   if (loose.length > 0) {
-    list.push({ batch: NO_BATCH, rows: loose });
+    list.push({ batch: NO_BATCH, rows: loose, lines: [], payments: [], money: batchMoney(NO_BATCH, loose, [], []) });
   }
   return {
     list,
     expenses: (expenses.data ?? []) as Expense[],
-    // Expenses too: without them every batch's net profit, and the split of it, would read too high.
-    error: batches.error ?? rows.error ?? expenses.error ?? null,
+    // Expenses too: without them every batch's net profit, and the split of it, would read too high. Payments too:
+    // without them every batch would read as owed to its supplier.
+    error: batches.error ?? rows.error ?? expenses.error ?? lines.error ?? payments.error ?? null,
   };
 }
 

@@ -846,7 +846,7 @@ function Statement({
     ["Pieces sold", (f) => (f.st.left > 0 ? `${f.st.sold} (${nb(`${f.st.left} left`)})` : String(f.st.sold))],
     ["Average price per piece", (f) => (f.avgPrice === null ? "–" : pesos(Math.round(f.avgPrice)))],
     ["Cost per piece, with shipping", (f) => (f.landedEach === null ? "–" : pesos(Math.round(f.landedEach), 2))],
-    ["Paid for by", (f) => (f.paidFromFunds ? "company funds" : "the owners")],
+    ["Paid for with", (f) => (f.paidBy ?? "not paid yet") + (f.owedSupplier > 0 ? ` (${pesos(f.owedSupplier)} still owed)` : "")],
     ["Profit and loss"],
     ["Gross sales", (f) => pesos(f.st.gross)],
     ["Discounts", (f) => cost(f.st.discounts)],

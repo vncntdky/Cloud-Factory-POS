@@ -1,5 +1,7 @@
-// Receive a batch (owners and managers). ?suggested=1 starts each product at the Restock tab's
+// Receive a batch that is already here (owners and managers): its pieces go on the shelf at once. Stock ordered
+// ahead goes through Order stock (/restock/order) instead. ?suggested=1 starts each product at the Restock tab's
 // suggested order.
+import Link from "next/link";
 import { Icon } from "@/components/Icon";
 import { Main } from "@/components/Main";
 import { NotAllowed } from "@/components/NotAllowed";
@@ -40,10 +42,12 @@ export default async function ReceiveBatchPage({ searchParams }: { searchParams:
           ) : (
             <>
               <p className="t-sm muted">
-                Enter what arrived in this supplier order. Each product&apos;s pieces go on the shelf, and the batch&apos;s sales
-                show under Restock → Batches.
+                Enter what arrived in this supplier order. Each product&apos;s pieces go on the shelf now, and the batch&apos;s
+                sales show under Restock → Batches. Ordering ahead? <Link href="/restock/order">Order stock</Link> instead, then
+                tap Arrived when it comes.
               </p>
               <ReceiveForm
+                mode="receive"
                 products={products.map((p) => ({
                   id: p.id,
                   brand: p.brand,
@@ -52,6 +56,7 @@ export default async function ReceiveBatchPage({ searchParams }: { searchParams:
                   on_hand: p.on_hand,
                   cost_cents: p.cost_cents,
                   suggest: p.plan.suggest,
+                  on_order: p.plan.onOrder,
                   category_id: p.category_id,
                 }))}
                 categories={categories}

@@ -1,11 +1,14 @@
 "use client";
 
-// Receive a batch: one supplier delivery, with the pieces (and cost per piece) for each product.
-// Products left at 0 aren't in the batch. Owners and managers.
+// Order stock, or receive a delivery that is already here: one supplier order, with the pieces (and cost per piece)
+// for each product, the restocking fees, and how it was paid. An order waits off the shelf until someone taps
+// Arrived on its page; a delivery's pieces go on the shelf at once. Products left at 0 aren't in the batch.
+// Owners and managers.
 import { useMemo, useState } from "react";
-import { receiveBatch, type RestockFormState } from "@/app/(staff)/restock/actions";
+import { orderBatch, receiveBatch, type RestockFormState } from "@/app/(staff)/restock/actions";
 import { Icon } from "@/components/Icon";
 import { Money } from "@/components/Money";
+import { PaymentFields } from "@/components/restock/PaymentFields";
 import { RestockCostFields } from "@/components/restock/RestockCostFields";
 import { centsToInput, productLabel, toCents } from "@/lib/format";
 import { useFormAction } from "@/lib/use-form-action";
@@ -18,16 +21,21 @@ export type ReceiveProduct = {
   on_hand: number;
   cost_cents: number | null;
   suggest: number;
+  /** Pieces already ordered and on the way. */
+  on_order: number;
   category_id: string | null;
 };
 
 export function ReceiveForm({
+  mode,
   products,
   prefill,
   today,
   earliest,
   categories,
 }: {
+  /** order: it waits on the way until Arrived; receive: it's here now. */
+  mode: "order" | "receive";
   products: ReceiveProduct[];
   /** Start each product at its suggested order. */
   prefill: boolean;
@@ -36,7 +44,8 @@ export function ReceiveForm({
   /** For the category chips: a long list is easier one category at a time. */
   categories: { id: string; name: string }[];
 }) {
-  const [state, onSubmit, pending] = useFormAction<RestockFormState>(receiveBatch, null);
+  const ordering = mode === "order";
+  const [state, onSubmit, pending] = useFormAction<RestockFormState>(ordering ? orderBatch : receiveBatch, null);
   const [qty, setQty] = useState<Record<string, string>>(() =>
     Object.fromEntries(products.map((p) => [p.id, prefill && p.suggest > 0 ? String(p.suggest) : ""])),
   );
@@ -75,11 +84,11 @@ export function ReceiveForm({
   const bad = (f: string) => (state?.field === f ? true : undefined);
 
   return (
-    <form onSubmit={onSubmit} className="stack stack-6" aria-label="Receive batch">
+    <form onSubmit={onSubmit} className="stack stack-6" aria-label={ordering ? "Order stock" : "Receive batch"}>
       <section className="card stack" aria-labelledby="batch-t">
         <div className="card__head">
           <h2 className="card__title" id="batch-t">
-            Batch details
+            {ordering ? "Order details" : "Batch details"}
           </h2>
         </div>
         <div className="form-grid form-grid--2">
@@ -91,18 +100,18 @@ export function ReceiveForm({
           </div>
           <div className="field">
             <label className="field__label" htmlFor="b-date">
-              Arrived on
+              {ordering ? "Ordered on" : "Arrived on"}
             </label>
             <input
               id="b-date"
-              name="received_on"
+              name={ordering ? "ordered_on" : "received_on"}
               type="date"
               className="input"
               defaultValue={today}
               min={earliest}
               max={today}
               required
-              aria-invalid={bad("received_on")}
+              aria-invalid={bad(ordering ? "ordered_on" : "received_on")}
             />
           </div>
           <div className="field span-all">
@@ -117,20 +126,13 @@ export function ReceiveForm({
               placeholder="Order no., receipt no., anything missing…"
             />
           </div>
-          <label className="check-row span-all" htmlFor="b-funds">
-            <input id="b-funds" type="checkbox" className="check" name="paid_from_funds" value="1" defaultChecked />
-            <span className="grow">
-              <span className="check-row__title">Paid from company funds</span>
-              <span className="t-sm muted">The goods and restocking fees come out of what earlier sales brought in.</span>
-            </span>
-          </label>
         </div>
       </section>
 
       <section className="stack stack-2" aria-labelledby="items-t">
         <div className="section-head">
           <h2 className="eyebrow" id="items-t">
-            Pieces received
+            {ordering ? "Pieces ordered" : "Pieces received"}
           </h2>
           <span className="section-head__count num">
             {summary.lines} of {products.length}
@@ -184,7 +186,8 @@ export function ReceiveForm({
                     <span>{label}</span>
                   </span>
                   <span className="list-row__meta">
-                    {p.on_hand} on the shelf{p.suggest > 0 && ` · suggested ${p.suggest}`}
+                    {p.on_hand} on the shelf{p.on_order > 0 && ` · ${p.on_order} on the way`}
+                    {p.suggest > 0 && ` · suggested ${p.suggest}`}
                   </span>
                 </span>
                 <span className="input-affix input-affix--suffix receive-row__qty">
@@ -240,6 +243,13 @@ export function ReceiveForm({
         </div>
       </section>
 
+      <section className="card stack" aria-labelledby="pay-t">
+        <h2 className="card__title" id="pay-t">
+          Payment
+        </h2>
+        <PaymentFields mode={mode} total={summary.pieces > 0 && summary.costed ? summary.value + extras : null} invalid={state?.field} />
+      </section>
+
       {state?.error && (
         <p className="field__error" role="alert">
           <Icon name="alert" />
@@ -268,7 +278,7 @@ export function ReceiveForm({
               disabled={pending || summary.pieces === 0}
               aria-busy={pending || undefined}
             >
-              Receive batch
+              {ordering ? "Save order" : "Receive batch"}
             </button>
           </div>
         </div>

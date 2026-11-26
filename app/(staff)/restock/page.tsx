@@ -20,7 +20,7 @@ import { photoThumb } from "@/lib/photos";
 import { splitProfit } from "@/lib/pnl";
 import { PACE_DAYS, daysLeftLabel, paceLabel, type PlanStatus } from "@/lib/restock";
 import { addDays, formatManilaDate, manilaToday } from "@/lib/time";
-import { applyReorderPoints } from "./actions";
+import { applyLeadDays, applyReorderPoints } from "./actions";
 import {
   batchStatement,
   batchTitle,
@@ -33,7 +33,7 @@ import {
 
 export const dynamic = "force-dynamic";
 
-type SP = { view?: string; plan?: string; alerts?: string; expense?: string };
+type SP = { view?: string; plan?: string; alerts?: string; expense?: string; order?: string };
 
 const SECTIONS: { status: PlanStatus; title: string }[] = [
   { status: "order", title: "Order now" },
@@ -49,6 +49,7 @@ export default async function RestockPage({ searchParams }: { searchParams: Prom
   const view = sp.view === "batches" ? "batches" : "reorder";
 
   const alerts = sp.alerts === undefined ? null : sp.alerts === "error" ? -1 : Number(sp.alerts) || 0;
+  const planError = sp.plan === "error";
   const notice =
     sp.plan === "saved"
       ? "Reorder plan saved."
@@ -63,9 +64,9 @@ export default async function RestockPage({ searchParams }: { searchParams: Prom
       <Topbar
         title="Restock"
         actions={
-          <Link className="btn btn--money btn--sm" href="/restock/receive">
+          <Link className="btn btn--money btn--sm" href="/restock/order">
             <Icon name="plus" />
-            Receive batch
+            Order stock
           </Link>
         }
       />
@@ -76,6 +77,14 @@ export default async function RestockPage({ searchParams }: { searchParams: Prom
               <Icon name="check" />
               <div>
                 <p className="notice__title">{notice}</p>
+              </div>
+            </div>
+          )}
+          {planError && (
+            <div className="notice notice--danger" role="alert">
+              <Icon name="alert" />
+              <div>
+                <p className="notice__title">Couldn&apos;t change the delivery time. Try again.</p>
               </div>
             </div>
           )}
@@ -102,7 +111,11 @@ export default async function RestockPage({ searchParams }: { searchParams: Prom
               Expenses
             </Link>
           </nav>
-          {view === "reorder" ? <ReorderView supabase={supabase} /> : <BatchesView supabase={supabase} expense={sp.expense} />}
+          {view === "reorder" ? (
+            <ReorderView supabase={supabase} />
+          ) : (
+            <BatchesView supabase={supabase} expense={sp.expense} removed={sp.order === "removed"} />
+          )}
         </div>
       </Main>
     </>
@@ -140,6 +153,9 @@ function ProductRow({ p, thumbs }: { p: RestockProduct; thumbs: boolean }) {
     if (p.on_hand > 0) meta.push(`${daysLeftLabel(plan.daysLeft)} left`);
     meta.push(`reorder at ${plan.reorderPoint}`);
   }
+  if (plan.onOrder > 0) {
+    meta.push(`${plan.onOrder} on the way`);
+  }
   if (p.reserved > 0) {
     meta.push(`${p.reserved} reserved`);
   }
@@ -164,7 +180,7 @@ function ProductRow({ p, thumbs }: { p: RestockProduct; thumbs: boolean }) {
 }
 
 async function ReorderView({ supabase }: { supabase: ServerSupabase }) {
-  const [{ products, plan, error }, shop] = await Promise.all([
+  const [{ products, plan, onTheWay, lead, error }, shop] = await Promise.all([
     loadReorderPlan(supabase),
     supabase.from("settings").select("business_name").maybeSingle(),
   ]);
@@ -209,6 +225,14 @@ async function ReorderView({ supabase }: { supabase: ServerSupabase }) {
           meta={orderNow === 1 ? "product" : "products"}
         />
         <Kpi label="Within a week" value={<span className="num">{soon}</span>} meta={soon === 1 ? "product" : "products"} />
+        {onTheWay.length > 0 && (
+          <Kpi
+            label="On the way"
+            value={<span className="num">{onTheWay.reduce((n, b) => n + b.pieces, 0)} pcs</span>}
+            meta={`${onTheWay.length} order${onTheWay.length === 1 ? "" : "s"} · counted as in stock`}
+            href="#coming-t"
+          />
+        )}
         <Kpi
           wide
           label="Suggested order"
@@ -235,9 +259,32 @@ async function ReorderView({ supabase }: { supabase: ServerSupabase }) {
         </div>
         <p className="t-sm">
           Each product&apos;s pace is what it sold in the last {PACE_DAYS} days. Its <strong>reorder point</strong> is{" "}
-          {plan.lead + plan.buffer} days of sales: {plan.lead} for the batch to arrive and {plan.buffer} spare. When the shelf
-          gets there, order enough for {plan.lead + plan.buffer + plan.cover} days.
+          {plan.lead + plan.buffer} days of sales: {plan.lead} for an order to arrive and {plan.buffer} spare. When its stock
+          (on the shelf plus already on the way) gets there, order enough for {plan.lead + plan.buffer + plan.cover} days.
         </p>
+        {lead.gaps.length > 0 ? (
+          <div className="stack stack-2">
+            <p className="t-sm">
+              <strong>Order to arrival:</strong>{" "}
+              {lead.gaps.map((g) => `Batch ${g.batchNo} took ${g.days} day${g.days === 1 ? "" : "s"}`).join(", ")}
+              {lead.gaps.length > 1 && ` (${lead.average} on average)`}.
+              {lead.average !== null && lead.average !== plan.lead && ` The plan uses ${plan.lead}.`}
+            </p>
+            {lead.average !== null && lead.average !== plan.lead && lead.average <= 90 && (
+              <form action={applyLeadDays}>
+                <input type="hidden" name="lead" value={lead.average} />
+                <button type="submit" className="btn btn--secondary btn--sm">
+                  Use {lead.average} day{lead.average === 1 ? "" : "s"} for delivery
+                </button>
+              </form>
+            )}
+          </div>
+        ) : (
+          <p className="t-sm muted">
+            Order stock with Order stock and tap Arrived when it comes: the days in between show here, so the delivery time
+            matches your supplier.
+          </p>
+        )}
         {shortest < 7 && (
           <p className="t-sm muted">
             Some products have under a week of sales, so their numbers are rough and will settle as more sales come in.
@@ -246,14 +293,55 @@ async function ReorderView({ supabase }: { supabase: ServerSupabase }) {
         <PlanForm plan={plan} />
       </section>
 
+      {onTheWay.length > 0 && (
+        <section className="stack stack-2" aria-labelledby="coming-t">
+          <div className="section-head">
+            <h2 className="eyebrow" id="coming-t">
+              On the way
+            </h2>
+            <span className="section-head__count num">{onTheWay.length}</span>
+          </div>
+          <ul className="list" role="list">
+            {onTheWay.map((b) => {
+              const since = b.ordered_on ? daysSince(b.ordered_on, manilaToday()) : null;
+              return (
+                <li key={b.id}>
+                  <Link className="list-row" href={`/restock/batches/${b.id}`}>
+                    <span className="list-row__main">
+                      <span className="list-row__title">
+                        <span>
+                          Batch {b.batch_no}
+                          {b.supplier && ` · ${b.supplier}`}
+                        </span>
+                        <span className="chip chip--info">On the way</span>
+                      </span>
+                      <span className="list-row__meta">
+                        {b.ordered_on && `Ordered ${formatManilaDate(b.ordered_on)}`}
+                        {since !== null && ` · ${since === 0 ? "today" : `${since} day${since === 1 ? "" : "s"} ago`}`}
+                        {since !== null && since > plan.lead && ` · later than the ${plan.lead}-day delivery time`}
+                      </span>
+                    </span>
+                    <span className="list-row__trail stock-count">
+                      <span className="num-lg">{b.pieces}</span>
+                      <span className="t-caption muted">pcs</span>
+                    </span>
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+          <p className="t-sm muted">Open it and tap Arrived when it comes in: its pieces go on the shelf.</p>
+        </section>
+      )}
+
       {(toOrder.length > 0 || changes > 0) && (
         <div className="stack stack-2">
           <div className="btn-row">
             {toOrder.length > 0 && (
               <>
-                <Link className="btn btn--primary" href="/restock/receive?suggested=1">
+                <Link className="btn btn--primary" href="/restock/order?suggested=1">
                   <Icon name="box" />
-                  Receive this order
+                  Order this
                 </Link>
                 <CopyOrder text={orderText} />
               </>
@@ -304,7 +392,7 @@ function Profit({ cents }: { cents: number }) {
   return <span className={cents < 0 ? "text-alert" : undefined}>{<Money cents={cents} />}</span>;
 }
 
-async function BatchesView({ supabase, expense }: { supabase: ServerSupabase; expense?: string }) {
+async function BatchesView({ supabase, expense, removed }: { supabase: ServerSupabase; expense?: string; removed?: boolean }) {
   const [{ list, expenses, error }, { statements, error: statementsError }, settingsRes] = await Promise.all([
     loadBatches(supabase),
     loadBatchStatements(supabase),
@@ -330,8 +418,18 @@ async function BatchesView({ supabase, expense }: { supabase: ServerSupabase; ex
   const profitShown = !statementsError && !settingsRes.error && settings !== null;
   const split = { owner: settings?.split_owner_parts ?? 2, manager: settings?.split_manager_parts ?? 1 };
   const taxRateBp = Number(settings?.tax_rate_bp ?? 0);
+  // Stock from before batches was paid from the till: nothing is owed on it.
+  const owedSuppliers = list.reduce((n, b) => n + (b.batch.id === null ? 0 : Math.max(0, b.money.owed)), 0);
   return (
     <>
+      {removed && (
+        <div className="notice notice--success" role="status">
+          <Icon name="check" />
+          <div>
+            <p className="notice__title">Order removed.</p>
+          </div>
+        </div>
+      )}
       {expense === "added" && (
         <div className="notice notice--success" role="status">
           <Icon name="check" />
@@ -376,19 +474,28 @@ async function BatchesView({ supabase, expense }: { supabase: ServerSupabase; ex
             label="Still owed"
             variant={all.owed > 0 ? "alert" : undefined}
             value={<Money cents={all.owed} />}
-            meta={all.owed > 0 ? "Not paid yet, by batch below" : "Everything is paid"}
+            meta={all.owed > 0 ? "Customers who haven't paid, by batch below" : "Every customer has paid"}
           />
+          {owedSuppliers > 0 && (
+            <Kpi
+              wide
+              label="To pay suppliers"
+              variant="alert"
+              value={<Money cents={owedSuppliers} />}
+              meta="Orders and deliveries not paid yet, by batch below"
+            />
+          )}
         </KpiGrid>
       )}
       {!hasBatches && (
         <EmptyState
           compact
           title="No batches yet."
-          text="When a supplier order arrives, tap Receive batch and enter the pieces for each product. Its sales show here."
+          text="When you order from a supplier, tap Order stock and enter the pieces for each product; tap Arrived on it when it comes. Its sales show here."
           action={
-            <Link className="btn btn--money" href="/restock/receive">
+            <Link className="btn btn--money" href="/restock/order">
               <Icon name="plus" />
-              Receive batch
+              Order stock
             </Link>
           }
         />
@@ -403,7 +510,8 @@ async function BatchesView({ supabase, expense }: { supabase: ServerSupabase; ex
           </div>
           <p className="t-sm muted">
             Sales are matched to batches first in, first out: the oldest pieces on the shelf sell first.
-            {profitShown && " Owner and manager are their shares of each batch's net profit so far, before general expenses."}
+            {profitShown && " Owner and manager are their shares of each batch's net profit so far, before general expenses."}{" "}
+            Stock already here? <Link href="/restock/receive">Receive batch</Link>.
           </p>
           {!profitShown && (
             <p className="field__error" role="alert">
@@ -412,7 +520,41 @@ async function BatchesView({ supabase, expense }: { supabase: ServerSupabase; ex
             </p>
           )}
           <ul className="list" role="list">
-            {list.map(({ batch, rows }) => {
+            {list.map(({ batch, rows, lines, money }) => {
+              if (batch.id !== null && batch.received_on === null) {
+                const pcs = lines.reduce((n, l) => n + l.qty, 0);
+                return (
+                  <li key={batch.id}>
+                    <Link className="list-row" href={`/restock/batches/${batch.id}`}>
+                      <span className="list-row__main">
+                        <span className="list-row__title">
+                          <span>
+                            {batchTitle(batch)}
+                            {batch.supplier && ` · ${batch.supplier}`}
+                          </span>
+                          <span className="chip chip--info">On the way</span>
+                        </span>
+                        <span className="list-row__meta list-row__meta--wrap">
+                          {batch.ordered_on && `Ordered ${formatManilaDate(batch.ordered_on)} · `}
+                          {pcs} pcs · <Money cents={money.cost} />
+                          {" · "}
+                          {money.owed > 0 ? (
+                            <span className="text-alert">
+                              <Money cents={money.owed} /> to pay
+                            </span>
+                          ) : (
+                            "paid"
+                          )}
+                        </span>
+                      </span>
+                      <span className="list-row__trail stock-count">
+                        <span className="num-lg">{pcs}</span>
+                        <span className="t-caption muted">coming</span>
+                      </span>
+                    </Link>
+                  </li>
+                );
+              }
               const t = totals(rows);
               const share = t.received > 0 ? t.sold / t.received : 0;
               const when = batch.received_on ? formatManilaDate(batch.received_on) : `from ${formatManilaDate(t.firstIn)}`;
@@ -441,6 +583,14 @@ async function BatchesView({ supabase, expense }: { supabase: ServerSupabase; ex
                             </span>
                           </>
                         )}
+                        {batch.id !== null && money.owed > 0 && (
+                          <>
+                            {" · "}
+                            <span className="text-alert">
+                              <Money cents={money.owed} /> to pay the supplier
+                            </span>
+                          </>
+                        )}
                       </span>
                       {st && shares && (
                         <span className="list-row__meta list-row__meta--wrap">
@@ -465,4 +615,9 @@ async function BatchesView({ supabase, expense }: { supabase: ServerSupabase; ex
       )}
     </>
   );
+}
+
+/** Whole days from one Manila date to another. */
+function daysSince(from: string, to: string) {
+  return Math.max(0, Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000));
 }
