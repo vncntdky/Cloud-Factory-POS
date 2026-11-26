@@ -1,0 +1,1088 @@
+{
+ "calendar_days": {
+  "value": 31,
+  "unit": "days",
+  "formula": "26 Nov - 27 Oct + 1 (first stock and first sale 27 Oct)",
+  "as_of": "2026-11-26"
+ },
+ "selling_days": {
+  "value": 19,
+  "unit": "days",
+  "formula": "distinct business_date with >=1 completed sale",
+  "as_of": "2026-11-26"
+ },
+ "shop_days_with_stock": {
+  "value": 27.0258,
+  "unit": "days",
+  "formula": "time with total pieces on the shelf > 0, 27 Oct 09:15 -> 26 Nov 18:59",
+  "as_of": "2026-11-26"
+ },
+ "shop_days_fully_empty": {
+  "value": 3.3797,
+  "unit": "days",
+  "formula": "time with 0 pieces in the whole shop (6-9 Nov and since 26 Nov 11:16)",
+  "as_of": "2026-11-26"
+ },
+ "gross_sales": {
+  "value": 19800.0,
+  "unit": "PHP",
+  "formula": "sum(subtotal) of completed sales",
+  "as_of": "2026-11-26"
+ },
+ "discounts": {
+  "value": 0.0,
+  "unit": "PHP",
+  "formula": "sum(discount) of completed sales",
+  "as_of": "2026-11-26"
+ },
+ "net_sales": {
+  "value": 19800.0,
+  "unit": "PHP",
+  "formula": "gross - discounts (= finance_report net)",
+  "as_of": "2026-11-26"
+ },
+ "completed_sales": {
+  "value": 51,
+  "unit": "sales",
+  "formula": "count(status='completed')",
+  "as_of": "2026-11-26"
+ },
+ "pieces_sold": {
+  "value": 60.0,
+  "unit": "pieces",
+  "formula": "sum(quantity) of completed sale lines",
+  "as_of": "2026-11-26"
+ },
+ "avg_price_per_piece": {
+  "value": 330.0,
+  "unit": "PHP",
+  "formula": "net sales / pieces",
+  "as_of": "2026-11-26"
+ },
+ "avg_ticket": {
+  "value": 388.2353,
+  "unit": "PHP",
+  "formula": "net sales / completed sales",
+  "as_of": "2026-11-26"
+ },
+ "pieces_per_sale": {
+  "value": 1.1765,
+  "unit": "pieces",
+  "formula": "pieces / completed sales",
+  "as_of": "2026-11-26"
+ },
+ "net_sales_per_calendar_day": {
+  "value": 638.7097,
+  "unit": "PHP/day",
+  "formula": "net sales / 31 days",
+  "as_of": "2026-11-26"
+ },
+ "net_sales_per_day_with_stock": {
+  "value": 732.6333,
+  "unit": "PHP/day",
+  "formula": "net sales / days the shop had stock",
+  "as_of": "2026-11-26"
+ },
+ "pieces_per_day_with_stock": {
+  "value": 2.2201,
+  "unit": "pieces/day",
+  "formula": "pieces / days the shop had stock",
+  "as_of": "2026-11-26"
+ },
+ "lines_at_list_price_share": {
+  "value": 1.0,
+  "unit": "share",
+  "formula": "line_total = unit price x qty = product price for every line",
+  "as_of": "2026-11-26"
+ },
+ "voided_sales": {
+  "value": 1,
+  "unit": "sales",
+  "formula": "status='voided' (1 piece, re-rung 25 Nov)",
+  "as_of": "2026-11-26"
+ },
+ "pocket_cash_per_piece": {
+  "value": 295.3333,
+  "unit": "PHP",
+  "formula": "(net sales - still owed) / pieces = collected / pieces",
+  "as_of": "2026-11-26"
+ },
+ "leakage_uncollected_share": {
+  "value": 0.1051,
+  "unit": "share",
+  "formula": "still owed / net sales",
+  "as_of": "2026-11-26"
+ },
+ "cogs_at_cost": {
+  "value": 9750.0,
+  "unit": "PHP",
+  "formula": "sum(qty x unit cost)",
+  "as_of": "2026-11-26"
+ },
+ "cogs_landed": {
+  "value": 10233.0,
+  "unit": "PHP",
+  "formula": "sum(qty x (unit cost + batch fees / pieces received))",
+  "as_of": "2026-11-26"
+ },
+ "gross_margin_at_cost": {
+  "value": 0.5076,
+  "unit": "share",
+  "formula": "(net - cogs at cost) / net",
+  "as_of": "2026-11-26"
+ },
+ "gross_margin_landed": {
+  "value": 0.4832,
+  "unit": "share",
+  "formula": "(net - landed cogs) / net",
+  "as_of": "2026-11-26"
+ },
+ "gross_profit_landed": {
+  "value": 9567.0,
+  "unit": "PHP",
+  "formula": "net - landed cogs",
+  "as_of": "2026-11-26"
+ },
+ "landed_margin_per_piece_avg": {
+  "value": 159.45,
+  "unit": "PHP/piece",
+  "formula": "(net - landed cogs) / pieces",
+  "as_of": "2026-11-26"
+ },
+ "batch1_fees_per_piece": {
+  "value": 7.9667,
+  "unit": "PHP/piece",
+  "formula": "batch 1 fees / pieces (239 / 30)",
+  "as_of": "2026-11-26"
+ },
+ "batch1_fees_pct_goods": {
+  "value": 0.0498,
+  "unit": "share",
+  "formula": "fees / goods cost",
+  "as_of": "2026-11-26"
+ },
+ "batch2_fees_per_piece": {
+  "value": 8.1333,
+  "unit": "PHP/piece",
+  "formula": "batch 2 fees / pieces (244 / 30)",
+  "as_of": "2026-11-26"
+ },
+ "batch2_fees_pct_goods": {
+  "value": 0.0493,
+  "unit": "share",
+  "formula": "fees / goods cost",
+  "as_of": "2026-11-26"
+ },
+ "batch3_fees_per_piece": {
+  "value": 6.6,
+  "unit": "PHP/piece",
+  "formula": "batch 3 fees / pieces (264 / 40)",
+  "as_of": "2026-11-26"
+ },
+ "batch3_fees_pct_goods": {
+  "value": 0.038,
+  "unit": "share",
+  "formula": "fees / goods cost",
+  "as_of": "2026-11-26"
+ },
+ "operating_expenses": {
+  "value": 740.0,
+  "unit": "PHP",
+  "formula": "other 640 (9 Nov) + utilities 100 (24 Nov); no rent or salaries recorded",
+  "as_of": "2026-11-26"
+ },
+ "net_profit": {
+  "value": 8827.0,
+  "unit": "PHP",
+  "formula": "net sales - landed cogs - expenses - tax (0%)",
+  "as_of": "2026-11-26"
+ },
+ "net_margin": {
+  "value": 0.4458,
+  "unit": "share",
+  "formula": "net profit / net sales",
+  "as_of": "2026-11-26"
+ },
+ "tax_at_statutory_3pct": {
+  "value": 594.0,
+  "unit": "PHP",
+  "formula": "3% x net sales (app rate is 0%)",
+  "as_of": "2026-11-26"
+ },
+ "oct_net_sales": {
+  "value": 7680.0,
+  "unit": "PHP",
+  "formula": "27-31 Oct (5 days)",
+  "as_of": "2026-10-31"
+ },
+ "nov_net_sales": {
+  "value": 12120.0,
+  "unit": "PHP",
+  "formula": "1-26 Nov (26 days)",
+  "as_of": "2026-11-26"
+ },
+ "oct_net_profit": {
+  "value": 3648.8,
+  "unit": "PHP",
+  "formula": "Oct P&L",
+  "as_of": "2026-10-31"
+ },
+ "nov_net_profit": {
+  "value": 5178.2,
+  "unit": "PHP",
+  "formula": "Nov P&L to 26 Nov",
+  "as_of": "2026-11-26"
+ },
+ "bal_cash": {
+  "value": 340.0,
+  "unit": "PHP",
+  "formula": "finance_report end.cash",
+  "as_of": "2026-11-26"
+ },
+ "bal_receivables": {
+  "value": 2080.0,
+  "unit": "PHP",
+  "formula": "finance_report end.receivables",
+  "as_of": "2026-11-26"
+ },
+ "bal_inventory": {
+  "value": 0.0,
+  "unit": "PHP",
+  "formula": "finance_report end.inventory",
+  "as_of": "2026-11-26"
+ },
+ "bal_on_the_way": {
+  "value": 7214.0,
+  "unit": "PHP",
+  "formula": "finance_report end.on_the_way",
+  "as_of": "2026-11-26"
+ },
+ "bal_owed_suppliers": {
+  "value": 0.0,
+  "unit": "PHP",
+  "formula": "finance_report end.owed_suppliers",
+  "as_of": "2026-11-26"
+ },
+ "bal_capital": {
+  "value": 5039.0,
+  "unit": "PHP",
+  "formula": "finance_report end.capital",
+  "as_of": "2026-11-26"
+ },
+ "bal_net_profit": {
+  "value": 8827.0,
+  "unit": "PHP",
+  "formula": "finance_report end.net_profit",
+  "as_of": "2026-11-26"
+ },
+ "bal_distributions": {
+  "value": 4232.0,
+  "unit": "PHP",
+  "formula": "finance_report end.distributions",
+  "as_of": "2026-11-26"
+ },
+ "bal_retained": {
+  "value": 4595.0,
+  "unit": "PHP",
+  "formula": "finance_report end.retained",
+  "as_of": "2026-11-26"
+ },
+ "bal_safe_to_distribute": {
+  "value": 340.0,
+  "unit": "PHP",
+  "formula": "finance_report end.safe_to_distribute",
+  "as_of": "2026-11-26"
+ },
+ "bal_total_assets": {
+  "value": 9634.0,
+  "unit": "PHP",
+  "formula": "cash + receivables + inventory + on the way (= capital + profit - distributions)",
+  "as_of": "2026-11-26"
+ },
+ "batch1_pieces": {
+  "value": 30,
+  "unit": "pieces",
+  "formula": "pieces received = sold",
+  "as_of": "2026-11-26"
+ },
+ "batch1_cost_in_full": {
+  "value": 5039.0,
+  "unit": "PHP",
+  "formula": "goods + shipping/tax/MOOE/other",
+  "as_of": "2026-11-26"
+ },
+ "batch1_landed_cost_per_piece": {
+  "value": 167.9667,
+  "unit": "PHP",
+  "formula": "cost in full / pieces received",
+  "as_of": "2026-11-26"
+ },
+ "batch1_sell_through_days": {
+  "value": 10.3866,
+  "unit": "days",
+  "formula": "arrival (first stock movement) -> last sale",
+  "as_of": "2026-11-26"
+ },
+ "batch1_sell_through_pct": {
+  "value": 1.0,
+  "unit": "share",
+  "formula": "pieces sold / received",
+  "as_of": "2026-11-26"
+ },
+ "batch1_sold_by_day7": {
+  "value": 24,
+  "unit": "pieces",
+  "formula": "pieces sold within 7 days of arrival",
+  "as_of": "2026-11-26"
+ },
+ "batch1_pace": {
+  "value": 2.8884,
+  "unit": "pieces/day",
+  "formula": "pieces / sell-through days",
+  "as_of": "2026-11-26"
+ },
+ "batch1_net_profit": {
+  "value": 3921.0,
+  "unit": "PHP",
+  "formula": "net sales - cost in full - expenses charged",
+  "as_of": "2026-11-26"
+ },
+ "batch1_days_to_cover_cost_sales": {
+  "value": 2.4159,
+  "unit": "days",
+  "formula": "arrival -> cumulative net sales >= cost in full",
+  "as_of": "2026-11-26"
+ },
+ "batch1_days_to_cover_cost_cash": {
+  "value": 10.0,
+  "unit": "days",
+  "formula": "arrival day -> cumulative cash collected >= cost in full",
+  "as_of": "2026-11-26"
+ },
+ "batch1_credit_share": {
+  "value": 0.7,
+  "unit": "share",
+  "formula": "batch sales rung as not paid yet / batch net sales",
+  "as_of": "2026-11-26"
+ },
+ "batch2_pieces": {
+  "value": 30,
+  "unit": "pieces",
+  "formula": "pieces received = sold",
+  "as_of": "2026-11-26"
+ },
+ "batch2_cost_in_full": {
+  "value": 5194.0,
+  "unit": "PHP",
+  "formula": "goods + shipping/tax/MOOE/other",
+  "as_of": "2026-11-26"
+ },
+ "batch2_landed_cost_per_piece": {
+  "value": 173.1333,
+  "unit": "PHP",
+  "formula": "cost in full / pieces received",
+  "as_of": "2026-11-26"
+ },
+ "batch2_sell_through_days": {
+  "value": 16.6392,
+  "unit": "days",
+  "formula": "arrival (first stock movement) -> last sale",
+  "as_of": "2026-11-26"
+ },
+ "batch2_sell_through_pct": {
+  "value": 1.0,
+  "unit": "share",
+  "formula": "pieces sold / received",
+  "as_of": "2026-11-26"
+ },
+ "batch2_sold_by_day7": {
+  "value": 16,
+  "unit": "pieces",
+  "formula": "pieces sold within 7 days of arrival",
+  "as_of": "2026-11-26"
+ },
+ "batch2_pace": {
+  "value": 1.803,
+  "unit": "pieces/day",
+  "formula": "pieces / sell-through days",
+  "as_of": "2026-11-26"
+ },
+ "batch2_net_profit": {
+  "value": 4906.0,
+  "unit": "PHP",
+  "formula": "net sales - cost in full - expenses charged",
+  "as_of": "2026-11-26"
+ },
+ "batch2_days_to_cover_cost_sales": {
+  "value": 6.0758,
+  "unit": "days",
+  "formula": "arrival -> cumulative net sales >= cost in full",
+  "as_of": "2026-11-26"
+ },
+ "batch2_days_to_cover_cost_cash": {
+  "value": 11.0,
+  "unit": "days",
+  "formula": "arrival day -> cumulative cash collected >= cost in full",
+  "as_of": "2026-11-26"
+ },
+ "batch2_credit_share": {
+  "value": 0.7667,
+  "unit": "share",
+  "formula": "batch sales rung as not paid yet / batch net sales",
+  "as_of": "2026-11-26"
+ },
+ "batch1_gross_margin_landed": {
+  "value": 0.4751,
+  "unit": "share",
+  "formula": "(batch net sales - cost in full) / net sales",
+  "as_of": "2026-11-26"
+ },
+ "batch2_gross_margin_landed": {
+  "value": 0.4908,
+  "unit": "share",
+  "formula": "(batch net sales - cost in full) / net sales",
+  "as_of": "2026-11-26"
+ },
+ "price_change_b1_to_b2": {
+  "value": 0.0625,
+  "unit": "share",
+  "formula": "340 / 320 - 1",
+  "as_of": "2026-11-26"
+ },
+ "cost_change_b1_to_b2": {
+  "value": 0.0312,
+  "unit": "share",
+  "formula": "165 / 160 - 1",
+  "as_of": "2026-11-26"
+ },
+ "landed_margin_change_b1_to_b2": {
+  "value": 14.8333,
+  "unit": "PHP/piece",
+  "formula": "166.87 - 152.03",
+  "as_of": "2026-11-26"
+ },
+ "batch3_cost_in_full": {
+  "value": 7214.0,
+  "unit": "PHP",
+  "formula": "30 x 165 + 10 x 200 + 264 shipping; paid 25 Nov, company fund",
+  "as_of": "2026-11-26"
+ },
+ "batch3_pieces": {
+  "value": 40,
+  "unit": "pieces",
+  "formula": "30 BLXCK Signature (3 x 10 flavours) + 10 devices",
+  "as_of": "2026-11-26"
+ },
+ "flavours_sold_out": {
+  "value": 20,
+  "unit": "products",
+  "formula": "products stocked so far that are now at 0 (all 20)",
+  "as_of": "2026-11-26"
+ },
+ "median_days_to_sell_out_3pcs": {
+  "value": 7.4327,
+  "unit": "days",
+  "formula": "median over 20 flavours, arrival -> 3rd piece",
+  "as_of": "2026-11-26"
+ },
+ "pace_7to10_flavours_ex_launch": {
+  "value": 3.3752,
+  "unit": "pieces/day",
+  "formula": "as above, first 24 h after each arrival left out",
+  "as_of": "2026-11-26"
+ },
+ "pace_when_1to3_flavours": {
+  "value": 0.845,
+  "unit": "pieces/day",
+  "formula": "pieces sold / days with that many flavours on the shelf (both batches)",
+  "as_of": "2026-11-26"
+ },
+ "pace_when_4to6_flavours": {
+  "value": 1.5829,
+  "unit": "pieces/day",
+  "formula": "pieces sold / days with that many flavours on the shelf (both batches)",
+  "as_of": "2026-11-26"
+ },
+ "pace_when_7to10_flavours": {
+  "value": 3.6098,
+  "unit": "pieces/day",
+  "formula": "pieces sold / days with that many flavours on the shelf (both batches)",
+  "as_of": "2026-11-26"
+ },
+ "shop_pace_with_stock": {
+  "value": 2.2201,
+  "unit": "pieces/day",
+  "formula": "60 pieces / days the shop had stock",
+  "as_of": "2026-11-26"
+ },
+ "lost_L1_shop_empty_pieces": {
+  "value": 7.5033,
+  "unit": "pieces",
+  "formula": "shop pace x days fully empty",
+  "as_of": "2026-11-26"
+ },
+ "lost_L1_shop_empty_gross_profit": {
+  "value": 1196.3969,
+  "unit": "PHP",
+  "formula": "x avg landed margin per piece",
+  "as_of": "2026-11-26"
+ },
+ "lost_L1_shop_empty_net_sales": {
+  "value": 2476.0801,
+  "unit": "PHP",
+  "formula": "x avg price",
+  "as_of": "2026-11-26"
+ },
+ "gross_profit_lost_per_empty_shop_day": {
+  "value": 353.9951,
+  "unit": "PHP/day",
+  "formula": "shop pace x landed margin per piece",
+  "as_of": "2026-11-26"
+ },
+ "lost_L2_flavour_empty_pieces_upper": {
+  "value": 49.9627,
+  "unit": "pieces",
+  "formula": "per batch: pieces / flavour-days in stock x flavour-days empty inside the selling window (no substitution)",
+  "as_of": "2026-11-26"
+ },
+ "lost_L2_flavour_empty_gross_profit_upper": {
+  "value": 7885.4382,
+  "unit": "PHP",
+  "formula": "x the batch's landed margin per piece",
+  "as_of": "2026-11-26"
+ },
+ "gross_profit_lost_per_cycle_if_ordered_at_sell_out_7d": {
+  "value": 2477.9656,
+  "unit": "PHP",
+  "formula": "7 lead days x shop pace x landed margin: the cost of each order placed when the shelf is already empty",
+  "as_of": "2026-11-26"
+ },
+ "gross_profit_lost_per_empty_shop_day_full_shelf": {
+  "value": 575.5825,
+  "unit": "PHP/day",
+  "formula": "pace with 7-10 flavours on the shelf x landed margin (a fresh batch)",
+  "as_of": "2026-11-26"
+ },
+ "lost_L2_mid_pieces": {
+  "value": 31.2167,
+  "unit": "pieces",
+  "formula": "sum over B1, B2 of (full-shelf pace ex launch x selling-window days - pieces sold)",
+  "as_of": "2026-11-26"
+ },
+ "lost_L2_mid_gross_profit": {
+  "value": 5134.0158,
+  "unit": "PHP",
+  "formula": "x the batch's landed margin per piece",
+  "as_of": "2026-11-26"
+ },
+ "lost_current_gap_gp_if_lead_5d": {
+  "value": 1426.7108,
+  "unit": "PHP",
+  "formula": "(25 Nov + 5 d, noon) - 26 Nov 11:16 = 4.0 empty days x shop pace x margin",
+  "as_of": "2026-11-26"
+ },
+ "lost_current_gap_gp_if_lead_7d": {
+  "value": 2134.701,
+  "unit": "PHP",
+  "formula": "(25 Nov + 7 d, noon) - 26 Nov 11:16 = 6.0 empty days x shop pace x margin",
+  "as_of": "2026-11-26"
+ },
+ "lost_current_gap_gp_if_lead_10d": {
+  "value": 3196.6863,
+  "unit": "PHP",
+  "formula": "(25 Nov + 10 d, noon) - 26 Nov 11:16 = 9.0 empty days x shop pace x margin",
+  "as_of": "2026-11-26"
+ },
+ "app_pace_understatement_median": {
+  "value": 2.5515,
+  "unit": "x",
+  "formula": "median over 20 flavours of in-stock pace / app 28-day pace",
+  "as_of": "2026-11-26"
+ },
+ "app_pace_understatement_max": {
+  "value": 24.799,
+  "unit": "x",
+  "formula": "largest ratio (a fast flavour that sold out early)",
+  "as_of": "2026-11-26"
+ },
+ "black_teo_app_pace_range": {
+  "value": "0.18-0.18",
+  "unit": "pieces/day",
+  "formula": "app pace of the 10 Black TEO flavours",
+  "as_of": "2026-11-26"
+ },
+ "black_teo_instock_pace_range": {
+  "value": "0.18-0.85",
+  "unit": "pieces/day",
+  "formula": "in-stock pace of the same flavours",
+  "as_of": "2026-11-26"
+ },
+ "flavours_app_pace_zero": {
+  "value": 2,
+  "unit": "flavours",
+  "formula": "flavours whose 28-day window holds no sale (pace 0 -> 'idle')",
+  "as_of": "2026-11-26"
+ },
+ "products_for_80pct_sales_value": {
+  "value": 16,
+  "unit": "products",
+  "formula": "of 20 products that sold (every flavour sold exactly 3)",
+  "as_of": "2026-11-26"
+ },
+ "flavours_for_80pct_speed": {
+  "value": 12,
+  "unit": "flavours",
+  "formula": "rank by in-stock pace (3 pcs / in-stock days); cumulative share of summed pace",
+  "as_of": "2026-11-26"
+ },
+ "top20pct_flavours_share_of_speed": {
+  "value": 0.4471,
+  "unit": "share",
+  "formula": "top 4 of 20 flavours' share of summed in-stock pace",
+  "as_of": "2026-11-26"
+ },
+ "batch1_fastest_to_slowest_pace": {
+  "value": 7.3873,
+  "unit": "x",
+  "formula": "fastest / slowest flavour in-stock pace within the line",
+  "as_of": "2026-11-26"
+ },
+ "batch2_fastest_to_slowest_pace": {
+  "value": 4.6387,
+  "unit": "x",
+  "formula": "fastest / slowest flavour in-stock pace within the line",
+  "as_of": "2026-11-26"
+ },
+ "all_fastest_to_slowest_pace": {
+  "value": 11.6317,
+  "unit": "x",
+  "formula": "across both lines",
+  "as_of": "2026-11-26"
+ },
+ "sell_out_days_cv": {
+  "value": 0.5493,
+  "unit": "ratio",
+  "formula": "std / mean of days to sell out 3 pieces across 20 flavours",
+  "as_of": "2026-11-26"
+ },
+ "credit_share_value": {
+  "value": 0.7343,
+  "unit": "share",
+  "formula": "sales rung as not paid yet / net sales",
+  "as_of": "2026-11-26"
+ },
+ "credit_share_count": {
+  "value": 0.7255,
+  "unit": "share",
+  "formula": "credit sales / completed sales",
+  "as_of": "2026-11-26"
+ },
+ "credit_sales_fully_paid": {
+  "value": 31,
+  "unit": "sales",
+  "formula": "credit sales with balance 0",
+  "as_of": "2026-11-26"
+ },
+ "days_to_collect_median": {
+  "value": 9.0,
+  "unit": "days",
+  "formula": "sale business_date -> last payment business_date, fully paid credit sales",
+  "as_of": "2026-11-26"
+ },
+ "days_to_collect_mean": {
+  "value": 8.7097,
+  "unit": "days",
+  "formula": "same, mean",
+  "as_of": "2026-11-26"
+ },
+ "days_to_collect_value_weighted": {
+  "value": 9.3174,
+  "unit": "days",
+  "formula": "same, weighted by sale value",
+  "as_of": "2026-11-26"
+ },
+ "days_to_collect_p80": {
+  "value": 11.0,
+  "unit": "days",
+  "formula": "80th percentile (linear)",
+  "as_of": "2026-11-26"
+ },
+ "days_to_collect_p90": {
+  "value": 13.0,
+  "unit": "days",
+  "formula": "90th percentile (linear)",
+  "as_of": "2026-11-26"
+ },
+ "days_to_collect_p95": {
+  "value": 13.0,
+  "unit": "days",
+  "formula": "95th percentile (linear)",
+  "as_of": "2026-11-26"
+ },
+ "share_collected_within_7_days": {
+  "value": 0.3548,
+  "unit": "share",
+  "formula": "fully paid credit sales collected within 7 days (percentile rank of 7 days)",
+  "as_of": "2026-11-26"
+ },
+ "share_collected_within_14_days": {
+  "value": 0.9677,
+  "unit": "share",
+  "formula": "same, within 14 days",
+  "as_of": "2026-11-26"
+ },
+ "one_default_680_vs_gross_profit": {
+  "value": 0.0711,
+  "unit": "share",
+  "formula": "the largest open balance (680) / gross profit to date",
+  "as_of": "2026-11-26"
+ },
+ "days_to_collect_max": {
+  "value": 21.0,
+  "unit": "days",
+  "formula": "slowest fully paid credit sale",
+  "as_of": "2026-11-26"
+ },
+ "credit_paid_same_day_share": {
+  "value": 0.0323,
+  "unit": "share",
+  "formula": "fully paid credit sales collected the same day",
+  "as_of": "2026-11-26"
+ },
+ "batch1_days_to_collect_median": {
+  "value": 9.0,
+  "unit": "days",
+  "formula": "credit sales of the batch, fully paid",
+  "as_of": "2026-11-26"
+ },
+ "batch2_days_to_collect_median": {
+  "value": 8.0,
+  "unit": "days",
+  "formula": "credit sales of the batch, fully paid",
+  "as_of": "2026-11-26"
+ },
+ "still_owed": {
+  "value": 2080.0,
+  "unit": "PHP",
+  "formula": "sum(balance) of completed sales",
+  "as_of": "2026-11-26"
+ },
+ "still_owed_sales": {
+  "value": 6,
+  "unit": "sales",
+  "formula": "sales with a balance",
+  "as_of": "2026-11-26"
+ },
+ "still_owed_buyers": {
+  "value": 6,
+  "unit": "buyers",
+  "formula": "distinct buyers with a balance",
+  "as_of": "2026-11-26"
+ },
+ "still_owed_share_net_sales": {
+  "value": 0.1051,
+  "unit": "share",
+  "formula": "still owed / net sales",
+  "as_of": "2026-11-26"
+ },
+ "still_owed_largest_buyer_share": {
+  "value": 0.3269,
+  "unit": "share",
+  "formula": "largest single buyer's balance / still owed",
+  "as_of": "2026-11-26"
+ },
+ "still_owed_0_7_days": {
+  "value": 1700.0,
+  "unit": "PHP",
+  "formula": "age = 26 Nov - sale day",
+  "as_of": "2026-11-26"
+ },
+ "still_owed_8_30_days": {
+  "value": 380.0,
+  "unit": "PHP",
+  "formula": "age = 26 Nov - sale day",
+  "as_of": "2026-11-26"
+ },
+ "still_owed_oldest_age": {
+  "value": 16.0,
+  "unit": "days",
+  "formula": "oldest open sale",
+  "as_of": "2026-11-26"
+ },
+ "still_owed_value_weighted_age": {
+  "value": 5.5385,
+  "unit": "days",
+  "formula": "balance-weighted age",
+  "as_of": "2026-11-26"
+ },
+ "distinct_buyers": {
+  "value": 31,
+  "unit": "buyers",
+  "formula": "distinct (pseudonymous) buyers on completed sales",
+  "as_of": "2026-11-26"
+ },
+ "repeat_buyers": {
+  "value": 11,
+  "unit": "buyers",
+  "formula": "buyers with >= 2 sales",
+  "as_of": "2026-11-26"
+ },
+ "repeat_buyer_sales_share": {
+  "value": 0.6182,
+  "unit": "share",
+  "formula": "net sales from repeat buyers / net sales",
+  "as_of": "2026-11-26"
+ },
+ "buyers_ever_on_credit_share": {
+  "value": 0.7742,
+  "unit": "share",
+  "formula": "buyers with >= 1 credit sale / buyers",
+  "as_of": "2026-11-26"
+ },
+ "dso_end": {
+  "value": 3.2566,
+  "unit": "days",
+  "formula": "receivables 26 Nov / (net sales / 31)",
+  "as_of": "2026-11-26"
+ },
+ "dso_avg": {
+  "value": 6.2131,
+  "unit": "days",
+  "formula": "average daily receivables / (net sales / 31)",
+  "as_of": "2026-11-26"
+ },
+ "dio_avg": {
+  "value": 4.3929,
+  "unit": "days",
+  "formula": "average daily inventory at landed cost / (landed cogs / 31)",
+  "as_of": "2026-11-26"
+ },
+ "dio_end": {
+  "value": 0.0,
+  "unit": "days",
+  "formula": "inventory 26 Nov is 0 (sold out)",
+  "as_of": "2026-11-26"
+ },
+ "dpo": {
+  "value": 0.0,
+  "unit": "days",
+  "formula": "payables 0: suppliers paid on arrival (B1, B2) or at order (B3)",
+  "as_of": "2026-11-26"
+ },
+ "ccc_avg": {
+  "value": 10.6061,
+  "unit": "days",
+  "formula": "DSO avg + DIO avg - DPO",
+  "as_of": "2026-11-26"
+ },
+ "prepaid_stock_days_avg": {
+  "value": 1.4099,
+  "unit": "days",
+  "formula": "average stock paid but on the way / (cogs / 31) (adds to the cycle)",
+  "as_of": "2026-11-26"
+ },
+ "cash_to_cash_days_per_piece": {
+  "value": 11.05,
+  "unit": "days",
+  "formula": "mean over pieces: money-in day - supplier payment day (open balances to 26 Nov)",
+  "as_of": "2026-11-26"
+ },
+ "shelf_days_per_piece": {
+  "value": 4.555,
+  "unit": "days",
+  "formula": "mean over pieces: sale time - batch arrival",
+  "as_of": "2026-11-26"
+ },
+ "batch1_cash_to_cash_days": {
+  "value": 10.4333,
+  "unit": "days",
+  "formula": "per-piece mean, this batch",
+  "as_of": "2026-11-26"
+ },
+ "batch1_shelf_days_per_piece": {
+  "value": 2.9419,
+  "unit": "days",
+  "formula": "per-piece mean, this batch",
+  "as_of": "2026-11-26"
+ },
+ "batch2_cash_to_cash_days": {
+  "value": 11.6667,
+  "unit": "days",
+  "formula": "per-piece mean, this batch",
+  "as_of": "2026-11-26"
+ },
+ "batch2_shelf_days_per_piece": {
+  "value": 6.1681,
+  "unit": "days",
+  "formula": "per-piece mean, this batch",
+  "as_of": "2026-11-26"
+ },
+ "order_interval_mean": {
+  "value": 14.5,
+  "unit": "days",
+  "formula": "mean gap between order days [13, 16] (B1, B2 have no order day: received day used)",
+  "as_of": "2026-11-26"
+ },
+ "order_interval_sd": {
+  "value": 2.1213,
+  "unit": "days",
+  "formula": "sample std of the 2 gaps",
+  "as_of": "2026-11-26"
+ },
+ "lead_time_observations": {
+  "value": 0,
+  "unit": "orders",
+  "formula": "batches with both ordered_on and received_on",
+  "as_of": "2026-11-26"
+ },
+ "batch3_days_on_the_way": {
+  "value": 1.791,
+  "unit": "days",
+  "formula": "25 Nov 00:00 -> 26 Nov 18:59",
+  "as_of": "2026-11-26"
+ },
+ "cover_days_mean": {
+  "value": 13.5129,
+  "unit": "days",
+  "formula": "mean sell-through of a 30-piece batch (B1, B2)",
+  "as_of": "2026-11-26"
+ },
+ "cover_days_sd": {
+  "value": 4.4213,
+  "unit": "days",
+  "formula": "sample std",
+  "as_of": "2026-11-26"
+ },
+ "empty_gap_b1_to_b2": {
+  "value": 3.0584,
+  "unit": "days",
+  "formula": "B1 last piece 6 Nov 18:31 -> B2 stocked 9 Nov 19:55",
+  "as_of": "2026-11-26"
+ },
+ "batch3_ordered_before_b2_sold_out": {
+  "value": 1.4694,
+  "unit": "days",
+  "formula": "order day 25 Nov -> B2 last piece 26 Nov 11:16",
+  "as_of": "2026-11-26"
+ },
+ "implied_reorder_point_shop": {
+  "value": 22.201,
+  "unit": "pieces",
+  "formula": "shop pace x (7 lead + 3 buffer)",
+  "as_of": "2026-11-26"
+ },
+ "implied_order_size_shop": {
+  "value": 53.2824,
+  "unit": "pieces",
+  "formula": "shop pace x (7 + 3 + 14)",
+  "as_of": "2026-11-26"
+ },
+ "owner_capital": {
+  "value": 5039.0,
+  "unit": "PHP",
+  "formula": "capital entries 0 + Batch 1 paid with owner's money 5,039",
+  "as_of": "2026-11-26"
+ },
+ "distributions": {
+  "value": 4232.0,
+  "unit": "PHP",
+  "formula": "25 Nov: owner 2,821.33, manager 1,410.67 (2:1)",
+  "as_of": "2026-11-26"
+ },
+ "payout_ratio": {
+  "value": 0.4794,
+  "unit": "share",
+  "formula": "distributions / net profit to date",
+  "as_of": "2026-11-26"
+ },
+ "inventory_reserve_decisions": {
+  "value": 5,
+  "unit": "decisions",
+  "formula": "fund_set_asides rows: 0; 7,194; 5,194; 7,250; 7,014",
+  "as_of": "2026-11-26"
+ },
+ "invested_capital_avg": {
+  "value": 5883.8957,
+  "unit": "PHP",
+  "formula": "mean daily (receivables + inventory + on the way - payables)",
+  "as_of": "2026-11-26"
+ },
+ "invested_capital_end": {
+  "value": 9294.0,
+  "unit": "PHP",
+  "formula": "26 Nov: 2,080 + 0 + 7,214",
+  "as_of": "2026-11-26"
+ },
+ "roic_period": {
+  "value": 1.5002,
+  "unit": "share",
+  "formula": "net profit (31 days, tax 0%) / avg invested capital",
+  "as_of": "2026-11-26"
+ },
+ "roic_annualised_simple": {
+  "value": 17.6636,
+  "unit": "share",
+  "formula": "x 365/31 (not compounded)",
+  "as_of": "2026-11-26"
+ },
+ "roic_period_with_3pct_tax": {
+  "value": 1.3992,
+  "unit": "share",
+  "formula": "(net profit - 3% x net sales) / avg invested capital",
+  "as_of": "2026-11-26"
+ },
+ "capital_turnover_period": {
+  "value": 3.3651,
+  "unit": "x",
+  "formula": "net sales / avg invested capital (31 days)",
+  "as_of": "2026-11-26"
+ },
+ "on_the_way_share_of_assets": {
+  "value": 0.7488,
+  "unit": "share",
+  "formula": "stock on the way / total assets",
+  "as_of": "2026-11-26"
+ },
+ "lost_per_cycle_vs_gross_profit_to_date": {
+  "value": 0.259,
+  "unit": "share",
+  "formula": "gross profit lost per 7-day empty gap / gross profit to date",
+  "as_of": "2026-11-26"
+ },
+ "lost_L1_vs_gross_profit_to_date": {
+  "value": 0.1251,
+  "unit": "share",
+  "formula": "L1 / gross profit to date",
+  "as_of": "2026-11-26"
+ },
+ "lost_L2_mid_vs_gross_profit_to_date": {
+  "value": 0.5366,
+  "unit": "share",
+  "formula": "L2 middle / gross profit to date",
+  "as_of": "2026-11-26"
+ },
+ "full_shelf_vs_thin_shelf_pace": {
+  "value": 4.2719,
+  "unit": "x",
+  "formula": "pace with 7-10 flavours / pace with 1-3 flavours",
+  "as_of": "2026-11-26"
+ },
+ "days_of_b3_at_shop_pace": {
+  "value": 18.0172,
+  "unit": "days",
+  "formula": "40 pieces / shop pace with stock",
+  "as_of": "2026-11-26"
+ },
+ "days_of_b3_at_full_shelf_pace": {
+  "value": 11.8513,
+  "unit": "days",
+  "formula": "40 pieces / full-shelf pace ex launch",
+  "as_of": "2026-11-26"
+ },
+ "share_pieces_after_5pm": {
+  "value": 0.6333,
+  "unit": "share",
+  "formula": "pieces rung 17:00-23:59",
+  "as_of": "2026-11-26"
+ }
+}

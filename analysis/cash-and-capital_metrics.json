@@ -1,0 +1,260 @@
+{
+ "operating_cash_flow_31d": {
+  "value": 4572.0,
+  "unit": "PHP",
+  "formula": "collected 17,720 - paid for stock 12,408 - expenses 740 (before distributions)",
+  "as_of": "2026-11-26"
+ },
+ "payout_share_of_operating_cash": {
+  "value": 0.9256,
+  "unit": "share",
+  "formula": "4,232 / 4,572",
+  "as_of": "2026-11-26"
+ },
+ "cash_low_point": {
+  "value": 0.0,
+  "unit": "PHP",
+  "formula": "lowest end-of-day company cash (2026-10-27)",
+  "as_of": "2026-11-26"
+ },
+ "safe_before_payout_25nov": {
+  "value": 4232.0,
+  "unit": "PHP",
+  "formula": "min(profit kept, cash - reserve) at 25 Nov 07:48, reserve 0 after Batch 3",
+  "as_of": "2026-11-26"
+ },
+ "payout_share_of_safe": {
+  "value": 1.0,
+  "unit": "share",
+  "formula": "4,232 / safe at 07:48",
+  "as_of": "2026-11-26"
+ },
+ "minutes_reset_to_payout": {
+  "value": 14.0,
+  "unit": "minutes",
+  "formula": "Batch 3 entered 07:34:58 -> distribution 07:48:29",
+  "as_of": "2026-11-26"
+ },
+ "prefill_error_same_as_last": {
+  "value": -0.28,
+  "unit": "share",
+  "formula": "Same as Batch 2 (5,194) vs Batch 3 (7,214)",
+  "as_of": "2026-11-26"
+ },
+ "typed_reserve_error_max": {
+  "value": 0.28,
+  "unit": "share",
+  "formula": "owners' typed reserves vs Batch 3 cost",
+  "as_of": "2026-11-26"
+ },
+ "cash_before_batch2": {
+  "value": 7680.0,
+  "unit": "PHP",
+  "formula": "end-of-day 9 Nov cash + Batch 2 payment",
+  "as_of": "2026-11-26"
+ },
+ "cash_before_batch3": {
+  "value": 11446.0,
+  "unit": "PHP",
+  "formula": "end-of-day 25 Nov cash + Batch 3 payment + payout",
+  "as_of": "2026-11-26"
+ },
+ "next_order_estimate_engine": {
+  "value": 6224.0,
+  "unit": "PHP",
+  "formula": "37 pcs x cost + fees (maths review, top-down plan)",
+  "as_of": "2026-11-26"
+ },
+ "prefill_overhold_vs_engine": {
+  "value": 990.0,
+  "unit": "PHP",
+  "formula": "same-as-Batch-3 pre-fill - engine estimate",
+  "as_of": "2026-11-26"
+ },
+ "running_costs_month": {
+  "value": 716.129,
+  "unit": "PHP/month",
+  "formula": "all non-tax expenses (740) / 31 days x 30; starting guess (<60 days)",
+  "as_of": "2026-11-26"
+ },
+ "gross_profit_month_recorded": {
+  "value": 9258.3871,
+  "unit": "PHP/month",
+  "formula": "9,567 / 31 x 30",
+  "as_of": "2026-11-26"
+ },
+ "runway_days_running_costs": {
+  "value": 14.2432,
+  "unit": "days",
+  "formula": "spare cash 340 / (716/30)",
+  "as_of": "2026-11-26"
+ },
+ "equity": {
+  "value": 9634.0,
+  "unit": "PHP",
+  "formula": "owner capital 5,039 + profit kept 4,595",
+  "as_of": "2026-11-26"
+ },
+ "ccc_prepay_7d": {
+  "value": 17.6,
+  "unit": "days",
+  "formula": "6.2 DSO + 4.4 DIO + 7 days paid ahead (DPO -7)",
+  "as_of": "2026-11-26"
+ },
+ "avg_receivables": {
+  "value": 3966.3871,
+  "unit": "PHP",
+  "formula": "DSO 6.21 x 19,800/31",
+  "as_of": "2026-11-26"
+ },
+ "cash_freed_per_10pts_credit": {
+  "value": 540.1589,
+  "unit": "PHP",
+  "formula": "avg receivables x 10 / 73.4 credit share",
+  "as_of": "2026-11-26"
+ },
+ "mc_S1_p_short": {
+  "value": 0.9967,
+  "unit": "share",
+  "formula": "S1 today: P340 cash, order at reorder point, pay at order",
+  "as_of": "2026-11-26"
+ },
+ "mc_S1_lost_gp": {
+  "value": 1198.7126,
+  "unit": "PHP per cycle",
+  "formula": "extra empty days from waiting for cash x 354",
+  "as_of": "2026-11-26"
+ },
+ "mc_S2_p_short": {
+  "value": 0.1655,
+  "unit": "share",
+  "formula": "S2 today, pay on pick-up",
+  "as_of": "2026-11-26"
+ },
+ "mc_S2_lost_gp": {
+  "value": 22.1466,
+  "unit": "PHP per cycle",
+  "formula": "extra empty days from waiting for cash x 354",
+  "as_of": "2026-11-26"
+ },
+ "mc_S3_p_short": {
+  "value": 0.0166,
+  "unit": "share",
+  "formula": "S3 25 Nov payout held (P4,572 cash), pay at order",
+  "as_of": "2026-11-26"
+ },
+ "mc_S3_lost_gp": {
+  "value": 2.7328,
+  "unit": "PHP per cycle",
+  "formula": "extra empty days from waiting for cash x 354",
+  "as_of": "2026-11-26"
+ },
+ "mc_S4_p_short": {
+  "value": 0.4444,
+  "unit": "share",
+  "formula": "S4 today, order at sell-out (habit), pay at order",
+  "as_of": "2026-11-26"
+ },
+ "mc_S4_lost_gp": {
+  "value": 325.7789,
+  "unit": "PHP per cycle",
+  "formula": "extra empty days from waiting for cash x 354",
+  "as_of": "2026-11-26"
+ },
+ "mc_S5_p_short": {
+  "value": 0.9955,
+  "unit": "share",
+  "formula": "S5 stress: slower sales, no devices, P380 never paid",
+  "as_of": "2026-11-26"
+ },
+ "mc_S5_lost_gp": {
+  "value": 1053.3604,
+  "unit": "PHP per cycle",
+  "formula": "extra empty days from waiting for cash x 354",
+  "as_of": "2026-11-26"
+ },
+ "mc_S6_p_short": {
+  "value": 1.0,
+  "unit": "share",
+  "formula": "S6 S1 with next order = Batch 3 cost (P7,214)",
+  "as_of": "2026-11-26"
+ },
+ "mc_S6_lost_gp": {
+  "value": 1595.3011,
+  "unit": "PHP per cycle",
+  "formula": "extra empty days from waiting for cash x 354",
+  "as_of": "2026-11-26"
+ },
+ "mc_S1_topup_p50": {
+  "value": 2598.495,
+  "unit": "PHP",
+  "formula": "owner money needed when short (median)",
+  "as_of": "2026-11-26"
+ },
+ "batch3_cash_payback_days": {
+  "value": 20.99,
+  "unit": "days",
+  "formula": "from 25 Nov payment to Batch 3 collections >= 7,214",
+  "as_of": "2026-11-26"
+ },
+ "max_payout_10pct_risk_prepay": {
+  "value": 500.0,
+  "unit": "PHP",
+  "formula": "grid search, 3,000 trials each, step 250",
+  "as_of": "2026-11-26"
+ },
+ "max_payout_10pct_risk_pickup": {
+  "value": 3750.0,
+  "unit": "PHP",
+  "formula": "same, paying on pick-up",
+  "as_of": "2026-11-26"
+ },
+ "rule_B_suggested_25nov": {
+  "value": 0.0,
+  "unit": "PHP",
+  "formula": "min(safe, spare - (next order - kept - collections expected by 10 Dec) - month of running costs)",
+  "as_of": "2026-11-26"
+ },
+ "rule_C_25nov": {
+  "value": 0.0,
+  "unit": "PHP",
+  "formula": "safe with reserve = last company batch while the question is open",
+  "as_of": "2026-11-26"
+ },
+ "tax_3pct_month": {
+  "value": 574.8387,
+  "unit": "PHP/month",
+  "formula": "3% x net sales a month at the recorded pace",
+  "as_of": "2026-11-26"
+ },
+ "safe_before_payout_at_3pct": {
+  "value": 3648.2,
+  "unit": "PHP",
+  "formula": "same moment with a 3% tax reserve",
+  "as_of": "2026-11-26"
+ },
+ "batch_roi_mean": {
+  "value": 0.8613,
+  "unit": "share per cycle",
+  "formula": "mean(3,921/5,039, 4,906/5,194)",
+  "as_of": "2026-11-26"
+ },
+ "max_payout_ratio_self_funding_full_shelf": {
+  "value": 0.6417,
+  "unit": "share",
+  "formula": "1 - growth needed / batch ROI",
+  "as_of": "2026-11-26"
+ },
+ "payout_ratio_to_date": {
+  "value": 0.4794,
+  "unit": "share",
+  "formula": "4,232 / 8,827",
+  "as_of": "2026-11-26"
+ },
+ "owner_net_if_full_topup": {
+  "value": -1410.67,
+  "unit": "PHP",
+  "formula": "2,821.33 received - 4,232 put back as capital",
+  "as_of": "2026-11-26"
+ }
+}
