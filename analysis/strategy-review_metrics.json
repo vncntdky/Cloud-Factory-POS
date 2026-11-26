@@ -1,0 +1,431 @@
+{
+ "engine_v2_R": {
+  "value": 18.0,
+  "note": ""
+ },
+ "engine_v2_H": {
+  "value": 36.0,
+  "note": ""
+ },
+ "engine_v2_lam": {
+  "value": 2.051924643907598,
+  "note": ""
+ },
+ "engine_v2_rop_shop": {
+  "value": 23.026953492784756,
+  "note": ""
+ },
+ "engine_v2_spare": {
+  "value": 8.663480985431569,
+  "note": ""
+ },
+ "engine_v2_tgt_shop": {
+  "value": 64.65227302866816,
+  "note": ""
+ },
+ "engine_v2_pos_shop": {
+  "value": 33,
+  "note": ""
+ },
+ "engine_v2_pcs": {
+  "value": 43,
+  "note": ""
+ },
+ "engine_v2_goods": {
+  "value": 6955.0,
+  "note": ""
+ },
+ "engine_v2_fees": {
+  "value": 321,
+  "note": ""
+ },
+ "engine_v2_total": {
+  "value": 7276.0,
+  "note": ""
+ },
+ "engine_v2_fit_pcs": {
+  "value": 14,
+  "note": ""
+ },
+ "engine_v2_order_by": {
+  "value": "2026-12-06",
+  "note": ""
+ },
+ "engine_v2_order_by_pods_only": {
+  "value": "2026-12-05",
+  "note": ""
+ },
+ "engine_stock_R": {
+  "value": 14.5,
+  "note": ""
+ },
+ "engine_stock_H": {
+  "value": 28.0,
+  "note": ""
+ },
+ "engine_stock_lam": {
+  "value": 2.00693946657549,
+  "note": ""
+ },
+ "engine_stock_rop_shop": {
+  "value": 22.572790730700063,
+  "note": ""
+ },
+ "engine_stock_spare": {
+  "value": 8.524214464671635,
+  "note": ""
+ },
+ "engine_stock_tgt_shop": {
+  "value": 55.5602478014448,
+  "note": ""
+ },
+ "engine_stock_pos_shop": {
+  "value": 33,
+  "note": ""
+ },
+ "engine_stock_pcs": {
+  "value": 36,
+  "note": ""
+ },
+ "engine_stock_goods": {
+  "value": 5815.0,
+  "note": ""
+ },
+ "engine_stock_fees": {
+  "value": 269,
+  "note": ""
+ },
+ "engine_stock_total": {
+  "value": 6084.0,
+  "note": ""
+ },
+ "engine_stock_fit_pcs": {
+  "value": 14,
+  "note": ""
+ },
+ "engine_stock_order_by": {
+  "value": "2026-12-07",
+  "note": ""
+ },
+ "engine_stock_order_by_pods_only": {
+  "value": "2026-12-05",
+  "note": ""
+ },
+ "engine_adopted_R": {
+  "value": 14.5,
+  "note": ""
+ },
+ "engine_adopted_H": {
+  "value": 29.0,
+  "note": ""
+ },
+ "engine_adopted_lam": {
+  "value": 2.013826739620187,
+  "note": ""
+ },
+ "engine_adopted_rop_shop": {
+  "value": 22.642343389296176,
+  "note": ""
+ },
+ "engine_adopted_spare": {
+  "value": 8.545556211954866,
+  "note": ""
+ },
+ "engine_adopted_tgt_shop": {
+  "value": 55.734223446104835,
+  "note": ""
+ },
+ "engine_adopted_pos_shop": {
+  "value": 33,
+  "note": ""
+ },
+ "engine_adopted_pcs": {
+  "value": 36,
+  "note": ""
+ },
+ "engine_adopted_goods": {
+  "value": 5815.0,
+  "note": ""
+ },
+ "engine_adopted_fees": {
+  "value": 269,
+  "note": ""
+ },
+ "engine_adopted_total": {
+  "value": 6084.0,
+  "note": ""
+ },
+ "engine_adopted_fit_pcs": {
+  "value": 14,
+  "note": ""
+ },
+ "engine_adopted_order_by": {
+  "value": "2026-12-07",
+  "note": ""
+ },
+ "engine_adopted_order_by_pods_only": {
+  "value": "2026-12-05",
+  "note": ""
+ },
+ "L_after_one_5day_order_blend": {
+  "value": 6.0,
+  "note": ""
+ },
+ "next_order_up_to_v2_pcs": {
+  "value": 42,
+  "note": ""
+ },
+ "next_order_up_to_v2_total": {
+  "value": 7179.0,
+  "note": ""
+ },
+ "next_order_up_to_adopted_pcs": {
+  "value": 33,
+  "note": ""
+ },
+ "next_order_up_to_adopted_total": {
+  "value": 5664.0,
+  "note": ""
+ },
+ "next_order_adopted_total": {
+  "value": 5664.0,
+  "note": ""
+ },
+ "collections_v2": {
+  "value": [
+   9,
+   12,
+   19
+  ],
+  "note": ""
+ },
+ "collections_v3": {
+  "value": [
+   9,
+   11,
+   18
+  ],
+  "note": ""
+ },
+ "paid_flagged_by_7_day_rule": {
+  "value": 20,
+  "note": ""
+ },
+ "paid_flagged_by_v3": {
+  "value": 5,
+  "note": ""
+ },
+ "masking_day0": {
+  "value": [
+   "v2: Very late after 19 -> Late     ",
+   "v3: Very late after 18 -> Late     "
+  ],
+  "note": ""
+ },
+ "masking_day3": {
+  "value": [
+   "v2: Very late after 19 -> Late     ",
+   "v3: Very late after 18 -> Very late"
+  ],
+  "note": ""
+ },
+ "masking_day5": {
+  "value": [
+   "v2: Very late after 21 -> Late     ",
+   "v3: Very late after 18 -> Very late"
+  ],
+  "note": ""
+ },
+ "masking_day10": {
+  "value": [
+   "v2: Very late after 26 -> Late     ",
+   "v3: Very late after 17 -> Very late"
+  ],
+  "note": ""
+ },
+ "masking_day45": {
+  "value": [
+   "v2: Very late after 61 -> Late     ",
+   "v3: Very late after 17 -> Very late"
+  ],
+  "note": ""
+ },
+ "payout_25Nov": {
+  "value": {
+   "spare": 4232.0,
+   "running": 740.0,
+   "collect": 2080.0,
+   "hold": 3584.0,
+   "v2": 3492.0,
+   "adopted": 0.0
+  },
+  "note": ""
+ },
+ "payout_26Nov": {
+  "value": {
+   "spare": 340.0,
+   "running": 716.1290322580645,
+   "collect": 2080.0,
+   "hold": 3584.0,
+   "v2": 0.0,
+   "adopted": 0.0
+  },
+  "note": ""
+ },
+ "lever_timing_month": {
+  "value": 4038,
+  "note": ""
+ },
+ "lever_keep_next_month": {
+  "value": 432,
+  "note": ""
+ },
+ "lever_cash_rest_month": {
+  "value": 117,
+  "note": ""
+ },
+ "gp_uplift_pct": {
+  "value": 0.6697632604135451,
+  "note": ""
+ },
+ "ranking": {
+  "value": [
+   {
+    "rank": 1,
+    "id": "R1",
+    "rec": "Order on the Order-by date, in whatever size the cash buys (Fits your money)",
+    "low": 3221,
+    "mid": 4038,
+    "high": 4706,
+    "feasibility": "high",
+    "score": 3634.2000000000003
+   },
+   {
+    "rank": 2,
+    "id": "R5",
+    "rec": "Test re-ordering XBLACK MAX's fastest flavours next to BLXCK",
+    "low": 0,
+    "mid": 1590,
+    "high": 3181,
+    "feasibility": "medium",
+    "score": 954.0
+   },
+   {
+    "rank": 3,
+    "id": "R3",
+    "rec": "Hold the next order before any payout (suggested payout + notice)",
+    "low": 432,
+    "mid": 700,
+    "high": 1575,
+    "feasibility": "high",
+    "score": 630.0
+   },
+   {
+    "rank": 4,
+    "id": "R9",
+    "rec": "Pass supplier cost rises on to price, at least peso for peso",
+    "low": 0,
+    "mid": 479,
+    "high": 958,
+    "feasibility": "high",
+    "score": 431.1
+   },
+   {
+    "rank": 5,
+    "id": "R4",
+    "rec": "Ask the supplier for pay on pick-up or part payment",
+    "low": 0,
+    "mid": 600,
+    "high": 1177,
+    "feasibility": "medium",
+    "score": 360.0
+   },
+   {
+    "rank": 6,
+    "id": "R6",
+    "rec": "Record each order the day it is placed; tap Arrived the day it comes",
+    "low": 0,
+    "mid": 354,
+    "high": 708,
+    "feasibility": "high",
+    "score": 318.6
+   },
+   {
+    "rank": 7,
+    "id": "R13",
+    "rec": "Start new kinds of item at about 3; no device re-order until half have sold",
+    "low": 0,
+    "mid": 300,
+    "high": 700,
+    "feasibility": "high",
+    "score": 270.0
+   },
+   {
+    "rank": 8,
+    "id": "R7",
+    "rec": "Collections from the shop's own payment times + 'already owes' at the till",
+    "low": 100,
+    "mid": 300,
+    "high": 600,
+    "feasibility": "high",
+    "score": 270.0
+   },
+   {
+    "rank": 9,
+    "id": "R8",
+    "rec": "First week of a new batch: ask buyers to pay at the till while the supplier is paid at order",
+    "low": 0,
+    "mid": 400,
+    "high": 1588,
+    "feasibility": "medium",
+    "score": 240.0
+   },
+   {
+    "rank": 10,
+    "id": "R10",
+    "rec": "Lower the staff discount limit from PHP 50 to PHP 20",
+    "low": 0,
+    "mid": 247,
+    "high": 740,
+    "feasibility": "high",
+    "score": 222.3
+   },
+   {
+    "rank": 11,
+    "id": "R12",
+    "rec": "Owner's credit rule in SOP 9 (one open tab, Very late = no new credit)",
+    "low": 0,
+    "mid": 9,
+    "high": 50,
+    "feasibility": "high",
+    "score": 8.1
+   }
+  ],
+  "note": ""
+ },
+ "roic_31_days": {
+  "value": 1.5001699524133243,
+  "note": ""
+ },
+ "planning_page_numbers": {
+  "value": {
+   "pace_day": 2.0,
+   "pace_week": 14,
+   "half_life_weeks": 4,
+   "rop": 23,
+   "spare": 9,
+   "sold_in_delivery": 14,
+   "target": 56,
+   "next_pcs": 33,
+   "next_cost": 5660.0,
+   "order_by": "2026-12-07",
+   "order_by_pods": "2026-12-05",
+   "fit": 14,
+   "rhythm": 14.5,
+   "late": 11,
+   "very_late": 18,
+   "usual": 9
+  },
+  "note": ""
+ }
+}
