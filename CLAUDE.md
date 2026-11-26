@@ -88,9 +88,9 @@ rules. The SOPs and app handbook live in `lib/help.ts` (shown in the app under H
 
 ## Docs (Claude Docs in the owner's account; private until shared from the doc's Share menu)
 
-- SOPs + App handbook (two tabs, the same text and pictures as Help & SOPs, 14 Nov):
+- SOPs + App handbook (two tabs, the same text and pictures as Help & SOPs, updated 26 Nov for orders and payments):
   https://claude.ai/artifact/4AGjBD9f5jYSuAQ1N9wHyC
-- Finance guide (the same text as `docs/finance-guide.md`, 14 Nov): https://claude.ai/artifact/HeShp2BXvro6KcmMWxegsu
+- Finance guide (the same text as `docs/finance-guide.md`, updated 26 Nov): https://claude.ai/artifact/HeShp2BXvro6KcmMWxegsu
 - Made in the original account, now out of date and not readable from the owner's account: the old SOPs
   (JopnrD6iEhw99erbLfrG6C), Finance guide (JXSvi5AvpM9QTLDvb9te3B) and System map (AjVFzU2b6UwYdgBNuTukjb).
 

@@ -123,6 +123,10 @@ the bottom. Commits on `main` hold the code for each step.
     got one payment of its cost on the day it arrived; Batch 1 with the owner's money).
     `20261126000100_batch3_on_the_way.sql`: Batch 3 (entered 25 Nov to show its money, ₱7,214 paid in full from the
     company fund) was put back on the way, as the owner asked; tap Arrived on it when it comes.
+    Reviewed twice by independent reviewers before going live (fixes: undo after a later count, overpaid batches
+    netting, order day no later than the first payment, pieces with no cost, deleting a test product, a lock
+    race, cost cap). Live check after applying: cash ₱340, owner capital ₱5,039, safe to distribute ₱340 as
+    before; Batch 3 on the way (₱7,214), balance adds up. The SOP doc and Finance guide doc were updated to match.
 
 ## Decisions the owner made
 
