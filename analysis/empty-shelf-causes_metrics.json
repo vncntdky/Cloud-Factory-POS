@@ -1,0 +1,1094 @@
+{
+ "cost_per_empty_day": {
+  "value": 353.9951,
+  "unit": "PHP/day",
+  "formula": "pace with stock (90 days, by the clock) x landed gross profit a piece",
+  "as_of": "2026-11-27 12:04"
+ },
+ "profit_per_full_day": {
+  "value": 575.5825,
+  "unit": "PHP/day",
+  "formula": "full-shelf pace x landed gross profit a piece",
+  "as_of": "2026-11-27 12:04"
+ },
+ "pace_with_stock": {
+  "value": 2.2201,
+  "unit": "pieces/day",
+  "formula": "pieces / days with any flavour on the shelf (ops.v3 open_rate)",
+  "as_of": "2026-11-27 12:04"
+ },
+ "pace_full_shelf": {
+  "value": 3.6098,
+  "unit": "pieces/day",
+  "formula": "pieces sold with 7+ of 10 flavours / days with 7+ (ops.v3 full_rate)",
+  "as_of": "2026-11-27 12:04"
+ },
+ "gp_per_piece": {
+  "value": 159.45,
+  "unit": "PHP/piece",
+  "formula": "(finance net - landed cogs) / pieces, 27 Oct-27 Nov",
+  "as_of": "2026-11-27 12:04"
+ },
+ "nov_empty_days": {
+  "value": 4.092,
+  "unit": "days",
+  "formula": "time in November with no flavour on the shelf, to now",
+  "as_of": "2026-11-27 12:04"
+ },
+ "nov_lost_profit_low": {
+  "value": 1448.5569,
+  "unit": "PHP",
+  "formula": "empty days x pace with stock x gross profit a piece (= lost_profit_low)",
+  "as_of": "2026-11-27 12:04"
+ },
+ "nov_lost_profit_high": {
+  "value": 8275.2664,
+  "unit": "PHP",
+  "formula": "(not-full days x full pace - pieces sold then) x gross profit (= lost_profit_high)",
+  "as_of": "2026-11-27 12:04"
+ },
+ "brief_reading_low_at_1001": {
+  "value": 1418.2584,
+  "unit": "PHP",
+  "formula": "the same at 27 Nov 10:01:30, the reading quoted in the brief",
+  "as_of": "2026-11-27 12:04"
+ },
+ "brief_reading_high_at_1001": {
+  "value": 8226.0021,
+  "unit": "PHP",
+  "formula": "the same at 27 Nov 10:01:30",
+  "as_of": "2026-11-27 12:04"
+ },
+ "stretch1_days": {
+  "value": 3.0584,
+  "unit": "days",
+  "formula": "6 Nov 18:31:43 (last Batch 1 piece) -> 9 Nov 19:55:50 (first Batch 2 restock)",
+  "as_of": "2026-11-27 12:04"
+ },
+ "stretch2_days_so_far": {
+  "value": 1.0336,
+  "unit": "days",
+  "formula": "26 Nov 11:16:21 (last Batch 2 piece) -> now",
+  "as_of": "2026-11-27 12:04"
+ },
+ "usual_delivery_days": {
+  "value": 7.0,
+  "unit": "days",
+  "formula": "(sum of recorded order->arrival days + 7) / (orders + 1); 0 recorded -> 7",
+  "as_of": "2026-11-27 12:04"
+ },
+ "stretch1_money_seconds": {
+  "value": 25.0,
+  "unit": "seconds",
+  "formula": "fund below Batch 2's 5,194 after the shelf emptied",
+  "as_of": "2026-11-27 12:04"
+ },
+ "stretch1_unrecorded_days": {
+  "value": 3.0581,
+  "unit": "days",
+  "formula": "rest of stretch 1: no order day, so late order vs slow delivery can't be told apart",
+  "as_of": "2026-11-27 12:04"
+ },
+ "stretch1_unrecorded_cost": {
+  "value": 1082.5612,
+  "unit": "PHP",
+  "formula": "x cost per empty day",
+  "as_of": "2026-11-27 12:04"
+ },
+ "stretch1_total_cost": {
+  "value": 1082.6637,
+  "unit": "PHP",
+  "formula": "stretch 1 days x cost per empty day",
+  "as_of": "2026-11-27 12:04"
+ },
+ "stretch1_cash_on_latest_on_time_day_L5": {
+  "value": 2240.0,
+  "unit": "PHP",
+  "formula": "company cash at 6 Nov 18:31:43 - 5 days",
+  "as_of": "2026-11-27 12:04"
+ },
+ "stretch1_pieces_left_at_implied_order_L5": {
+  "value": 1.0,
+  "unit": "pieces",
+  "formula": "shop stock at 9 Nov 19:55:50 - 5 days",
+  "as_of": "2026-11-27 12:04"
+ },
+ "stretch1_cash_on_latest_on_time_day_L7": {
+  "value": 1600.0,
+  "unit": "PHP",
+  "formula": "company cash at 6 Nov 18:31:43 - 7 days",
+  "as_of": "2026-11-27 12:04"
+ },
+ "stretch1_pieces_left_at_implied_order_L7": {
+  "value": 6.0,
+  "unit": "pieces",
+  "formula": "shop stock at 9 Nov 19:55:50 - 7 days",
+  "as_of": "2026-11-27 12:04"
+ },
+ "stretch1_cash_on_latest_on_time_day_L10": {
+  "value": 0.0,
+  "unit": "PHP",
+  "formula": "company cash at 6 Nov 18:31:43 - 10 days",
+  "as_of": "2026-11-27 12:04"
+ },
+ "stretch1_pieces_left_at_implied_order_L10": {
+  "value": 7.0,
+  "unit": "pieces",
+  "formula": "shop stock at 9 Nov 19:55:50 - 10 days",
+  "as_of": "2026-11-27 12:04"
+ },
+ "stretch1_max_delivery_if_paid_at_order": {
+  "value": 3.0581,
+  "unit": "days",
+  "formula": "the fund first held 5,194 at 6 Nov 18:32:08; Batch 2 came 9 Nov 19:55:50",
+  "as_of": "2026-11-27 12:04"
+ },
+ "stretch2_so_far_choice_days": {
+  "value": 0.0,
+  "unit": "days",
+  "formula": "By choice: empty minutes so far by the waterfall (L 7)",
+  "as_of": "2026-11-27 12:04"
+ },
+ "stretch2_so_far_money_days": {
+  "value": 0.0381,
+  "unit": "days",
+  "formula": "Waiting for money: empty minutes so far by the waterfall (L 7)",
+  "as_of": "2026-11-27 12:04"
+ },
+ "stretch2_so_far_unrecorded_days": {
+  "value": 0.0,
+  "unit": "days",
+  "formula": "Not recorded: empty minutes so far by the waterfall (L 7)",
+  "as_of": "2026-11-27 12:04"
+ },
+ "stretch2_so_far_late_order_days": {
+  "value": 0.9955,
+  "unit": "days",
+  "formula": "Ordered late (planning): empty minutes so far by the waterfall (L 7)",
+  "as_of": "2026-11-27 12:04"
+ },
+ "stretch2_so_far_supplier_days": {
+  "value": 0.0,
+  "unit": "days",
+  "formula": "Supplier (slower than usual): empty minutes so far by the waterfall (L 7)",
+  "as_of": "2026-11-27 12:04"
+ },
+ "stretch2_to_arrival_choice_days": {
+  "value": 0.0,
+  "unit": "days",
+  "formula": "By choice: to the expected arrival 02 Dec 07:34",
+  "as_of": "2026-11-27 12:04"
+ },
+ "stretch2_to_arrival_money_days": {
+  "value": 0.0381,
+  "unit": "days",
+  "formula": "Waiting for money: to the expected arrival 02 Dec 07:34",
+  "as_of": "2026-11-27 12:04"
+ },
+ "stretch2_to_arrival_unrecorded_days": {
+  "value": 0.0,
+  "unit": "days",
+  "formula": "Not recorded: to the expected arrival 02 Dec 07:34",
+  "as_of": "2026-11-27 12:04"
+ },
+ "stretch2_to_arrival_late_order_days": {
+  "value": 5.8082,
+  "unit": "days",
+  "formula": "Ordered late (planning): to the expected arrival 02 Dec 07:34",
+  "as_of": "2026-11-27 12:04"
+ },
+ "stretch2_to_arrival_supplier_days": {
+  "value": 0.0,
+  "unit": "days",
+  "formula": "Supplier (slower than usual): to the expected arrival 02 Dec 07:34",
+  "as_of": "2026-11-27 12:04"
+ },
+ "stretch2_so_far_cost": {
+  "value": 365.8933,
+  "unit": "PHP",
+  "formula": "days so far x cost per empty day",
+  "as_of": "2026-11-27 12:04"
+ },
+ "stretch2_so_far_late_order_cost": {
+  "value": 352.4136,
+  "unit": "PHP",
+  "formula": "ordered-late days so far x cost per empty day",
+  "as_of": "2026-11-27 12:04"
+ },
+ "stretch2_so_far_money_cost": {
+  "value": 13.4797,
+  "unit": "PHP",
+  "formula": "waiting-for-money days so far x cost per empty day",
+  "as_of": "2026-11-27 12:04"
+ },
+ "stretch2_to_arrival_cost": {
+  "value": 2069.5479,
+  "unit": "PHP",
+  "formula": "days to the expected arrival x cost per empty day",
+  "as_of": "2026-11-27 12:04"
+ },
+ "stretch2_to_arrival_late_order_cost": {
+  "value": 2056.0682,
+  "unit": "PHP",
+  "formula": "ordered late, to the expected arrival",
+  "as_of": "2026-11-27 12:04"
+ },
+ "stretch2_to_arrival_money_cost": {
+  "value": 13.4797,
+  "unit": "PHP",
+  "formula": "waiting for money, to the expected arrival",
+  "as_of": "2026-11-27 12:04"
+ },
+ "batch3_latest_on_time": {
+  "value": "2026-11-19 11:16:21",
+  "unit": "time",
+  "formula": "26 Nov 11:16:21 - 7 days",
+  "as_of": "2026-11-27 12:04"
+ },
+ "batch3_money_enough_at": {
+  "value": "2026-11-19 12:11:11",
+  "unit": "time",
+  "formula": "first moment the fund held 7,214 (and kept it)",
+  "as_of": "2026-11-27 12:04"
+ },
+ "batch3_order_days_after_money": {
+  "value": 5.8082,
+  "unit": "days",
+  "formula": "order 25 Nov 07:34:58 - 19 Nov 12:11:11",
+  "as_of": "2026-11-27 12:04"
+ },
+ "sens_s1_L5_at_order_choice_days": {
+  "value": 0.0,
+  "unit": "days",
+  "formula": "stretch 1, delivery 5 d, paid at order: By choice",
+  "as_of": "2026-11-27 12:04"
+ },
+ "sens_s1_L5_at_order_money_days": {
+  "value": 3.0584,
+  "unit": "days",
+  "formula": "stretch 1, delivery 5 d, paid at order: Waiting for money",
+  "as_of": "2026-11-27 12:04"
+ },
+ "sens_s1_L5_at_order_unrecorded_days": {
+  "value": 0.0,
+  "unit": "days",
+  "formula": "stretch 1, delivery 5 d, paid at order: Not recorded",
+  "as_of": "2026-11-27 12:04"
+ },
+ "sens_s1_L5_at_order_late_order_days": {
+  "value": 0.0,
+  "unit": "days",
+  "formula": "stretch 1, delivery 5 d, paid at order: Ordered late (planning)",
+  "as_of": "2026-11-27 12:04"
+ },
+ "sens_s1_L5_at_order_supplier_days": {
+  "value": 0.0,
+  "unit": "days",
+  "formula": "stretch 1, delivery 5 d, paid at order: Supplier (slower than usual)",
+  "as_of": "2026-11-27 12:04"
+ },
+ "sens_s1_L5_on_pickup_choice_days": {
+  "value": 0.0,
+  "unit": "days",
+  "formula": "stretch 1, delivery 5 d, paid on pick-up: By choice",
+  "as_of": "2026-11-27 12:04"
+ },
+ "sens_s1_L5_on_pickup_money_days": {
+  "value": 0.0003,
+  "unit": "days",
+  "formula": "stretch 1, delivery 5 d, paid on pick-up: Waiting for money",
+  "as_of": "2026-11-27 12:04"
+ },
+ "sens_s1_L5_on_pickup_unrecorded_days": {
+  "value": 3.0581,
+  "unit": "days",
+  "formula": "stretch 1, delivery 5 d, paid on pick-up: Not recorded",
+  "as_of": "2026-11-27 12:04"
+ },
+ "sens_s1_L5_on_pickup_late_order_days": {
+  "value": 0.0,
+  "unit": "days",
+  "formula": "stretch 1, delivery 5 d, paid on pick-up: Ordered late (planning)",
+  "as_of": "2026-11-27 12:04"
+ },
+ "sens_s1_L5_on_pickup_supplier_days": {
+  "value": 0.0,
+  "unit": "days",
+  "formula": "stretch 1, delivery 5 d, paid on pick-up: Supplier (slower than usual)",
+  "as_of": "2026-11-27 12:04"
+ },
+ "sens_s1_L7_at_order_choice_days": {
+  "value": 0.0,
+  "unit": "days",
+  "formula": "stretch 1, delivery 7 d, paid at order: By choice",
+  "as_of": "2026-11-27 12:04"
+ },
+ "sens_s1_L7_at_order_money_days": {
+  "value": 3.0584,
+  "unit": "days",
+  "formula": "stretch 1, delivery 7 d, paid at order: Waiting for money",
+  "as_of": "2026-11-27 12:04"
+ },
+ "sens_s1_L7_at_order_unrecorded_days": {
+  "value": 0.0,
+  "unit": "days",
+  "formula": "stretch 1, delivery 7 d, paid at order: Not recorded",
+  "as_of": "2026-11-27 12:04"
+ },
+ "sens_s1_L7_at_order_late_order_days": {
+  "value": 0.0,
+  "unit": "days",
+  "formula": "stretch 1, delivery 7 d, paid at order: Ordered late (planning)",
+  "as_of": "2026-11-27 12:04"
+ },
+ "sens_s1_L7_at_order_supplier_days": {
+  "value": 0.0,
+  "unit": "days",
+  "formula": "stretch 1, delivery 7 d, paid at order: Supplier (slower than usual)",
+  "as_of": "2026-11-27 12:04"
+ },
+ "sens_s1_L7_on_pickup_choice_days": {
+  "value": 0.0,
+  "unit": "days",
+  "formula": "stretch 1, delivery 7 d, paid on pick-up: By choice",
+  "as_of": "2026-11-27 12:04"
+ },
+ "sens_s1_L7_on_pickup_money_days": {
+  "value": 0.0003,
+  "unit": "days",
+  "formula": "stretch 1, delivery 7 d, paid on pick-up: Waiting for money",
+  "as_of": "2026-11-27 12:04"
+ },
+ "sens_s1_L7_on_pickup_unrecorded_days": {
+  "value": 3.0581,
+  "unit": "days",
+  "formula": "stretch 1, delivery 7 d, paid on pick-up: Not recorded",
+  "as_of": "2026-11-27 12:04"
+ },
+ "sens_s1_L7_on_pickup_late_order_days": {
+  "value": 0.0,
+  "unit": "days",
+  "formula": "stretch 1, delivery 7 d, paid on pick-up: Ordered late (planning)",
+  "as_of": "2026-11-27 12:04"
+ },
+ "sens_s1_L7_on_pickup_supplier_days": {
+  "value": 0.0,
+  "unit": "days",
+  "formula": "stretch 1, delivery 7 d, paid on pick-up: Supplier (slower than usual)",
+  "as_of": "2026-11-27 12:04"
+ },
+ "sens_s1_L10_at_order_choice_days": {
+  "value": 0.0,
+  "unit": "days",
+  "formula": "stretch 1, delivery 10 d, paid at order: By choice",
+  "as_of": "2026-11-27 12:04"
+ },
+ "sens_s1_L10_at_order_money_days": {
+  "value": 3.0584,
+  "unit": "days",
+  "formula": "stretch 1, delivery 10 d, paid at order: Waiting for money",
+  "as_of": "2026-11-27 12:04"
+ },
+ "sens_s1_L10_at_order_unrecorded_days": {
+  "value": 0.0,
+  "unit": "days",
+  "formula": "stretch 1, delivery 10 d, paid at order: Not recorded",
+  "as_of": "2026-11-27 12:04"
+ },
+ "sens_s1_L10_at_order_late_order_days": {
+  "value": 0.0,
+  "unit": "days",
+  "formula": "stretch 1, delivery 10 d, paid at order: Ordered late (planning)",
+  "as_of": "2026-11-27 12:04"
+ },
+ "sens_s1_L10_at_order_supplier_days": {
+  "value": 0.0,
+  "unit": "days",
+  "formula": "stretch 1, delivery 10 d, paid at order: Supplier (slower than usual)",
+  "as_of": "2026-11-27 12:04"
+ },
+ "sens_s1_L10_on_pickup_choice_days": {
+  "value": 0.0,
+  "unit": "days",
+  "formula": "stretch 1, delivery 10 d, paid on pick-up: By choice",
+  "as_of": "2026-11-27 12:04"
+ },
+ "sens_s1_L10_on_pickup_money_days": {
+  "value": 0.0003,
+  "unit": "days",
+  "formula": "stretch 1, delivery 10 d, paid on pick-up: Waiting for money",
+  "as_of": "2026-11-27 12:04"
+ },
+ "sens_s1_L10_on_pickup_unrecorded_days": {
+  "value": 3.0581,
+  "unit": "days",
+  "formula": "stretch 1, delivery 10 d, paid on pick-up: Not recorded",
+  "as_of": "2026-11-27 12:04"
+ },
+ "sens_s1_L10_on_pickup_late_order_days": {
+  "value": 0.0,
+  "unit": "days",
+  "formula": "stretch 1, delivery 10 d, paid on pick-up: Ordered late (planning)",
+  "as_of": "2026-11-27 12:04"
+ },
+ "sens_s1_L10_on_pickup_supplier_days": {
+  "value": 0.0,
+  "unit": "days",
+  "formula": "stretch 1, delivery 10 d, paid on pick-up: Supplier (slower than usual)",
+  "as_of": "2026-11-27 12:04"
+ },
+ "sens_s2_L5_at_order_choice_days": {
+  "value": 0.0,
+  "unit": "days",
+  "formula": "stretch 2, delivery 5 d, paid at order: By choice",
+  "as_of": "2026-11-27 12:04"
+ },
+ "sens_s2_L5_at_order_money_days": {
+  "value": 0.0,
+  "unit": "days",
+  "formula": "stretch 2, delivery 5 d, paid at order: Waiting for money",
+  "as_of": "2026-11-27 12:04"
+ },
+ "sens_s2_L5_at_order_unrecorded_days": {
+  "value": 0.0,
+  "unit": "days",
+  "formula": "stretch 2, delivery 5 d, paid at order: Not recorded",
+  "as_of": "2026-11-27 12:04"
+ },
+ "sens_s2_L5_at_order_late_order_days": {
+  "value": 3.8463,
+  "unit": "days",
+  "formula": "stretch 2, delivery 5 d, paid at order: Ordered late (planning)",
+  "as_of": "2026-11-27 12:04"
+ },
+ "sens_s2_L5_at_order_supplier_days": {
+  "value": 0.0,
+  "unit": "days",
+  "formula": "stretch 2, delivery 5 d, paid at order: Supplier (slower than usual)",
+  "as_of": "2026-11-27 12:04"
+ },
+ "sens_s2_L5_on_pickup_choice_days": {
+  "value": 0.0,
+  "unit": "days",
+  "formula": "stretch 2, delivery 5 d, paid on pick-up: By choice",
+  "as_of": "2026-11-27 12:04"
+ },
+ "sens_s2_L5_on_pickup_money_days": {
+  "value": 0.0,
+  "unit": "days",
+  "formula": "stretch 2, delivery 5 d, paid on pick-up: Waiting for money",
+  "as_of": "2026-11-27 12:04"
+ },
+ "sens_s2_L5_on_pickup_unrecorded_days": {
+  "value": 0.0,
+  "unit": "days",
+  "formula": "stretch 2, delivery 5 d, paid on pick-up: Not recorded",
+  "as_of": "2026-11-27 12:04"
+ },
+ "sens_s2_L5_on_pickup_late_order_days": {
+  "value": 3.8463,
+  "unit": "days",
+  "formula": "stretch 2, delivery 5 d, paid on pick-up: Ordered late (planning)",
+  "as_of": "2026-11-27 12:04"
+ },
+ "sens_s2_L5_on_pickup_supplier_days": {
+  "value": 0.0,
+  "unit": "days",
+  "formula": "stretch 2, delivery 5 d, paid on pick-up: Supplier (slower than usual)",
+  "as_of": "2026-11-27 12:04"
+ },
+ "sens_s2_L7_at_order_choice_days": {
+  "value": 0.0,
+  "unit": "days",
+  "formula": "stretch 2, delivery 7 d, paid at order: By choice",
+  "as_of": "2026-11-27 12:04"
+ },
+ "sens_s2_L7_at_order_money_days": {
+  "value": 0.0381,
+  "unit": "days",
+  "formula": "stretch 2, delivery 7 d, paid at order: Waiting for money",
+  "as_of": "2026-11-27 12:04"
+ },
+ "sens_s2_L7_at_order_unrecorded_days": {
+  "value": 0.0,
+  "unit": "days",
+  "formula": "stretch 2, delivery 7 d, paid at order: Not recorded",
+  "as_of": "2026-11-27 12:04"
+ },
+ "sens_s2_L7_at_order_late_order_days": {
+  "value": 5.8082,
+  "unit": "days",
+  "formula": "stretch 2, delivery 7 d, paid at order: Ordered late (planning)",
+  "as_of": "2026-11-27 12:04"
+ },
+ "sens_s2_L7_at_order_supplier_days": {
+  "value": 0.0,
+  "unit": "days",
+  "formula": "stretch 2, delivery 7 d, paid at order: Supplier (slower than usual)",
+  "as_of": "2026-11-27 12:04"
+ },
+ "sens_s2_L7_on_pickup_choice_days": {
+  "value": 0.0,
+  "unit": "days",
+  "formula": "stretch 2, delivery 7 d, paid on pick-up: By choice",
+  "as_of": "2026-11-27 12:04"
+ },
+ "sens_s2_L7_on_pickup_money_days": {
+  "value": 0.0,
+  "unit": "days",
+  "formula": "stretch 2, delivery 7 d, paid on pick-up: Waiting for money",
+  "as_of": "2026-11-27 12:04"
+ },
+ "sens_s2_L7_on_pickup_unrecorded_days": {
+  "value": 0.0,
+  "unit": "days",
+  "formula": "stretch 2, delivery 7 d, paid on pick-up: Not recorded",
+  "as_of": "2026-11-27 12:04"
+ },
+ "sens_s2_L7_on_pickup_late_order_days": {
+  "value": 5.8463,
+  "unit": "days",
+  "formula": "stretch 2, delivery 7 d, paid on pick-up: Ordered late (planning)",
+  "as_of": "2026-11-27 12:04"
+ },
+ "sens_s2_L7_on_pickup_supplier_days": {
+  "value": 0.0,
+  "unit": "days",
+  "formula": "stretch 2, delivery 7 d, paid on pick-up: Supplier (slower than usual)",
+  "as_of": "2026-11-27 12:04"
+ },
+ "sens_s2_L10_at_order_choice_days": {
+  "value": 0.0,
+  "unit": "days",
+  "formula": "stretch 2, delivery 10 d, paid at order: By choice",
+  "as_of": "2026-11-27 12:04"
+ },
+ "sens_s2_L10_at_order_money_days": {
+  "value": 3.0381,
+  "unit": "days",
+  "formula": "stretch 2, delivery 10 d, paid at order: Waiting for money",
+  "as_of": "2026-11-27 12:04"
+ },
+ "sens_s2_L10_at_order_unrecorded_days": {
+  "value": 0.0,
+  "unit": "days",
+  "formula": "stretch 2, delivery 10 d, paid at order: Not recorded",
+  "as_of": "2026-11-27 12:04"
+ },
+ "sens_s2_L10_at_order_late_order_days": {
+  "value": 5.8082,
+  "unit": "days",
+  "formula": "stretch 2, delivery 10 d, paid at order: Ordered late (planning)",
+  "as_of": "2026-11-27 12:04"
+ },
+ "sens_s2_L10_at_order_supplier_days": {
+  "value": 0.0,
+  "unit": "days",
+  "formula": "stretch 2, delivery 10 d, paid at order: Supplier (slower than usual)",
+  "as_of": "2026-11-27 12:04"
+ },
+ "sens_s2_L10_on_pickup_choice_days": {
+  "value": 0.0,
+  "unit": "days",
+  "formula": "stretch 2, delivery 10 d, paid on pick-up: By choice",
+  "as_of": "2026-11-27 12:04"
+ },
+ "sens_s2_L10_on_pickup_money_days": {
+  "value": 0.0,
+  "unit": "days",
+  "formula": "stretch 2, delivery 10 d, paid on pick-up: Waiting for money",
+  "as_of": "2026-11-27 12:04"
+ },
+ "sens_s2_L10_on_pickup_unrecorded_days": {
+  "value": 0.0,
+  "unit": "days",
+  "formula": "stretch 2, delivery 10 d, paid on pick-up: Not recorded",
+  "as_of": "2026-11-27 12:04"
+ },
+ "sens_s2_L10_on_pickup_late_order_days": {
+  "value": 8.8463,
+  "unit": "days",
+  "formula": "stretch 2, delivery 10 d, paid on pick-up: Ordered late (planning)",
+  "as_of": "2026-11-27 12:04"
+ },
+ "sens_s2_L10_on_pickup_supplier_days": {
+  "value": 0.0,
+  "unit": "days",
+  "formula": "stretch 2, delivery 10 d, paid on pick-up: Supplier (slower than usual)",
+  "as_of": "2026-11-27 12:04"
+ },
+ "order_test_L7_money_days_money_first": {
+  "value": 0.0381,
+  "unit": "days",
+  "formula": "waterfall as stated (money before ordered late)",
+  "as_of": "2026-11-27 12:04"
+ },
+ "order_test_L7_money_days_planning_first": {
+  "value": 0.0,
+  "unit": "days",
+  "formula": "if ordered late were tested before money",
+  "as_of": "2026-11-27 12:04"
+ },
+ "order_test_L10_money_days_money_first": {
+  "value": 3.0381,
+  "unit": "days",
+  "formula": "waterfall as stated (money before ordered late)",
+  "as_of": "2026-11-27 12:04"
+ },
+ "order_test_L10_money_days_planning_first": {
+  "value": 0.0,
+  "unit": "days",
+  "formula": "if ordered late were tested before money",
+  "as_of": "2026-11-27 12:04"
+ },
+ "stretch2_late_order_days_floor": {
+  "value": 5.8082,
+  "unit": "days",
+  "formula": "ordered-late days for any delivery time >= 6.96 d",
+  "as_of": "2026-11-27 12:04"
+ },
+ "money_short_b3_at_latest_on_time": {
+  "value": 288.0,
+  "unit": "PHP",
+  "formula": "7,214 - fund at 19 Nov 11:16:21",
+  "as_of": "2026-11-27 12:04"
+ },
+ "receivables_b3_at_latest_on_time": {
+  "value": 5000.0,
+  "unit": "PHP",
+  "formula": "credit sales - collections at 19 Nov 11:16:21",
+  "as_of": "2026-11-27 12:04"
+ },
+ "pickup_whatif_safe_0748": {
+  "value": 4232.0,
+  "unit": "PHP",
+  "formula": "min(profit kept, cash - owed on Batch 3) at 25 Nov 07:48 had Batch 3 been unpaid",
+  "as_of": "2026-11-27 12:04"
+ },
+ "b3_days_late_vs_engine_rop": {
+  "value": 14.5281,
+  "unit": "days",
+  "formula": "order 25 Nov 07:34:58 - engine reorder point (today's settings) 10 Nov 18:54",
+  "as_of": "2026-11-27 12:04"
+ },
+ "b3_fund_at_engine_rop": {
+  "value": 3146.0,
+  "unit": "PHP",
+  "formula": "company cash at the engine reorder point (today's settings)",
+  "as_of": "2026-11-27 12:04"
+ },
+ "b3_days_late_vs_projection_from": {
+  "value": 13.3159,
+  "unit": "days",
+  "formula": "order 25 Nov 07:34:58 - 10-11 Nov projection, from 12 Nov 00:00",
+  "as_of": "2026-11-27 12:04"
+ },
+ "b3_fund_at_projection_from": {
+  "value": 3146.0,
+  "unit": "PHP",
+  "formula": "company cash at the 10-11 Nov projection, from",
+  "as_of": "2026-11-27 12:04"
+ },
+ "b3_days_late_vs_projection_to": {
+  "value": 10.3159,
+  "unit": "days",
+  "formula": "order 25 Nov 07:34:58 - 10-11 Nov projection, to 15 Nov 00:00",
+  "as_of": "2026-11-27 12:04"
+ },
+ "b3_fund_at_projection_to": {
+  "value": 4146.0,
+  "unit": "PHP",
+  "formula": "company cash at the 10-11 Nov projection, to",
+  "as_of": "2026-11-27 12:04"
+ },
+ "b3_days_late_vs_latest_on_time": {
+  "value": 5.8463,
+  "unit": "days",
+  "formula": "order 25 Nov 07:34:58 - lenient latest on-time day 19 Nov 11:16",
+  "as_of": "2026-11-27 12:04"
+ },
+ "b3_fund_at_latest_on_time": {
+  "value": 6926.0,
+  "unit": "PHP",
+  "formula": "company cash at the lenient latest on-time day",
+  "as_of": "2026-11-27 12:04"
+ },
+ "b3_days_late_vs_money_enough": {
+  "value": 5.8082,
+  "unit": "days",
+  "formula": "order 25 Nov 07:34:58 - money first enough at order 19 Nov 12:11",
+  "as_of": "2026-11-27 12:04"
+ },
+ "b3_fund_at_money_enough": {
+  "value": 7266.0,
+  "unit": "PHP",
+  "formula": "company cash at the money first enough at order",
+  "as_of": "2026-11-27 12:04"
+ },
+ "b3_projection_cost_first_affordable": {
+  "value": "2026-11-19 08:46:15",
+  "unit": "time",
+  "formula": "first moment the fund held the projection's 6,850",
+  "as_of": "2026-11-27 12:04"
+ },
+ "b3_days_late_vs_projection_cost_affordable": {
+  "value": 5.9505,
+  "unit": "days",
+  "formula": "order - first moment the fund held 6,850",
+  "as_of": "2026-11-27 12:04"
+ },
+ "stock_when_b3_ordered": {
+  "value": 1.0,
+  "unit": "pieces",
+  "formula": "shop stock at 25 Nov 07:34:58",
+  "as_of": "2026-11-27 12:04"
+ },
+ "nov_choice_days": {
+  "value": 0.0,
+  "unit": "days",
+  "formula": "By choice: November empty time by the waterfall",
+  "as_of": "2026-11-27 12:04"
+ },
+ "nov_choice_cost": {
+  "value": 0.0,
+  "unit": "PHP",
+  "formula": "By choice: days x cost per empty day",
+  "as_of": "2026-11-27 12:04"
+ },
+ "nov_money_days": {
+  "value": 0.0384,
+  "unit": "days",
+  "formula": "Waiting for money: November empty time by the waterfall",
+  "as_of": "2026-11-27 12:04"
+ },
+ "nov_money_cost": {
+  "value": 13.5821,
+  "unit": "PHP",
+  "formula": "Waiting for money: days x cost per empty day",
+  "as_of": "2026-11-27 12:04"
+ },
+ "nov_unrecorded_days": {
+  "value": 3.0581,
+  "unit": "days",
+  "formula": "Not recorded: November empty time by the waterfall",
+  "as_of": "2026-11-27 12:04"
+ },
+ "nov_unrecorded_cost": {
+  "value": 1082.5612,
+  "unit": "PHP",
+  "formula": "Not recorded: days x cost per empty day",
+  "as_of": "2026-11-27 12:04"
+ },
+ "nov_late_order_days": {
+  "value": 0.9955,
+  "unit": "days",
+  "formula": "Ordered late (planning): November empty time by the waterfall",
+  "as_of": "2026-11-27 12:04"
+ },
+ "nov_late_order_cost": {
+  "value": 352.4136,
+  "unit": "PHP",
+  "formula": "Ordered late (planning): days x cost per empty day",
+  "as_of": "2026-11-27 12:04"
+ },
+ "nov_supplier_days": {
+  "value": 0.0,
+  "unit": "days",
+  "formula": "Supplier (slower than usual): November empty time by the waterfall",
+  "as_of": "2026-11-27 12:04"
+ },
+ "nov_supplier_cost": {
+  "value": 0.0,
+  "unit": "PHP",
+  "formula": "Supplier (slower than usual): days x cost per empty day",
+  "as_of": "2026-11-27 12:04"
+ },
+ "nov_plan_lost_profit_low": {
+  "value": 352.4136,
+  "unit": "PHP",
+  "formula": "ordered late only",
+  "as_of": "2026-11-27 12:04"
+ },
+ "nov_plan_lost_profit_high": {
+  "value": 1434.9748,
+  "unit": "PHP",
+  "formula": "ordered late + not recorded",
+  "as_of": "2026-11-27 12:04"
+ },
+ "nov_known_cause_share": {
+  "value": 0.2527,
+  "unit": "share",
+  "formula": "1 - not recorded / empty time",
+  "as_of": "2026-11-27 12:04"
+ },
+ "nov_high_empty_part": {
+  "value": 2355.2981,
+  "unit": "PHP",
+  "formula": "empty days x full-shelf pace x gross profit a piece",
+  "as_of": "2026-11-27 12:04"
+ },
+ "nov_high_thin_part": {
+  "value": 5919.9683,
+  "unit": "PHP",
+  "formula": "lost_profit_high - the empty part",
+  "as_of": "2026-11-27 12:04"
+ },
+ "nov_to_month_end_cost": {
+  "value": 2686.372,
+  "unit": "PHP",
+  "formula": "November empty time to 30 Nov 24:00 (Batch 3 due 2 Dec) x cost per day",
+  "as_of": "2026-11-27 12:04"
+ },
+ "nov_to_month_end_late_order_cost": {
+  "value": 1590.2287,
+  "unit": "PHP",
+  "formula": "the ordered-late part of it",
+  "as_of": "2026-11-27 12:04"
+ },
+ "nov_planning_only_share": {
+  "value": 0.2433,
+  "unit": "share",
+  "formula": "ordered-late part / all empty time, November so far",
+  "as_of": "2026-11-27 12:04"
+ },
+ "thin_b1_tail_cost": {
+  "value": 2365.5767,
+  "unit": "PHP",
+  "formula": "(partly stocked days x full pace - pieces sold) x gross profit, 1-6 Nov",
+  "as_of": "2026-11-27 12:04"
+ },
+ "thin_b2_cost": {
+  "value": 3554.3916,
+  "unit": "PHP",
+  "formula": "same, 9-26 Nov",
+  "as_of": "2026-11-27 12:04"
+ },
+ "flavours_reordered": {
+  "value": 0.0,
+  "unit": "flavours",
+  "formula": "flavours restocked after selling out (none: every batch was a new line)",
+  "as_of": "2026-11-27 12:04"
+ },
+ "thin_by_choice_cost": {
+  "value": 0.0,
+  "unit": "PHP",
+  "formula": "no flavour slot was left empty past the next arrival; no range decision recorded",
+  "as_of": "2026-11-27 12:04"
+ },
+ "thin_wait_next_batch_cost": {
+  "value": 5919.9683,
+  "unit": "PHP",
+  "formula": "all of the partly-stocked part",
+  "as_of": "2026-11-27 12:04"
+ },
+ "shown_november_so_far_choice": {
+  "value": 0.0,
+  "unit": "PHP",
+  "formula": "November so far: By choice, whole pesos by largest remainder (adds up to 1,449)",
+  "as_of": "2026-11-27 12:04"
+ },
+ "shown_november_so_far_money": {
+  "value": 14.0,
+  "unit": "PHP",
+  "formula": "November so far: Waiting for money, whole pesos by largest remainder (adds up to 1,449)",
+  "as_of": "2026-11-27 12:04"
+ },
+ "shown_november_so_far_unrecorded": {
+  "value": 1083.0,
+  "unit": "PHP",
+  "formula": "November so far: Not recorded, whole pesos by largest remainder (adds up to 1,449)",
+  "as_of": "2026-11-27 12:04"
+ },
+ "shown_november_so_far_late_order": {
+  "value": 352.0,
+  "unit": "PHP",
+  "formula": "November so far: Ordered late (planning), whole pesos by largest remainder (adds up to 1,449)",
+  "as_of": "2026-11-27 12:04"
+ },
+ "shown_november_so_far_supplier": {
+  "value": 0.0,
+  "unit": "PHP",
+  "formula": "November so far: Supplier (slower than usual), whole pesos by largest remainder (adds up to 1,449)",
+  "as_of": "2026-11-27 12:04"
+ },
+ "shown_stretch_1_choice": {
+  "value": 0.0,
+  "unit": "PHP",
+  "formula": "stretch 1, 6-9 Nov: By choice, whole pesos by largest remainder (adds up to 1,083)",
+  "as_of": "2026-11-27 12:04"
+ },
+ "shown_stretch_1_money": {
+  "value": 0.0,
+  "unit": "PHP",
+  "formula": "stretch 1, 6-9 Nov: Waiting for money, whole pesos by largest remainder (adds up to 1,083)",
+  "as_of": "2026-11-27 12:04"
+ },
+ "shown_stretch_1_unrecorded": {
+  "value": 1083.0,
+  "unit": "PHP",
+  "formula": "stretch 1, 6-9 Nov: Not recorded, whole pesos by largest remainder (adds up to 1,083)",
+  "as_of": "2026-11-27 12:04"
+ },
+ "shown_stretch_1_late_order": {
+  "value": 0.0,
+  "unit": "PHP",
+  "formula": "stretch 1, 6-9 Nov: Ordered late (planning), whole pesos by largest remainder (adds up to 1,083)",
+  "as_of": "2026-11-27 12:04"
+ },
+ "shown_stretch_1_supplier": {
+  "value": 0.0,
+  "unit": "PHP",
+  "formula": "stretch 1, 6-9 Nov: Supplier (slower than usual), whole pesos by largest remainder (adds up to 1,083)",
+  "as_of": "2026-11-27 12:04"
+ },
+ "shown_stretch_2_so_far_choice": {
+  "value": 0.0,
+  "unit": "PHP",
+  "formula": "stretch 2 so far: By choice, whole pesos by largest remainder (adds up to 366)",
+  "as_of": "2026-11-27 12:04"
+ },
+ "shown_stretch_2_so_far_money": {
+  "value": 14.0,
+  "unit": "PHP",
+  "formula": "stretch 2 so far: Waiting for money, whole pesos by largest remainder (adds up to 366)",
+  "as_of": "2026-11-27 12:04"
+ },
+ "shown_stretch_2_so_far_unrecorded": {
+  "value": 0.0,
+  "unit": "PHP",
+  "formula": "stretch 2 so far: Not recorded, whole pesos by largest remainder (adds up to 366)",
+  "as_of": "2026-11-27 12:04"
+ },
+ "shown_stretch_2_so_far_late_order": {
+  "value": 352.0,
+  "unit": "PHP",
+  "formula": "stretch 2 so far: Ordered late (planning), whole pesos by largest remainder (adds up to 366)",
+  "as_of": "2026-11-27 12:04"
+ },
+ "shown_stretch_2_so_far_supplier": {
+  "value": 0.0,
+  "unit": "PHP",
+  "formula": "stretch 2 so far: Supplier (slower than usual), whole pesos by largest remainder (adds up to 366)",
+  "as_of": "2026-11-27 12:04"
+ },
+ "shown_stretch_2_to_expected_arrival_choice": {
+  "value": 0.0,
+  "unit": "PHP",
+  "formula": "stretch 2 to expected arrival: By choice, whole pesos by largest remainder (adds up to 2,070)",
+  "as_of": "2026-11-27 12:04"
+ },
+ "shown_stretch_2_to_expected_arrival_money": {
+  "value": 14.0,
+  "unit": "PHP",
+  "formula": "stretch 2 to expected arrival: Waiting for money, whole pesos by largest remainder (adds up to 2,070)",
+  "as_of": "2026-11-27 12:04"
+ },
+ "shown_stretch_2_to_expected_arrival_unrecorded": {
+  "value": 0.0,
+  "unit": "PHP",
+  "formula": "stretch 2 to expected arrival: Not recorded, whole pesos by largest remainder (adds up to 2,070)",
+  "as_of": "2026-11-27 12:04"
+ },
+ "shown_stretch_2_to_expected_arrival_late_order": {
+  "value": 2056.0,
+  "unit": "PHP",
+  "formula": "stretch 2 to expected arrival: Ordered late (planning), whole pesos by largest remainder (adds up to 2,070)",
+  "as_of": "2026-11-27 12:04"
+ },
+ "shown_stretch_2_to_expected_arrival_supplier": {
+  "value": 0.0,
+  "unit": "PHP",
+  "formula": "stretch 2 to expected arrival: Supplier (slower than usual), whole pesos by largest remainder (adds up to 2,070)",
+  "as_of": "2026-11-27 12:04"
+ },
+ "shown_november_to_30_nov_2400_choice": {
+  "value": 0.0,
+  "unit": "PHP",
+  "formula": "November to 30 Nov 24:00: By choice, whole pesos by largest remainder (adds up to 2,686)",
+  "as_of": "2026-11-27 12:04"
+ },
+ "shown_november_to_30_nov_2400_money": {
+  "value": 14.0,
+  "unit": "PHP",
+  "formula": "November to 30 Nov 24:00: Waiting for money, whole pesos by largest remainder (adds up to 2,686)",
+  "as_of": "2026-11-27 12:04"
+ },
+ "shown_november_to_30_nov_2400_unrecorded": {
+  "value": 1082.0,
+  "unit": "PHP",
+  "formula": "November to 30 Nov 24:00: Not recorded, whole pesos by largest remainder (adds up to 2,686)",
+  "as_of": "2026-11-27 12:04"
+ },
+ "shown_november_to_30_nov_2400_late_order": {
+  "value": 1590.0,
+  "unit": "PHP",
+  "formula": "November to 30 Nov 24:00: Ordered late (planning), whole pesos by largest remainder (adds up to 2,686)",
+  "as_of": "2026-11-27 12:04"
+ },
+ "shown_november_to_30_nov_2400_supplier": {
+  "value": 0.0,
+  "unit": "PHP",
+  "formula": "November to 30 Nov 24:00: Supplier (slower than usual), whole pesos by largest remainder (adds up to 2,686)",
+  "as_of": "2026-11-27 12:04"
+ },
+ "shown_sensitivity_stretch_1_choice": {
+  "value": 0.0,
+  "unit": "PHP",
+  "formula": "sensitivity: stretch 1, L 10, on pick-up (recorded): By choice, whole pesos by largest remainder (adds up to 1,083)",
+  "as_of": "2026-11-27 12:04"
+ },
+ "shown_sensitivity_stretch_1_money": {
+  "value": 0.0,
+  "unit": "PHP",
+  "formula": "sensitivity: stretch 1, L 10, on pick-up (recorded): Waiting for money, whole pesos by largest remainder (adds up to 1,083)",
+  "as_of": "2026-11-27 12:04"
+ },
+ "shown_sensitivity_stretch_1_unrecorded": {
+  "value": 1083.0,
+  "unit": "PHP",
+  "formula": "sensitivity: stretch 1, L 10, on pick-up (recorded): Not recorded, whole pesos by largest remainder (adds up to 1,083)",
+  "as_of": "2026-11-27 12:04"
+ },
+ "shown_sensitivity_stretch_1_late_order": {
+  "value": 0.0,
+  "unit": "PHP",
+  "formula": "sensitivity: stretch 1, L 10, on pick-up (recorded): Ordered late (planning), whole pesos by largest remainder (adds up to 1,083)",
+  "as_of": "2026-11-27 12:04"
+ },
+ "shown_sensitivity_stretch_1_supplier": {
+  "value": 0.0,
+  "unit": "PHP",
+  "formula": "sensitivity: stretch 1, L 10, on pick-up (recorded): Supplier (slower than usual), whole pesos by largest remainder (adds up to 1,083)",
+  "as_of": "2026-11-27 12:04"
+ },
+ "shown_sensitivity_stretch_2_choice": {
+  "value": 0.0,
+  "unit": "PHP",
+  "formula": "sensitivity: stretch 2, L 10, on pick-up: By choice, whole pesos by largest remainder (adds up to 3,132)",
+  "as_of": "2026-11-27 12:04"
+ },
+ "shown_sensitivity_stretch_2_money": {
+  "value": 0.0,
+  "unit": "PHP",
+  "formula": "sensitivity: stretch 2, L 10, on pick-up: Waiting for money, whole pesos by largest remainder (adds up to 3,132)",
+  "as_of": "2026-11-27 12:04"
+ },
+ "shown_sensitivity_stretch_2_unrecorded": {
+  "value": 0.0,
+  "unit": "PHP",
+  "formula": "sensitivity: stretch 2, L 10, on pick-up: Not recorded, whole pesos by largest remainder (adds up to 3,132)",
+  "as_of": "2026-11-27 12:04"
+ },
+ "shown_sensitivity_stretch_2_late_order": {
+  "value": 3132.0,
+  "unit": "PHP",
+  "formula": "sensitivity: stretch 2, L 10, on pick-up: Ordered late (planning), whole pesos by largest remainder (adds up to 3,132)",
+  "as_of": "2026-11-27 12:04"
+ },
+ "shown_sensitivity_stretch_2_supplier": {
+  "value": 0.0,
+  "unit": "PHP",
+  "formula": "sensitivity: stretch 2, L 10, on pick-up: Supplier (slower than usual), whole pesos by largest remainder (adds up to 3,132)",
+  "as_of": "2026-11-27 12:04"
+ }
+}
