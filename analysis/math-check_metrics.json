@@ -1,0 +1,432 @@
+{
+ "live_fingerprints_match": true,
+ "checks": [
+  {
+   "label": "net sales",
+   "claimed": 19800,
+   "got": 19800.0,
+   "ok": true
+  },
+  {
+   "label": "landed gross profit",
+   "claimed": 9567,
+   "got": 9567.0,
+   "ok": true
+  },
+  {
+   "label": "landed margin %",
+   "claimed": 48.3,
+   "got": 48.3182,
+   "ok": true
+  },
+  {
+   "label": "unit-cost margin %",
+   "claimed": 50.8,
+   "got": 50.7576,
+   "ok": true
+  },
+  {
+   "label": "landed margin a piece",
+   "claimed": 159.45,
+   "got": 159.45,
+   "ok": true
+  },
+  {
+   "label": "days with any stock",
+   "claimed": 27.03,
+   "got": 27.0257,
+   "ok": true
+  },
+  {
+   "label": "days the whole shop was empty",
+   "claimed": 3.38,
+   "got": 3.3799,
+   "ok": true
+  },
+  {
+   "label": "pace on days with stock",
+   "claimed": 2.22,
+   "got": 2.2201,
+   "ok": true
+  },
+  {
+   "label": "empty shop-day cost at 2.22/day",
+   "claimed": 354,
+   "got": 353.9965,
+   "ok": true
+  },
+  {
+   "label": "empty shop-day cost at 3.61/day",
+   "claimed": 576,
+   "got": 575.6145,
+   "ok": true
+  },
+  {
+   "label": "ordering at sell-out, 7 x 354",
+   "claimed": 2478,
+   "got": 2478.0,
+   "ok": true
+  },
+  {
+   "label": "... as % of gross profit to date",
+   "claimed": 26,
+   "got": 25.9015,
+   "ok": true
+  },
+  {
+   "label": "net profit",
+   "claimed": 8827,
+   "got": 8827.0,
+   "ok": true
+  },
+  {
+   "label": "balance identity: assets = claims",
+   "claimed": 9634,
+   "got": 9634.0,
+   "ok": true
+  },
+  {
+   "label": "payout share of profit %",
+   "claimed": 47.9,
+   "got": 47.9438,
+   "ok": true
+  },
+  {
+   "label": "payout as % of the month's operating cash (review: 92.6%)",
+   "claimed": 92.6,
+   "got": 92.5634,
+   "ok": true
+  },
+  {
+   "label": "lambda (adopted, H 29)",
+   "claimed": 2.014,
+   "got": 2.0138,
+   "ok": true
+  },
+  {
+   "label": "reorder point",
+   "claimed": 22.64,
+   "got": 22.6423,
+   "ok": true
+  },
+  {
+   "label": "target",
+   "claimed": 55.73,
+   "got": 55.7342,
+   "ok": true
+  },
+  {
+   "label": "next order = round(target - ROP)",
+   "claimed": 33,
+   "got": 33.0,
+   "ok": true
+  },
+  {
+   "label": "paid-in-full count",
+   "claimed": 31,
+   "got": 31.0,
+   "ok": true
+  },
+  {
+   "label": "usual (p50)",
+   "claimed": 9,
+   "got": 9.0,
+   "ok": true
+  },
+  {
+   "label": "Late after (p80)",
+   "claimed": 11,
+   "got": 11.0,
+   "ok": true
+  },
+  {
+   "label": "Very late after",
+   "claimed": 18,
+   "got": 18.0,
+   "ok": true
+  },
+  {
+   "label": "good payers a 7-day rule marks Late",
+   "claimed": 20,
+   "got": 20.0,
+   "ok": true
+  },
+  {
+   "label": "good payers v3 marks Late",
+   "claimed": 5,
+   "got": 5.0,
+   "ok": true
+  },
+  {
+   "label": "owed, usual",
+   "claimed": 1700,
+   "got": 1700.0,
+   "ok": true
+  },
+  {
+   "label": "owed, Late",
+   "claimed": 380,
+   "got": 380.0,
+   "ok": true
+  },
+  {
+   "label": "expected bad debt on today's book",
+   "claimed": 58,
+   "got": 58.2292,
+   "ok": true
+  },
+  {
+   "label": "Jeffreys 95% upper PD, 0 of 31 (%)",
+   "claimed": 6.0,
+   "got": 5.9393,
+   "ok": true
+  },
+  {
+   "label": "bad debt on new credit a month",
+   "claimed": 220,
+   "got": 219.8589,
+   "ok": true
+  },
+  {
+   "label": "October net profit a day",
+   "claimed": 730,
+   "got": 729.76,
+   "ok": true
+  },
+  {
+   "label": "November net profit a day",
+   "claimed": 201,
+   "got": 200.7757,
+   "ok": true
+  }
+ ],
+ "payout_share_op_cash_at_the_time": 1.0,
+ "engine": {
+  "lam": 2.0138241800085677,
+  "rop": 22.642317541844708,
+  "tgt": 55.734158793300196,
+  "order_by": "2026-12-07",
+  "order_by_pods": "2026-12-05"
+ },
+ "order_by_vs_pace": [
+  [
+   2.01,
+   22.6,
+   "2026-12-07"
+  ],
+  [
+   2.5,
+   27.5,
+   "2026-12-04"
+  ],
+  [
+   2.8,
+   30.5,
+   "2026-12-02"
+  ],
+  [
+   3.38,
+   36.3,
+   "2026-12-02"
+  ],
+  [
+   3.61,
+   38.6,
+   "2026-12-02"
+  ]
+ ],
+ "engine_reaction": [
+  [
+   "2026-12-02",
+   2.04,
+   22.9,
+   31.9
+  ],
+  [
+   "2026-12-03",
+   2.13,
+   23.8,
+   28.3
+  ],
+  [
+   "2026-12-04",
+   2.21,
+   24.6,
+   24.7
+  ],
+  [
+   "2026-12-05",
+   2.28,
+   25.4,
+   21.1
+  ],
+  [
+   "2026-12-06",
+   2.35,
+   26.0,
+   17.5
+  ],
+  [
+   "2026-12-07",
+   2.41,
+   26.7,
+   13.9
+  ]
+ ],
+ "fits_money": {
+  "review": 14,
+  "per_order_fee": 13,
+  "linear_fee": 13
+ },
+ "prob_weighted_collections_7dec": 1937.5517241379312,
+ "payout_rule_margin_25nov": 92,
+ "working_capital": [
+  {
+   "volume": "recorded",
+   "terms": "pay at order",
+   "branch": 5810,
+   "corrected": 7726,
+   "understated_by": 1916
+  },
+  {
+   "volume": "recorded",
+   "terms": "pick-up",
+   "branch": 3499,
+   "corrected": 5416,
+   "understated_by": 1916
+  },
+  {
+   "volume": "plan pace 2.0",
+   "terms": "pay at order",
+   "branch": 6040,
+   "corrected": 8132,
+   "understated_by": 2092
+  },
+  {
+   "volume": "plan pace 2.0",
+   "terms": "pick-up",
+   "branch": 3638,
+   "corrected": 5729,
+   "understated_by": 2092
+  },
+  {
+   "volume": "full shelf 3.61",
+   "terms": "pay at order",
+   "branch": 10903,
+   "corrected": 14678,
+   "understated_by": 3775
+  },
+  {
+   "volume": "full shelf 3.61",
+   "terms": "pick-up",
+   "branch": 6566,
+   "corrected": 10342,
+   "understated_by": 3775
+  }
+ ],
+ "payout_cap": {
+  "branch": 0.6416924280382501,
+  "on_avg_capital": 0.5601705230425459,
+  "on_equity": 0.27985771906728196
+ },
+ "bridge_in_stock_share": {
+  "review": -0.5330534595382254,
+  "min": -0.5330534595382255,
+  "max": -0.25262521323836606,
+  "shapley": -0.3952963244120756,
+  "lmdi": -0.3868818468239443
+ },
+ "dispersion_2day": 2.3927272727272726,
+ "dispersion_3day": 3.2857142857142856,
+ "dispersion": {
+  "days with stock all day": {
+   "n": 25,
+   "mean": 2.0,
+   "var": 5.333333333333333,
+   "idx": 2.6666666666666665
+  },
+  "days with 7+ flavours all day": {
+   "n": 9,
+   "mean": 3.111111111111111,
+   "var": 7.8611111111111125,
+   "idx": 2.526785714285715
+  }
+ },
+ "lump": {
+  "line": 1.0333333333333334,
+  "ticket": 1.3333333333333333
+ },
+ "fit_noise": {
+  "0.15": [
+   1.715322243361598,
+   0.09961615230138876
+  ],
+  "0.3": [
+   2.106162304074705,
+   0.17990163779728335
+  ],
+  "0.45": [
+   2.7006522747541837,
+   0.24258627318059314
+  ]
+ },
+ "floor_gain_month": 1054.92,
+ "sim": {
+  "sellout/all": {
+   "gp": 6673.6075,
+   "payout": 5463.752172599652
+  },
+  "sellout/next": {
+   "gp": 7416.514583333334,
+   "payout": 4934.2936741557705
+  },
+  "sellout/adopted": {
+   "gp": 7411.104375,
+   "payout": 5304.514336985446
+  },
+  "rop_S/all": {
+   "gp": 10712.423541666665,
+   "payout": 8152.021498112848
+  },
+  "rop_S/next": {
+   "gp": 11143.730208333332,
+   "payout": 6882.989616399931
+  },
+  "rop_S/adopted": {
+   "gp": 11075.02875,
+   "payout": 7843.053048292061
+  }
+ },
+ "R1_gain_same_rule": {
+  "pay_all": 4038.816041666665,
+  "keep_next": 3727.215624999999
+ },
+ "R3_adopted_rule_gain": 362.6052083333343,
+ "stock_case_5664": {
+  "short": 3147.1848382263206,
+  "gap": 4.487100694444443
+ },
+ "cash_mc_622400": {
+  "p_short": 0.9967,
+  "topup": 2598.4949960493254,
+  "lost": 1198.7126489993052
+ },
+ "cash_mc_566400": {
+  "p_short": 0.984,
+  "topup": 2049.6549209232526,
+  "lost": 953.0874666712864
+ },
+ "credit_timing_6224": {
+  "held_back": 2155.137583732057,
+  "lost": 1588.2162162162185
+ },
+ "credit_timing_5664": {
+  "held_back": 3140.629854465709,
+  "lost": 1588.2162162162185
+ },
+ "rotation": {
+  "new_flav": 9,
+  "new_flav_old_available": 2,
+  "same": 2
+ }
+}

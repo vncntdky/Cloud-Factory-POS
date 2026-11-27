@@ -469,6 +469,13 @@ G = dict(pace_day=round(AD["lam"], 1), pace_week=round(AD["lam"] * 7), half_life
 for k, v in G.items():
     print(f"   {k:16s} {v}")
 put("planning_page_numbers", G)
+# how much of the spare stock is there because delivery time is a guess (pieces, not variance)
+lam_, L_ = AD["lam"], 7.0
+ss = {sd: 1.645 * math.sqrt(L_ * lam_ * LUMP + lam_ ** 2 * sd ** 2) for sd in (1.75, 0.75, 0.0)}
+var_share = lam_ ** 2 * 1.75 ** 2 / (L_ * lam_ * LUMP + lam_ ** 2 * 1.75 ** 2)
+print(f"spare stock at a 1.75-day delivery spread {ss[1.75]:.2f} pcs; 0.75-day {ss[0.75]:.2f}; known exactly {ss[0.0]:.2f}"
+      f" -> the guess adds {ss[1.75] - ss[0.75]:.1f} pcs over a reliable delivery ({var_share:.0%} of the variance)")
+put("spare_by_delivery_spread", ss)
 
 json.dump(M, open(os.path.join(HERE, "strategy-review_metrics.json"), "w"), indent=1, default=str)
 print("\nwrote analysis/strategy-review_metrics.json")
