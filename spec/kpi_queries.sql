@@ -8,6 +8,8 @@
 --    exactly as written, from "begin read only;" to "rollback;". The read-only transaction makes Postgres refuse any
 --    write, even if the text were changed, and the rollback leaves nothing behind. SELECT only; no function that writes.
 --  * The connector runs as the database owner (RLS does not apply), so the page must send only these fixed texts.
+--    Better: a dashboard-only connector with ?project_ref=pyjhwbfdxrjeitwjztna&read_only=true&features=database
+--    (Supabase MCP docs), so nothing the page sends can write.
 --  * Placeholders (Q1 to Q4). Check each value matches ^\d{4}-\d{2}-\d{2}$ before replacing it:
 --      {{from}}       first day of the period: Monday (Week), the 1st (Month), 1 Jan / Apr / Jul / Oct (Quarter)
 --      {{to}}         least(last day of the period, today in Manila)
@@ -44,12 +46,13 @@
 --       avg_price_cents, cogs_cents, landed_cost_pp_cents, gross_profit_cents, gross_margin_pct, opex_cents,
 --       count_diffs_cents, tax_cents, product_days, products_on_shelf_avg, pieces_per_product_day,
 --       net_sales_per_open_day_cents
--- Also: bridge (how net profit moved vs the previous period; the parts add up to total_cents):
---       days_cents (more or fewer days open), shelf_cents (fuller or emptier shelf), demand_cents (pieces a day per
---       product on the shelf), price_cents (average price, mix and discounts), cost_cents (landed cost per piece),
---       expenses_cents, counts_cents, tax_cents; null when the previous period had no sales.
+-- Also: bridge = "What moved net profit", per day open (strategy review 9.1 #12): net profit a day now and before,
+--       and the parts that add up to the change: stock_days (share of time with any stock), shelf (products on the
+--       shelf while in stock), demand (pieces a day per product on the shelf), price (list price and mix), discounts,
+--       unit_cost, fees (restocking fees a piece, also absorbs rounding), expenses, counts, tax; days_now / days_prev
+--       to turn it into pesos for the period. Null when the previous period sold nothing.
 --       opex_by_category (this period), tax_at_3pct_cents (net sales x 3%, for the accountant; not advice).
--- Tested 26 Nov 2026 for the week, month and quarter; matches finance_totals / finance_derive to the centavo.
+-- Tested 26 to 27 Nov 2026 for the week, month and quarter; matches finance_totals / finance_derive to the centavo.
 -- =====================================================================================================================
 begin read only;
 with
@@ -61,6 +64,7 @@ c as (
          (select min(created_at) from public.stock_movements) as first_at,
          coalesce((select tax_rate_bp from public.settings where id = 1), 0) as tax_bp
 ),
+c2 as (select c.*, c.first_day::timestamp at time zone 'Asia/Manila' as first_day_at from c),
 w as (
   select x.k, x.ws, x.we,
          x.k >= 1 and x.ws >= c.first_day as in_usual,
@@ -108,7 +112,8 @@ sold as (
 ),
 cogs as (
   select (s.created_at at time zone 'Asia/Manila')::date as d,
-         sum((least(a.hi, s.hi) - greatest(a.lo, s.lo)) * (a.uc + coalesce(f.pp, 0))) as cents
+         sum((least(a.hi, s.hi) - greatest(a.lo, s.lo)) * (a.uc + coalesce(f.pp, 0))) as cents,
+         sum((least(a.hi, s.hi) - greatest(a.lo, s.lo)) * coalesce(f.pp, 0)) as fee_cents
   from sold s
   join arr a on a.product_id = s.product_id and s.lo < a.hi and s.hi > a.lo
   left join fee f on f.batch_id = a.batch_id
@@ -125,9 +130,15 @@ diffs as (
   group by 1
 ),
 lv as (
-  select m.created_at as t1, coalesce(lead(m.created_at) over q, now()) as t2, sum(m.delta) over q as lvl
+  select m.created_at as t1, coalesce(lead(m.created_at) over q, now()) as t2, sum(m.delta) over q as lvl,
+         m.id, m.delta
   from public.stock_movements m
   window q as (partition by m.product_id order by m.created_at, m.id)
+),
+sh as (
+  select t1, coalesce(lead(t1) over (order by t1, id), now()) as t2,
+         sum((lvl > 0)::int - (lvl - delta > 0)::int) over (order by t1, id) as n
+  from lv
 ),
 m as (
   select w.k, w.in_usual, w.days, w.open_days,
@@ -136,15 +147,17 @@ m as (
          round(df.upto) - round(df.before) as diffs,
          e.opex,
          round(tx.upto * c.tax_bp / 10000.0) - round(tx.before * c.tax_bp / 10000.0) as tax,
-         sh.product_days,
-         greatest(0, extract(epoch from w.we_at - greatest(w.ws_at, c.first_at)) / 86400.0) as open_time
-  from w cross join c
+         pdx.product_days, st.stock_days, cg.fees,
+         greatest(0, extract(epoch from w.we_at - greatest(w.ws_at, c.first_at)) / 86400.0) as open_time,
+         greatest(0, extract(epoch from w.we_at - greatest(w.ws_at, c.first_day_at)) / 86400.0) as day_time
+  from w cross join c2 c
   cross join lateral (select coalesce(sum(sd.net), 0) as net, coalesce(sum(sd.gross), 0) as gross,
                              coalesce(sum(sd.disc), 0) as disc, coalesce(sum(sd.n), 0) as sales,
                              coalesce(sum(sd.pcs), 0) as pieces
                       from sd where sd.d between w.ws and w.we) s
   cross join lateral (select coalesce(sum(cents) filter (where d <= w.we), 0) as upto,
-                             coalesce(sum(cents) filter (where d < w.ws), 0) as before from cogs) cg
+                             coalesce(sum(cents) filter (where d < w.ws), 0) as before,
+                             coalesce(sum(fee_cents) filter (where d between w.ws and w.we), 0) as fees from cogs) cg
   cross join lateral (select coalesce(sum(cents) filter (where d <= w.we), 0) as upto,
                              coalesce(sum(cents) filter (where d < w.ws), 0) as before from diffs) df
   cross join lateral (select coalesce(sum(amount_cents), 0) as opex from public.expenses
@@ -152,7 +165,9 @@ m as (
   cross join lateral (select coalesce(sum(sd.net) filter (where sd.d <= w.we), 0) as upto,
                              coalesce(sum(sd.net) filter (where sd.d < w.ws), 0) as before from sd) tx
   cross join lateral (select coalesce(sum(extract(epoch from least(lv.t2, w.we_at) - greatest(lv.t1, w.ws_at))) / 86400.0, 0) as product_days
-                      from lv where lv.lvl > 0 and lv.t2 > w.ws_at and lv.t1 < w.we_at) sh
+                      from lv where lv.lvl > 0 and lv.t2 > w.ws_at and lv.t1 < w.we_at) pdx
+  cross join lateral (select coalesce(sum(extract(epoch from least(sh.t2, w.we_at) - greatest(sh.t1, w.ws_at))) / 86400.0, 0) as stock_days
+                      from sh where sh.n > 0 and sh.t2 > w.ws_at and sh.t1 < w.we_at) st
 ),
 d as (
   select m.*, m.net - m.cogs as gp, m.net - m.cogs + m.diffs - m.opex - m.tax as np
@@ -191,22 +206,39 @@ agg as (
          count(val) filter (where in_usual) as usual_n
   from long group by metric
 ),
-br as (
-  select c1.pieces as q1, c0.pieces as q0, c1.product_days as pd1, c0.product_days as pd0,
-         c1.open_days as t1, c0.open_days as t0,
-         c1.np - c0.np as dnp,
-         (c0.net - c0.cogs)::numeric / nullif(c0.pieces, 0) as m0,
-         c1.net::numeric / nullif(c1.pieces, 0) as p1, c0.net::numeric / nullif(c0.pieces, 0) as p0,
-         c1.opex - c0.opex as dopex, c1.diffs - c0.diffs as ddiffs, c1.tax - c0.tax as dtax
-  from d c1, d c0 where c1.k = 0 and c0.k = 1
+br as (  -- the bridge works per day open (time from the shop's first day, or the period start, to its end or now)
+  select n.day_time as d1, o.day_time as d0, n.pieces::numeric as q1, o.pieces::numeric as q0,
+         n.stock_days as sd1, o.stock_days as sd0, n.product_days as pd1, o.product_days as pd0,
+         n.gross::numeric / nullif(n.pieces, 0) as g1, o.gross::numeric / nullif(o.pieces, 0) as g0,
+         n.disc::numeric / nullif(n.pieces, 0) as x1, o.disc::numeric / nullif(o.pieces, 0) as x0,
+         (n.cogs - n.fees) / nullif(n.pieces, 0) as u1, (o.cogs - o.fees) / nullif(o.pieces, 0) as u0,
+         (o.net - o.cogs) / nullif(o.pieces, 0) as m0,
+         n.np / nullif(n.day_time, 0) as np1, o.np / nullif(o.day_time, 0) as np0,
+         n.opex / nullif(n.day_time, 0) - o.opex / nullif(o.day_time, 0) as dopex,
+         n.diffs / nullif(n.day_time, 0) - o.diffs / nullif(o.day_time, 0) as ddiffs,
+         n.tax / nullif(n.day_time, 0) - o.tax / nullif(o.day_time, 0) as dtax
+  from d n, d o where n.k = 0 and o.k = 1
 ),
-br2 as (
+br2 as (  -- net sales a day = share of time with stock x products on the shelf then x pieces a product-day x price
   select br.*,
-         round((q1 - q0) * m0) as vol,
-         round(case when t0 > 0 then (t1 - t0) * (q0::numeric / t0) * m0 else 0 end) as days_eff,
-         round(case when pd0 > 0 then (pd1 - pd0) * (q0 / pd0) * m0 else 0 end) as shelf,
-         round(q1 * (coalesce(p1, p0) - p0)) as price
+         coalesce(sd1 / nullif(d1, 0), 0) as s1, sd0 / nullif(d0, 0) as s0,
+         coalesce(pd1 / nullif(sd1, 0), 0) as f1, pd0 / nullif(sd0, 0) as f0,
+         coalesce(q1 / nullif(pd1, 0), 0) as r1, q0 / nullif(pd0, 0) as r0,
+         coalesce(q1 / nullif(d1, 0), 0) as v1
   from br
+),
+br3 as (
+  select br2.*,
+         round((s1 - s0) * f0 * r0 * m0) as e_stock,
+         round(s1 * (f1 - f0) * r0 * m0) as e_shelf,
+         round(s1 * f1 * (r1 - r0) * m0) as e_demand,
+         round(coalesce(v1 * (g1 - g0), 0)) as e_price,
+         round(coalesce(-v1 * (x1 - x0), 0)) as e_disc,
+         round(coalesce(-v1 * (u1 - u0), 0)) as e_cost,
+         round(-dopex) as e_opex, round(ddiffs) as e_counts, round(-dtax) as e_tax,
+         round(coalesce(np1, 0) - np0) as e_total
+  from br2
+  where q0 > 0 and sd0 > 0 and pd0 > 0 and d0 > 0
 )
 select
   (select ws from w where k = 0) as period_from, (select we from w where k = 0) as period_to,
@@ -215,17 +247,15 @@ select
   (select days from w where k = 1) as prev_days, (select open_days from w where k = 1) as prev_open_days,
   c.today, c.first_day, c.tax_bp as tax_rate_bp,
   (select jsonb_object_agg(metric, jsonb_build_object('now', now, 'prev', prev, 'usual', usual, 'usual_n', usual_n)) from agg) as kpis,
-  (select case when q0 > 0 then jsonb_build_object(
-      'days_cents',     days_eff,
-      'shelf_cents',    shelf - days_eff,
-      'demand_cents',   vol - shelf,
-      'price_cents',    price,
-      'cost_cents',     dnp - (vol + price - dopex + ddiffs - dtax),
-      'expenses_cents', -dopex,
-      'counts_cents',   ddiffs,
-      'tax_cents',      -dtax,
-      'total_cents',    dnp) end
-   from br2) as bridge,
+  (select jsonb_build_object(
+      'per_day', true, 'days_now', round(d1, 2), 'days_prev', round(d0, 2),
+      'net_profit_per_day_now_cents', round(coalesce(np1, 0)), 'net_profit_per_day_prev_cents', round(np0),
+      'stock_days_cents', e_stock, 'shelf_cents', e_shelf, 'demand_cents', e_demand,
+      'price_cents', e_price, 'discounts_cents', e_disc, 'unit_cost_cents', e_cost,
+      'fees_cents', e_total - (e_stock + e_shelf + e_demand + e_price + e_disc + e_cost + e_opex + e_counts + e_tax),
+      'expenses_cents', e_opex, 'counts_cents', e_counts, 'tax_cents', e_tax,
+      'total_cents', e_total)
+   from br3) as bridge,
   (select coalesce(jsonb_object_agg(category, cents), '{}'::jsonb) from (
      select e.category, sum(e.amount_cents) as cents from public.expenses e, w
      where w.k = 0 and e.category <> 'tax' and e.spent_on between w.ws and w.we group by e.category) x) as opex_by_category,
@@ -235,14 +265,15 @@ rollback;
 
 -- =====================================================================================================================
 -- Q2  STOCK AND PRODUCTS                        views: Stock and ordering, Products, Bottom line  placeholders: all four
--- Question: was the shelf full, what did empty shelves cost, and which products sell fastest?
+-- Question: was the shelf full, what did empty shelves cost, and which products and lines earn most on the shelf?
 -- kpis: empty_days (the whole shop had nothing to sell), stock_days, products_on_shelf_avg, products_on_shelf_max,
 --       product_days, pieces, pace_on_stock_days, missed_empty_cents (empty days x pace on days with stock, last 90
---       days x landed margin per piece, last 90 days: a floor, "at least")
+--       days x landed margin a piece, last 90 days: a floor, "at least")
 -- Also: history_90d (the rates used), now_state (pieces and products on the shelf now, empty since, Not selling
---       count and cost tied up, New products), mix (Pareto by speed), lines (speed by product line), products (ranked,
---       pace shrunk toward the line over 7 shelf-days so a few hours on the shelf cannot top the list), daily (products
---       on the shelf, empty hours and pieces sold per day of this period, for the shelf chart).
+--       count and cost tied up, New products), mix (Pareto by speed), lines (per product line: gross profit and pieces
+--       a day per product on the shelf; strategy review 9.1 #10), lines_shop_average, products (ranked; pace shrunk
+--       toward the line over 7 shelf-days so a few hours on the shelf cannot top the list), daily (products on the
+--       shelf, empty hours and pieces sold per day of this period, for the shelf chart).
 -- =====================================================================================================================
 begin read only;
 with
@@ -309,11 +340,12 @@ lines as (
   window q as (partition by i.product_id order by s.created_at, i.id)
 ),
 landed as (
-  select l.created_at, sum((least(a.hi, l.hi) - greatest(a.lo, l.lo)) * (a.uc + coalesce(f.pp, 0))) as cents
+  select l.product_id, l.created_at, l.business_date,
+         sum((least(a.hi, l.hi) - greatest(a.lo, l.lo)) * (a.uc + coalesce(f.pp, 0))) as cents
   from lines l
   join arr a on a.product_id = l.product_id and l.lo < a.hi and l.hi > a.lo
   left join fee f on f.batch_id = a.batch_id
-  group by l.created_at, l.product_id, l.lo
+  group by l.product_id, l.created_at, l.business_date, l.lo
 ),
 hist as (
   select (select coalesce(sum(quantity), 0) from lines where created_at >= c.h_at) as pcs,
@@ -380,6 +412,10 @@ prod as (
                    and x.kind in ('opening', 'restock')) as last_in_at,
          (select coalesce(sum(l.quantity), 0) from lines l, cur where l.product_id = pr.id
                    and l.business_date between cur.ws and cur.we) as pieces,
+         (select coalesce(sum(l.net), 0) from lines l, cur where l.product_id = pr.id
+                   and l.business_date between cur.ws and cur.we)
+           - (select coalesce(sum(ld.cents), 0) from landed ld, cur where ld.product_id = pr.id
+                   and ld.business_date between cur.ws and cur.we) as gp,
          (select coalesce(sum(extract(epoch from least(lv.t2, cur.we_at) - greatest(lv.t1, cur.ws_at))), 0) / 86400.0
             from lv, cur where lv.product_id = pr.id and lv.lvl > 0 and lv.t2 > cur.ws_at and lv.t1 < cur.we_at) as product_days
   from public.products pr
@@ -423,9 +459,14 @@ bylines as (
   select coalesce(line, 'No category') as line, count(*) as products, sum(pieces) as pieces,
          round(sum(product_days), 1) as product_days,
          round(sum(pieces) / nullif(sum(product_days), 0), 3) as pieces_per_product_day,
-         round(sum(pieces * price_cents) / nullif(sum(product_days), 0)) as net_per_product_day_cents
+         round(sum(gp) / nullif(sum(product_days), 0)) as gp_per_product_day_cents
   from prod2 where product_days > 0 or pieces > 0
   group by 1
+),
+shopavg as (
+  select round(sum(pieces) / nullif(sum(product_days), 0), 3) as pieces_per_product_day,
+         round(sum(gp) / nullif(sum(product_days), 0)) as gp_per_product_day_cents
+  from prod2 where product_days > 0 or pieces > 0
 )
 select
   (select ws from w where k = 0) as period_from, (select we from w where k = 0) as period_to,
@@ -445,10 +486,11 @@ select
                              'new_on_order_pieces', coalesce(sum(on_order) filter (where not stocked), 0))
      from prod2) as now_state,
   (select to_jsonb(mix) from mix) as mix,
-  (select coalesce(jsonb_agg(to_jsonb(bylines) order by pieces_per_product_day desc nulls last), '[]'::jsonb) from bylines) as lines,
+  (select coalesce(jsonb_agg(to_jsonb(bylines) order by gp_per_product_day_cents desc nulls last), '[]'::jsonb) from bylines) as lines,
+  (select to_jsonb(shopavg) from shopavg) as lines_shop_average,
   (select coalesce(jsonb_agg(jsonb_build_object(
             'brand', brand, 'name', name, 'variant', variant, 'line', line, 'price_cents', price_cents,
-            'cost_cents', cost_cents, 'pieces', pieces, 'product_days', round(product_days, 2),
+            'cost_cents', cost_cents, 'pieces', pieces, 'gp_cents', round(gp), 'product_days', round(product_days, 2),
             'pace_per_day', round(pace, 3), 'value_pace_cents_per_day', round(value_pace * 100),
             'share_ahead_pct', round(100 * share_ahead, 1),
             'abc', case when value_pace <= 0 then 'C' when share_ahead < 0.8 then 'A' when share_ahead < 0.95 then 'B' else 'C' end,
@@ -475,9 +517,11 @@ rollback;
 -- Question: who owes us, is it getting later, and is credit tying up cash?
 -- kpis: credit_share_pct, credit_sales_cents, paid_at_till_cents, collected_later_cents, days_to_collect_median,
 --       credit_sales_paid_off, owed_end_cents, late_end_cents, very_late_end_cents, open_sales_end, buyers_owing_end,
---       largest_buyer_share_pct, dso_days
--- Also: thresholds (Usual / Late / Very late from the shop's own payments, planning design method 9; 7 / 7 / 30 days
---       until 10 Not paid yet sales are paid in full), aging_end (the three buckets at the end of this period).
+--       largest_buyer_share_pct, days_of_sales_owed_end (owed at the end / net sales a day over the 30 days before;
+--       strategy review 9.1 #6), dso_days (average owed / net sales a day; the baseline's measure)
+-- Also: thresholds (collections v3 from the strategy review: from Not paid yet sales paid in full in the last 180 days,
+--       usual = median, Late after the 80th percentile, Very late after max(95th, Late + 7); 7 / 7 / 30 days until 10
+--       are paid in full), aging_end (Usual / Late / Very late at the end of this period).
 -- =====================================================================================================================
 begin read only;
 with
@@ -519,26 +563,21 @@ pay as (
   from public.sale_payments sp join public.sales s on s.id = sp.sale_id
   where s.status = 'completed'
 ),
--- How long buyers take to pay, from Not paid yet sales paid in full in the last 180 days (planning design, method 9).
+-- How long buyers take to pay: Not paid yet sales paid in full in the last 180 days (strategy review, collections v3).
 paid as (
   select cs.last_paid - cs.d as days from cs, c
   where cs.credit and cs.bal = 0 and cs.paid is not null and cs.d >= c.today - 180
 ),
-med as (select percentile_disc(0.5) within group (order by days) as med, count(*) as n from paid),
-vals as (
-  select days from paid
-  union all
-  select c.today - cs.d from cs, c, med
-  where cs.credit and cs.bal > 0 and cs.d >= c.today - 180 and c.today - cs.d > med.med
-),
 th as (
-  select med.n as paid_count, (select count(*) from vals) as value_count, med.n < 10 as guess,
-         case when med.n >= 10 then (select percentile_disc(0.5) within group (order by days) from vals) else 7 end as usual_days,
-         case when med.n >= 10 then (select percentile_disc(0.8) within group (order by days) from vals) else 7 end as late_after,
-         case when med.n >= 10 then greatest((select percentile_disc(0.95) within group (order by days) from vals),
-                                             (select percentile_disc(0.8) within group (order by days) from vals) + 7)
-              else 30 end as very_late_after
-  from med
+  select z.n as paid_count, z.n < 10 as guess,
+         case when z.n >= 10 then z.p50 else 7 end as usual_days,
+         case when z.n >= 10 then z.p80 else 7 end as late_after,
+         case when z.n >= 10 then greatest(z.p95, z.p80 + 7) else 30 end as very_late_after
+  from (select count(*) as n,
+               percentile_disc(0.5) within group (order by days) as p50,
+               percentile_disc(0.8) within group (order by days) as p80,
+               percentile_disc(0.95) within group (order by days) as p95
+          from paid) z
 ),
 -- What each sale still owed at the end of each window (its balance plus payments made after that day).
 owed as (
@@ -570,7 +609,9 @@ m as (
          (select count(distinct o.who) from owed o where o.k = w.k and o.cents > 0) as buyers_owing_end,
          (select max(b.cents) from (select o.who, sum(o.cents) as cents from owed o where o.k = w.k and o.cents > 0
                                      group by o.who) b) as largest_buyer_cents,
-         (select avg(daily.owed) from daily where daily.d between w.ws and w.e) as owed_avg
+         (select avg(daily.owed) from daily where daily.d between w.ws and w.e) as owed_avg,
+         (select coalesce(sum(total), 0) from cs where cs.d between w.e - 29 and w.e) as net30,
+         greatest(1, least(30, w.e - (select first_day from c) + 1)) as days30
   from w
 ),
 long as (
@@ -588,6 +629,7 @@ long as (
     ('open_sales_end',          m.open_sales_end::numeric),
     ('buyers_owing_end',        m.buyers_owing_end::numeric),
     ('largest_buyer_share_pct', round(100.0 * m.largest_buyer_cents / nullif(m.owed_end, 0), 1)),
+    ('days_of_sales_owed_end',  round(m.owed_end / nullif(m.net30::numeric / m.days30, 0), 1)),
     ('dso_days',                round(m.owed_avg / nullif(m.net::numeric / nullif(m.open_days, 0), 0), 1))
   ) as v(metric, val)
 ),
@@ -863,14 +905,17 @@ rollback;
 -- Q5  NEXT ORDER AND MONEY (NOW)                views: Stock and ordering, Cash and payouts, Bottom line
 --                                                                                          placeholders: none
 -- Question: when must the next order be placed, what will it cost, and will the money be there?
--- Interim, shop-level copy of the planning design v2 (methods 1, 2, 3, 5, 6 and 8); replace with plan_core() /
--- plan_params() once the planning engine is live. The next order is estimated for the whole shop, so it can differ
--- from the engine's per-product suggestion by a few pieces (26 Nov: 40 pcs here, 43 in the design's replay).
+-- Interim, shop-level copy of the planning engine as the strategy review adopts it for release 1 (design v2 methods
+-- 1, 2, 3, 5, 6, 8 with the changes in analysis/strategy-review.md 9.2: delivery blended with the 7-day guess, order
+-- rhythm from recorded order days kept 7 to 30, next order = target - reorder point, budget without Very late
+-- balances, payout hold). Replace with plan_core() / plan_params() once the engine is live, so the dashboard and
+-- Restock always agree. Goods are priced at the average cost of the products in the plan that have sold, so the
+-- total can differ from the engine's per-product sum by about 1% (27 Nov: P5,611.50 here, P5,664 in the review).
 -- Returns: pace, delivery, rhythm, levels (reorder point, target, spare), stock (position, days left),
 --          on_the_way [batches with due day and Late], next_order {order_by, order_now, on, pieces, goods, fees, total},
 --          money {cash, tax reserve, owed to suppliers, inventory reserve, spare cash, profit kept, safe to distribute,
 --          likely collected by the order day, available by then, short, hold for the next order, running costs a
---          month, suggested payout = max(0, min(safe, spare cash) - hold - a month of running costs)}.
+--          month, suggested payout = max(0, min(safe to distribute, spare cash - hold - a month of running costs))}.
 -- =====================================================================================================================
 begin read only;
 with
@@ -901,24 +946,24 @@ gaps as (
   where ordered_on is not null and received_on is not null and received_on >= ordered_on
   order by received_on desc, batch_no desc limit 10
 ),
-dl as (
-  select z.n, z.max_gap, z.n = 0 as guess,
-         case when z.n = 0 then 7.0 else greatest(1.0, z.a) end as l,
+dl as (  -- the 7-day starting guess counts as one pretend order (strategy review 9.2)
+  select z.n, z.max_gap, z.n = 0 as guess, z.l,
          case when z.n = 0 then 1.75
-              else greatest(0.25, sqrt(((select coalesce(sum(power(g - z.a, 2)), 0) from gaps)
-                                        + 2 * power(greatest(1.0, z.a) / 4, 2)) / (z.n + 1))) end as sd
-  from (select count(*) as n, avg(g) as a, max(g) as max_gap from gaps) z
+              else greatest(0.25, sqrt(((select coalesce(sum(power(g - z.l, 2)), 0) from gaps)
+                                        + 2 * power(z.l / 4, 2)) / (z.n + 1))) end as sd
+  from (select count(*) as n, max(g) as max_gap,
+               greatest(1.0, (coalesce(sum(g), 0) + 7.0) / (count(*) + 1)) as l from gaps) z
 ),
--- 2. Order rhythm: the last 11 order days; a batch with no order day counts back the delivery time (method 2).
+-- 2. Order rhythm: the last 11 order days; a batch with no order day uses its arrival day; kept 7 to 30 days.
 od as (
-  select coalesce(b.ordered_on, b.received_on - round(dl.l)::int) as day, bool_and(b.ordered_on is null) as est
-  from bt b cross join dl
+  select coalesce(b.ordered_on, b.received_on) as day, bool_and(b.ordered_on is null) as est
+  from bt b
   group by 1 order by 1 desc limit 11
 ),
 rh as (
   select count(*) as n, max(day) as last_day, bool_or(est) as estimated, count(*) < 2 as guess,
          case when count(*) < 2 then 14.0
-              else least(60.0, greatest(7.0, (max(day) - min(day))::float8 / (count(*) - 1))) end as r,
+              else least(30.0, greatest(7.0, (max(day) - min(day))::float8 / (count(*) - 1))) end as r,
          jsonb_agg(jsonb_build_object('on', day, 'estimated', est) order by day) as days
   from od
 ),
@@ -999,9 +1044,11 @@ bl as (
   group by 1, 2
 ),
 uq as (select greatest(1, coalesce(percentile_disc(0.5) within group (order by q), 1)) as usual_qty from bl),
-fz as (
+fz as (  -- fees of the last 3 batches; goods a piece = average cost of the products in the plan that have sold
   select count(*) as n, avg(fees)::float8 as fee_avg, avg(pcs)::float8 as avg_pcs,
-         sum(goods)::float8 / nullif(sum(pcs), 0) as goods_pp
+         coalesce((select avg(pc.cost_cents)::float8 from plan join public.product_costs pc on pc.product_id = plan.id
+                    where plan.had_stock),
+                  sum(goods)::float8 / nullif(sum(pcs), 0)) as goods_pp
   from bt where id in (select id from last3)
 ),
 otw as (
@@ -1035,15 +1082,12 @@ nx as (
   select ob2.*, greatest(c.today, least(ob2.next_order_on, coalesce(ob2.order_by, ob2.next_order_on))) as on_day
   from ob2 cross join c
 ),
-nq as (
-  select nx.*, pos.position_shop - pl.lam * greatest(0, nx.on_day - nx.start_on) as left_shop
-  from nx cross join pos cross join pl
-),
-nq2 as (
-  select nq.*,
-         case when pl.lam > 0 and (nq.left_shop <= pl.rop or nq.left_shop - pl.lam * pl.r <= pl.rop)
-              then greatest(0, ceil(pl.target - greatest(0, nq.left_shop)))::int else 0 end as next_pcs
-  from nq cross join pl
+nq2 as (  -- sized from the reorder point, where the order will be placed (strategy review 9.2, method 8)
+  select nx.*,
+         case when pl.lam <= 0 then 0
+              when nx.order_by > (select today from c) then greatest(0, round(pl.target - pl.rop))::int
+              else greatest(0, round(pl.target - pos.position_shop))::int end as next_pcs
+  from nx cross join pl cross join pos
 ),
 nc as (
   select nq2.*, round(nq2.next_pcs * coalesce(fz.goods_pp, 0)) as next_goods,
@@ -1136,7 +1180,7 @@ mo2 as (
   select mo.*, cash - greatest(0, tax_payable) - suppliers_owed - kept as spare
   from mo
 ),
--- How long buyers take to pay (as Q3), for what is likely collected by the order day.
+-- How long buyers take to pay (as Q3, collections v3), for what is likely collected by the order day.
 cs as (
   select s.business_date as d, s.balance_cents as bal, pp.paid, pp.last_paid
   from public.sales s
@@ -1145,19 +1189,21 @@ cs as (
   where s.status = 'completed' and s.payment_method::text = 'unpaid'
 ),
 paid as (select cs.last_paid - cs.d as days from cs, c where cs.bal = 0 and cs.paid is not null and cs.d >= c.today - 180),
-med as (select percentile_disc(0.5) within group (order by days) as med, count(*) as n from paid),
-vals as (
-  select days from paid
-  union all
-  select c.today - cs.d from cs, c, med where cs.bal > 0 and cs.d >= c.today - 180 and c.today - cs.d > med.med
+ud as (
+  select case when z.n >= 10 then z.p50 else 7 end as usual_days,
+         case when z.n >= 10 then greatest(z.p95, z.p80 + 7) else 30 end as very_late_after
+  from (select count(*) as n,
+               percentile_disc(0.5) within group (order by days) as p50,
+               percentile_disc(0.8) within group (order by days) as p80,
+               percentile_disc(0.95) within group (order by days) as p95
+          from paid) z
 ),
-ud as (select case when med.n >= 10 then (select percentile_disc(0.5) within group (order by days) from vals) else 7 end as usual_days
-       from med),
 coll as (
   select greatest(c.today, coalesce(nc.order_by, nc.next_order_on)) as collect_by,
          (select coalesce(sum(s.balance_cents), 0) from public.sales s
            where s.status = 'completed' and s.balance_cents > 0
-             and greatest(c.today, coalesce(nc.order_by, nc.next_order_on)) - s.business_date > ud.usual_days) as expected
+             and greatest(c.today, coalesce(nc.order_by, nc.next_order_on)) - s.business_date > ud.usual_days
+             and c.today - s.business_date <= ud.very_late_after) as expected
   from nc cross join c cross join ud
 ),
 run as (
@@ -1205,7 +1251,7 @@ select
                              'short_cents', greatest(0, next_cents - available),
                              'hold_for_next_order_cents', hold,
                              'running_costs_month_cents', month_cents, 'running_costs_guess', (select guess from run),
-                             'suggested_payout_cents', greatest(0, least(greatest(0, least(retained, spare)), spare) - hold - month_cents))
+                             'suggested_payout_cents', greatest(0, least(greatest(0, least(retained, spare)), spare - hold - month_cents)))
      from dz) as money
 from c;
 rollback;

@@ -2,18 +2,22 @@
 
 Step 1 of the dashboard-design kit (requirements and information architecture) for the Cloud Factory owner
 dashboard. Written 26 Nov 2026 by the strategy consultant, as a delegated task (no questions could be asked; the
-assumptions are in [Decisions](#decisions) and the open points in [Open questions](#open-questions)). Every query in
-`spec/kpi_queries.sql` was run read-only against the live database on the evening of 26 Nov 2026 (Manila); the values
-are in [Live check](#live-check-26-nov-2026). Amounts in pesos (₱); the database stores centavos.
+assumptions are in [Decisions](#decisions) and the open points in [Open questions](#open-questions)). It follows the
+engagement's synthesis, `analysis/strategy-review.md` (26 Nov, 20:16), where that review changes the planning design.
+Every query in `spec/kpi_queries.sql` was run read-only against the live database between 19:41 on 26 Nov and 10:10
+on 27 Nov 2026 (Manila). No sale, payment, stock movement or other record changed after 11:16 on 26 Nov, and every
+period ends on 26 Nov, so the period values are as of the end of 26 Nov; they are in
+[Live check](#live-check-26-nov-2026). Amounts in pesos (₱); the database stores centavos.
 
 **Bottom line.** The dashboard should answer one question before any other: *will the shelf stay full, and will the
 money be there to fill it?* The fact base shows supply, not demand, limits this shop. Empty shelves are the largest
 profit lever. Credit (73% of sales, a median of 9 days to collect) and the timing of payouts decide whether the next
 order can be paid. So the design has six views (Bottom line, Profit, Stock and ordering, Products, Collections, Cash
 and payouts), with 6 or 7 primary KPIs each, every one compared with the previous period and, where history allows,
-with "usual". It needs five read-only calls. On 26 Nov the Bottom line reads: order by Sun 6 Dec. The next order
-costs about ₱6,980 and about ₱2,420 will be there by then, so the shop is about ₱4,560 short. The suggested payout
-is ₱0. **Decision needed:** the owner confirms the six views and the This / Last period control (open question 1).
+with "usual". It needs five read-only calls. On 26 Nov the Bottom line reads: order by Mon 7 Dec. The next order
+(about 33 pieces) costs about ₱5,610 and about ₱2,420 will be there by then, so the shop is about ₱3,190 short. The
+suggested payout is ₱0. **Decision needed:** the owner confirms the six views and the This / Last period control (open
+question 1).
 
 ## Dashboard
 
@@ -32,7 +36,7 @@ is ₱0. **Decision needed:** the owner confirms the six views and the This / La
 |---|---|---|
 | Daily glance | Is anything urgent: an order due, an order late, cash short? | Bottom line: Order by, Money for the next order, Late owed |
 | Weekly (Monday, Week → Last; about 10 min) | 1. Place the next order (on or before Order by; all of it or what fits). 2. Message the supplier if an order is Late. 3. Have staff chase the Late and Very late. 4. Pay out, or hold until the next order is paid. | Stock and ordering: Order by, Next order, Money for it, On the way. Collections: Late, Still owed. Cash: Suggested payout, Safe to distribute |
-| Monthly (first week, Month → Last; with the manager) | 1. Pick the profit-tree branch that moved most and agree one action. 2. Set the distribution (up to the suggestion) and the inventory reserve. 3. Check every expense is entered. 4. Decide credit terms. 5. Pick the flavours to reorder, discount or drop. | Profit: the bridge and its drivers. Cash: Cash from operations, Distributed, Payout ratio. Collections: Credit share, Days to collect. Products: Lines by speed, Not selling |
+| Monthly (first week, Month → Last; with the manager) | 1. Pick the profit-tree branch that moved most and agree one action. 2. Set the distribution (up to the suggestion) and the inventory reserve. 3. Check every expense is entered. 4. Decide credit terms. 5. Pick the flavours to reorder, discount or drop. | Profit: the bridge and its drivers. Cash: Cash from operations, Distributed, Payout ratio. Collections: Credit share, Days to collect. Products: Lines by gross profit a day on the shelf, Not selling |
 | Quarterly (first two weeks after the quarter, Quarter → Last) | 1. Which product lines to carry, and which to test (re-order the fastest line). 2. Supplier terms (pay on pick-up) and order size. 3. Payout policy while growing. 4. Owner capital top-up or not. 5. The percentage-tax filing, with the accountant (BIR Form 2551Q, within 25 days after the quarter). | Products: Pareto by speed, Lines. Cash: Payout ratio to date, Owner capital, Cash from operations. Profit: Net margin, Tax at 3% |
 
 The manager places and records orders, taps Arrived, enters expenses, sets the inventory reserve and chases
@@ -55,12 +59,13 @@ inventory and orders, Collections for receivables, Cash and payouts for cash and
 - **Profit**: how much did we earn, and which branch of the profit tree moved?
   - KPIs (7): Net profit (with net margin) · Net sales · Pieces sold · Average price · Landed cost per piece (with
     gross margin) · Operating expenses · Tax estimate
-  - Supporting: the profit bridge against the previous period (days open, shelf, demand, price, landed cost,
-    expenses, counts, tax). Products on the shelf (average) and pieces a day per product on the shelf, the two volume
-    drivers. Discounts, count differences (only when not 0), and expenses by category. Tax at 3% for the accountant
-    (Quarter view).
-  - Findings shown (baseline §4, §11): "Net margin looks high because no rent or pay is recorded; enter them before
-    using it for break-even." "The shelf branch is the biggest lever." The bridge shows it in pesos every period.
+  - Supporting: "What moved net profit", a bridge per day open against the previous period. Its parts are days with
+    stock, products on the shelf, demand (pieces a day per product on the shelf), price, discounts, unit cost,
+    restocking fees, expenses, counts and tax; they add up exactly. Also products on the shelf (average), discounts,
+    count differences (only when not 0), expenses by category, and tax at 3% for the accountant (Quarter view).
+  - Findings shown (baseline §4, §11; strategy review §4.5): "Net margin looks high because no rent or pay is
+    recorded; enter them before using it for break-even." "Being out of stock was 53% of the October → November drop
+    in net profit a day" (the bridge recomputes this every period).
 - **Stock and ordering**: was the shelf full, what did empty shelves cost, and when must I order?
   - KPIs (7): Days with nothing to sell · Products on the shelf (average) · Profit missed while the shop was empty
     (at least) · On the way (pieces, due day, Late) · Order by · Next order (estimate: pieces, ₱) · Money for it by
@@ -68,22 +73,23 @@ inventory and orders, Collections for receivables, Cash and payouts for cash and
   - Supporting: a chart of products on the shelf per day, with empty hours and pieces sold. Pace on days with stock.
     "Worked out from your history": pace, delivery days (starting guess), order rhythm, reorder point, target and
     stock position.
-  - Findings shown (baseline §6, stock-and-ordering §1): "Sales track how full the shelf is: 3.6 pieces a day with 7
-    to 10 flavours, 0.85 with 1 to 3." "Order on the Order by date, not at sell-out: worth about ₱3.7k to ₱4.0k of
-    gross profit a month." "On the date, order what the money buys, then top up."
-- **Products**: which flavours and lines sell fastest, and what is not selling?
-  - KPIs (6): Lines by speed (pieces a day per product on the shelf) · Products that make 80% of demand · Top 20%'s
-    share of demand · Fastest against slowest (×) · Not selling (count, ₱ at cost) · New (never on the shelf)
+  - Findings shown (baseline §6, stock-and-ordering §1, strategy review §1): "Sales track how full the shelf is: 3.6
+    pieces a day with 7 to 10 flavours, 0.85 with 1 to 3." "Order on the Order by date, not at sell-out: worth about
+    ₱4.0k to ₱4.5k of gross profit a month." "On the date, order what the money buys, then top up."
+- **Products**: which lines and flavours earn most on the shelf, and what is not selling?
+  - KPIs (6): Lines by gross profit a day per product on the shelf (with pieces a day) · Products that make 80% of
+    demand · Top 20%'s share of demand · Fastest against slowest (×) · Not selling (count, ₱ at cost) · New (never on
+    the shelf)
   - Supporting: a Pareto chart of products by speed (bars), with the cumulative share (line).
-  - Findings shown (baseline §7, stock-and-ordering §4.7): "Rank by speed, not by pieces sold: every flavour sold
-    exactly 3, so pieces sold shows supply." "XBLACK MAX sold about twice as fast per flavour on the shelf as Black
-    TEO and has not been re-ordered: test it (it was also new and ₱20 cheaper)." "Mix is worth far less than being
-    in stock (about ₱0.5k against ₱3.7k to ₱4.0k a month)."
+  - Findings shown (baseline §7, stock-and-ordering §4.7, strategy review §4.5): "Compare lines per day on the shelf,
+    not by total profit: total profit favours the slower line." "XBLACK MAX earned about ₱88 a day per flavour on the
+    shelf, Black TEO about ₱50, and XBLACK MAX has not been re-ordered: test it (it was also new and ₱20 cheaper)."
+    "Mix and price are worth far less than being in stock."
 - **Collections**: who owes us, is it getting later, and is credit tying up cash?
   - KPIs (7): Credit share of sales · Collected later · Still owed (end of period) · Late and very late (end of
     period) · Days to collect (median) · Open credit sales and buyers owing · Largest buyer's share of what is owed
   - Supporting: aging buckets (Usual / Late / Very late) with their thresholds and source line ("from 31 sales paid
-    in full: half within 9 days, 8 in 10 within 12"), DSO, paid at the till.
+    in full: half within 9 days, 8 in 10 within 11"). Owed = N days of sales. DSO. Paid at the till.
   - Findings shown (baseline §8): "Credit is the norm: 73% of sales, collected reliably but slowly (median 9 days)."
     "Each batch's own cash comes back about when the next order must be paid." "Each 10 points of credit moved to
     the till frees about ₱540" (cash-and-capital §4.7).
@@ -109,7 +115,7 @@ Show the first three that apply, in this order, each as one plain sentence with 
 3. **Order late** (Q5 `on_the_way[].late`): "Batch {n} is {days_past_due} days past its due day: message the
    supplier."
 4. **Profit moved**: "Net profit ₱{now}, {up/down ₱Δ} on {previous label}, mostly {largest bridge part}
-   ({₱})."
+   ({₱ a day})."
 5. **Shop empty** (Q2 `empty_days` > 0): "No stock for {d} days: at least ₱{missed} of profit missed."
 6. **Late payers** (Q3 late + very late > 0): "₱{late} owed is late ({n} sales older than {late_after} days)."
 7. **Payout** (Q5 `suggested_payout_cents` > 0): "You can pay out about ₱{suggested}, keeping the next order and a
@@ -133,8 +139,9 @@ Show the first three that apply, in this order, each as one plain sentence with 
 - **Planning engine** (`plan_core()`, `plan_params()`, planned in
   `supabase/migrations/20261127000000_planning_engine.sql`): not live. Q5 carries an interim shop-level copy of its
   methods until it ships.
-- **Consulting fact base** (`analysis/baseline.md`, `analysis/stock-and-ordering.md`, `analysis/cash-and-capital.md`):
-  the static findings shown on each view. Live numbers replace the figures where a query computes them.
+- **Consulting fact base** (`analysis/baseline.md`, `analysis/stock-and-ordering.md`, `analysis/cash-and-capital.md`,
+  and the synthesis `analysis/strategy-review.md`): the static findings shown on each view. Live numbers replace the
+  figures where a query computes them.
 
 ## Decisions
 
@@ -153,34 +160,47 @@ Show the first three that apply, in this order, each as one plain sentence with 
   It shows when 3 or more exist. The median ignores the launch rush. Usual values are medians per KPI, so they don't
   add up across KPIs. Today only the Week view has a usual (3 windows). Month gets one from February 2027, Quarter
   from Q3 2027.
-- **D5. A MECE profit tree, with a bridge.** Net profit = net sales − landed cost of goods ± count differences −
-  expenses − tax. Net sales = pieces × average price. Pieces = product-days on the shelf × pieces a day per product
-  on the shelf. The bridge splits the change in net profit into days open, shelf, demand, price, landed cost,
-  expenses, counts and tax, and the parts add up exactly. In a supply-limited shop, the shelf branch must show in
-  pesos.
+- **D5. A MECE profit tree, with a bridge per day.** Net profit = net sales − landed cost of goods ± count
+  differences − expenses − tax. Net sales = pieces × average price. Pieces = product-days on the shelf × pieces a day
+  per product on the shelf. "What moved net profit" compares net profit a day open with the previous period, so
+  periods of different length compare fairly. It splits the change into days with stock, products on the shelf,
+  demand, price, discounts, unit cost, restocking fees, expenses, counts and tax, and the parts add up exactly. These
+  are the parts of the strategy review's planned `profit_bridge` (release 2), so the app and the dashboard will tell
+  the same story. In a supply-limited shop, the stock branches must show in pesos.
 - **D6. Profit missed counts only the floor**: days the whole shop was empty × pace on days with stock (last 90 days)
   × landed margin per piece (last 90 days), labelled "at least". The thin-shelf loss shows as the bridge's shelf
   effect and as Products on the shelf. It is not a second peso estimate, because the middle and upper estimates
   (₱5.1k and ₱7.9k, baseline §6) assume no novelty effect, which the baseline lists as a risk.
-- **D7. Products are ranked by speed.** Value pace = pieces a day on the shelf × price, shrunk toward the product's
-  line over 7 shelf-days (as the planning engine does). Not by sales value. Comparisons are against the shop's
-  average and the 80/20 benchmark, because a ranking has no "previous" that informs a decision.
-- **D8. Collection buckets come from the shop's own payments** (planning design method 9: usual = median, late after
-  the 80th percentile, very late after max(95th, late + 7); 7 / 7 / 30 days until 10 credit sales are paid in full).
-  The dashboard and the app then apply one rule.
-- **D9. Order by and the next order are an interim, shop-level copy of the planning design v2** (methods 1, 2, 3, 5,
-  6, 8). It matches the design's live check (pace 2.05, reorder point 23, target 64.7, position 33, Order by 6 Dec).
-  The next order is estimated for the whole shop (40 pieces against the engine's 43). When `plan_core()` is live, Q5
+- **D7. Products are judged per day on the shelf.** Lines: gross profit a day per product on the shelf (the
+  strategy review's line metric). Flavours: value pace = pieces a day on the shelf × price, shrunk toward the line
+  over 7 shelf-days (as the planning engine does). Neither is by sales value or total profit. Comparisons are against
+  the shop's average and the 80/20 benchmark, because a ranking has no "previous" that informs a decision. A list of
+  fewer than 5 ranked products shows as "too few to rank".
+- **D8. Collection buckets come from the shop's own payments**, collections v3 as the strategy review adopts it.
+  The values are Not paid yet sales paid in full in the last 180 days, so a stuck balance can't set its own bar.
+  Usual = median, late after the 80th percentile, very late after max(95th, late + 7); 7 / 7 / 30 days until 10 are
+  paid in full. Live: 9 / 11 / 18 days. The dashboard and the app then apply one rule.
+- **D9. Order by and the next order are an interim, shop-level copy of the planning engine as the strategy review
+  adopts it.** That is design v2 methods 1, 2, 3, 5, 6 and 8, with the review's changes: delivery blended with the
+  7-day guess; order rhythm from recorded order days (arrival day for Batches 1 and 2), kept between 7 and 30 days;
+  next order = target − reorder point; budget without Very late balances. It reproduces the review's live figures:
+  pace 2.01, reorder point 22.6, target 55.7, position 33, Order by Mon 7 Dec, 33 pieces. Goods are priced at the
+  average cost of the products that have sold (₱5,612 against the review's ₱5,664). When `plan_core()` is live, Q5
   reads it, so Restock and the dashboard always agree.
-- **D10. The money check and the suggested payout follow the cash-and-capital finding.** Hold the part of the next
-  order that likely collections won't cover, plus a month of running costs: suggested = max(0, min(safe to
-  distribute, spare cash) − hold − running costs a month). This is stricter than the planning design's payout hint
-  (spare cash − running costs). Both give ₱0 today. The hard cap stays Safe to distribute.
+- **D10. The money check and the suggested payout follow the cash-and-capital finding, in the strategy review's
+  form.** Hold the part of the next order that the reserve and likely collections won't cover. Then suggested =
+  max(0, min(safe to distribute, spare cash − hold − a month of running costs)). On 25 Nov this would have suggested
+  ₱0, not the ₱4,232 paid; it gives ₱0 today. The hard cap stays Safe to distribute.
 - **D11. "Now" tiles don't move with the period switch**: Order by, On the way, Money for the next order, Suggested
   payout, Safe to distribute now, and aging now. Period tiles do. Balances show the end of the period, or now for a
   period still running.
-- **D12. For the owner only.** Live data comes through the viewer's own Supabase connector, which has full database
-  rights. Only the owner should hold it, and the artifact stays private (never public).
+- **D12. For the owner only, through a read-only connector.** Live data comes through the viewer's own Supabase
+  connector. Today that connector runs as the database owner with full rights, and the page's `mcp` grant could send
+  any SQL through it. Supabase advises against connecting MCP to real data unless it runs read-only and
+  project-scoped. So give the dashboard its own connector, with
+  `?project_ref=pyjhwbfdxrjeitwjztna&read_only=true&features=database` (all three parameters are in Supabase's MCP
+  docs), and declare only `execute_sql` for the page. Only the owner holds it, and the artifact stays private (never
+  public).
 - **D13. Read-only and private by construction.** Every call runs in a read-only transaction and is rolled back. The
   queries return aggregates only, and no buyer or staff name leaves the database (Q3 reads `customer_name` only
   inside counts). The page renders values as text, never as HTML. A script injected through a product name could
@@ -189,7 +209,7 @@ Show the first three that apply, in this order, each as one plain sentence with 
   "at the 3% percentage tax: ₱X, for your accountant", because the baseline flags the gap. It is a planning figure,
   not tax advice.
 - **D15. Format.** Centavos ÷ 100 → ₱ with commas. Costs in brackets in statements. Percentages and days to one
-  decimal. Dates as "Sun 6 Dec". The current day counts as one open day in comparisons.
+  decimal. Dates as "Mon 7 Dec". The current day counts as one open day in comparisons.
 - **D16. Left out, on purpose:**
   - Hour and weekday patterns: too little data, and no staffing decision depends on them yet.
   - Buyer-level lists or rankings: privacy. Collectibles in the app has the names for chasing.
@@ -209,8 +229,8 @@ Shared rules, for every query:
   and k = 2 to 8 are earlier windows of the same shape for "usual". `ws` and `we` are Manila business days; `ws_at`
   and `we_at` are their timestamps (to now for a running period). `open_days` counts the days on or after the shop's
   first day.
-- **Output shape.** `kpis.<metric> = {now, prev, usual, usual_n}`. The page shows `prev` per open day when
-  `prev_open_days` < `open_days`, and hides `usual` when it is null.
+- **Output shape.** `kpis.<metric> = {now, prev, usual, usual_n}`. The page shows flows per open day when
+  `prev_open_days` and `open_days` differ, and hides `usual` when it is null.
 - **Landed cost.** Each sold piece is matched first in, first out to the stock that came in (`arr` × `sold` stacks
   per product), and costs that arrival's unit cost + its batch's fees ÷ pieces received (`fee.pp`). A period's figure
   is round(cumulative to `we`) − round(cumulative before `ws`), as `finance_report` does.
@@ -241,7 +261,7 @@ Shared rules, for every query:
 | **Landed cost per piece** (`landed_cost_pp_cents`), gross margin (`gross_margin_pct`) | Each sold piece, first in first out, at its arrival's unit cost + the batch's restocking fees ÷ pieces received; margin = (net − cost) ÷ net | `cogs.cents = sum((least(a.hi, s.hi) - greatest(a.lo, s.lo)) * (a.uc + coalesce(f.pp, 0)))`; period = `round(cum ≤ we) − round(cum < ws)`; `round(d.cogs::numeric / nullif(d.pieces, 0))` | previous, usual | The supplier's price and the order size (fees per piece). |
 | **Operating expenses** (`opex_cents`, `opex_by_category`) | Expenses by the day spent, all categories except Taxes paid | `sum(amount_cents) where category <> 'tax' and spent_on between w.ws and w.we` | previous, usual | Is every cost entered? (Running costs feed the payout suggestion.) |
 | **Tax estimate** (`tax_cents`; `tax_at_3pct_cents`) | The owner's rate × net sales, as the app computes it (cumulative, rounded) | `round(cum_net(we) * tax_bp / 10000.0) - round(cum_net(ws - 1) * tax_bp / 10000.0)`; `round(net * 0.03)` | previous | The tax reserve. At 3%: a figure for the accountant (Quarter view). |
-| Supporting: products on the shelf (`products_on_shelf_avg`), pieces a day per product on the shelf (`pieces_per_product_day`), `product_days`, `count_diffs_cents`, `discounts_cents`, `bridge` | Product-days = time each product had stock; average = product-days ÷ time open. The bridge parts add up to the change in net profit: days = (D1 − D0) × (Q0 ÷ D0) × m0; shelf = (PD1 − PD0) × (Q0 ÷ PD0) × m0 − days; demand = (Q1 − Q0) × m0 − (shelf + days); price = Q1 × (P1 − P0); cost, expenses, counts and tax are the rest (m0 = last period's landed margin a piece) | see `br`, `br2` | — | Which branch moved: shelf (order earlier), demand (range, novelty), price, cost, expenses. |
+| Supporting: **What moved net profit** (`bridge`), products on the shelf (`products_on_shelf_avg`), pieces a day per product on the shelf (`pieces_per_product_day`), `product_days`, `count_diffs_cents`, `discounts_cents` | Per day open (D = time since the period start or the first day's midnight). Gross profit a day = s × f × r × m: s = share of time with stock, f = products on the shelf while in stock, r = pieces a product-day, m = landed margin a piece. Parts: days with stock (s1 − s0)f0r0m0 · shelf s1(f1 − f0)r0m0 · demand s1f1(r1 − r0)m0 · price, discounts and unit cost (pieces a day now × their change a piece) · fees (the rest of the gross-profit change) · expenses, counts and tax a day. They add up to the change in net profit a day. | `br`, `br2`, `br3` | — | Which branch moved: stock days and shelf (order earlier), demand (range, novelty), price, cost, fees (order size), expenses. |
 
 <details><summary>Full SQL of Q1 (identical to spec/kpi_queries.sql)</summary>
 
@@ -253,12 +273,13 @@ Shared rules, for every query:
 --       avg_price_cents, cogs_cents, landed_cost_pp_cents, gross_profit_cents, gross_margin_pct, opex_cents,
 --       count_diffs_cents, tax_cents, product_days, products_on_shelf_avg, pieces_per_product_day,
 --       net_sales_per_open_day_cents
--- Also: bridge (how net profit moved vs the previous period; the parts add up to total_cents):
---       days_cents (more or fewer days open), shelf_cents (fuller or emptier shelf), demand_cents (pieces a day per
---       product on the shelf), price_cents (average price, mix and discounts), cost_cents (landed cost per piece),
---       expenses_cents, counts_cents, tax_cents; null when the previous period had no sales.
+-- Also: bridge = "What moved net profit", per day open (strategy review 9.1 #12): net profit a day now and before,
+--       and the parts that add up to the change: stock_days (share of time with any stock), shelf (products on the
+--       shelf while in stock), demand (pieces a day per product on the shelf), price (list price and mix), discounts,
+--       unit_cost, fees (restocking fees a piece, also absorbs rounding), expenses, counts, tax; days_now / days_prev
+--       to turn it into pesos for the period. Null when the previous period sold nothing.
 --       opex_by_category (this period), tax_at_3pct_cents (net sales x 3%, for the accountant; not advice).
--- Tested 26 Nov 2026 for the week, month and quarter; matches finance_totals / finance_derive to the centavo.
+-- Tested 26 to 27 Nov 2026 for the week, month and quarter; matches finance_totals / finance_derive to the centavo.
 -- =====================================================================================================================
 begin read only;
 with
@@ -270,6 +291,7 @@ c as (
          (select min(created_at) from public.stock_movements) as first_at,
          coalesce((select tax_rate_bp from public.settings where id = 1), 0) as tax_bp
 ),
+c2 as (select c.*, c.first_day::timestamp at time zone 'Asia/Manila' as first_day_at from c),
 w as (
   select x.k, x.ws, x.we,
          x.k >= 1 and x.ws >= c.first_day as in_usual,
@@ -317,7 +339,8 @@ sold as (
 ),
 cogs as (
   select (s.created_at at time zone 'Asia/Manila')::date as d,
-         sum((least(a.hi, s.hi) - greatest(a.lo, s.lo)) * (a.uc + coalesce(f.pp, 0))) as cents
+         sum((least(a.hi, s.hi) - greatest(a.lo, s.lo)) * (a.uc + coalesce(f.pp, 0))) as cents,
+         sum((least(a.hi, s.hi) - greatest(a.lo, s.lo)) * coalesce(f.pp, 0)) as fee_cents
   from sold s
   join arr a on a.product_id = s.product_id and s.lo < a.hi and s.hi > a.lo
   left join fee f on f.batch_id = a.batch_id
@@ -334,9 +357,15 @@ diffs as (
   group by 1
 ),
 lv as (
-  select m.created_at as t1, coalesce(lead(m.created_at) over q, now()) as t2, sum(m.delta) over q as lvl
+  select m.created_at as t1, coalesce(lead(m.created_at) over q, now()) as t2, sum(m.delta) over q as lvl,
+         m.id, m.delta
   from public.stock_movements m
   window q as (partition by m.product_id order by m.created_at, m.id)
+),
+sh as (
+  select t1, coalesce(lead(t1) over (order by t1, id), now()) as t2,
+         sum((lvl > 0)::int - (lvl - delta > 0)::int) over (order by t1, id) as n
+  from lv
 ),
 m as (
   select w.k, w.in_usual, w.days, w.open_days,
@@ -345,15 +374,17 @@ m as (
          round(df.upto) - round(df.before) as diffs,
          e.opex,
          round(tx.upto * c.tax_bp / 10000.0) - round(tx.before * c.tax_bp / 10000.0) as tax,
-         sh.product_days,
-         greatest(0, extract(epoch from w.we_at - greatest(w.ws_at, c.first_at)) / 86400.0) as open_time
-  from w cross join c
+         pdx.product_days, st.stock_days, cg.fees,
+         greatest(0, extract(epoch from w.we_at - greatest(w.ws_at, c.first_at)) / 86400.0) as open_time,
+         greatest(0, extract(epoch from w.we_at - greatest(w.ws_at, c.first_day_at)) / 86400.0) as day_time
+  from w cross join c2 c
   cross join lateral (select coalesce(sum(sd.net), 0) as net, coalesce(sum(sd.gross), 0) as gross,
                              coalesce(sum(sd.disc), 0) as disc, coalesce(sum(sd.n), 0) as sales,
                              coalesce(sum(sd.pcs), 0) as pieces
                       from sd where sd.d between w.ws and w.we) s
   cross join lateral (select coalesce(sum(cents) filter (where d <= w.we), 0) as upto,
-                             coalesce(sum(cents) filter (where d < w.ws), 0) as before from cogs) cg
+                             coalesce(sum(cents) filter (where d < w.ws), 0) as before,
+                             coalesce(sum(fee_cents) filter (where d between w.ws and w.we), 0) as fees from cogs) cg
   cross join lateral (select coalesce(sum(cents) filter (where d <= w.we), 0) as upto,
                              coalesce(sum(cents) filter (where d < w.ws), 0) as before from diffs) df
   cross join lateral (select coalesce(sum(amount_cents), 0) as opex from public.expenses
@@ -361,7 +392,9 @@ m as (
   cross join lateral (select coalesce(sum(sd.net) filter (where sd.d <= w.we), 0) as upto,
                              coalesce(sum(sd.net) filter (where sd.d < w.ws), 0) as before from sd) tx
   cross join lateral (select coalesce(sum(extract(epoch from least(lv.t2, w.we_at) - greatest(lv.t1, w.ws_at))) / 86400.0, 0) as product_days
-                      from lv where lv.lvl > 0 and lv.t2 > w.ws_at and lv.t1 < w.we_at) sh
+                      from lv where lv.lvl > 0 and lv.t2 > w.ws_at and lv.t1 < w.we_at) pdx
+  cross join lateral (select coalesce(sum(extract(epoch from least(sh.t2, w.we_at) - greatest(sh.t1, w.ws_at))) / 86400.0, 0) as stock_days
+                      from sh where sh.n > 0 and sh.t2 > w.ws_at and sh.t1 < w.we_at) st
 ),
 d as (
   select m.*, m.net - m.cogs as gp, m.net - m.cogs + m.diffs - m.opex - m.tax as np
@@ -400,22 +433,39 @@ agg as (
          count(val) filter (where in_usual) as usual_n
   from long group by metric
 ),
-br as (
-  select c1.pieces as q1, c0.pieces as q0, c1.product_days as pd1, c0.product_days as pd0,
-         c1.open_days as t1, c0.open_days as t0,
-         c1.np - c0.np as dnp,
-         (c0.net - c0.cogs)::numeric / nullif(c0.pieces, 0) as m0,
-         c1.net::numeric / nullif(c1.pieces, 0) as p1, c0.net::numeric / nullif(c0.pieces, 0) as p0,
-         c1.opex - c0.opex as dopex, c1.diffs - c0.diffs as ddiffs, c1.tax - c0.tax as dtax
-  from d c1, d c0 where c1.k = 0 and c0.k = 1
+br as (  -- the bridge works per day open (time from the shop's first day, or the period start, to its end or now)
+  select n.day_time as d1, o.day_time as d0, n.pieces::numeric as q1, o.pieces::numeric as q0,
+         n.stock_days as sd1, o.stock_days as sd0, n.product_days as pd1, o.product_days as pd0,
+         n.gross::numeric / nullif(n.pieces, 0) as g1, o.gross::numeric / nullif(o.pieces, 0) as g0,
+         n.disc::numeric / nullif(n.pieces, 0) as x1, o.disc::numeric / nullif(o.pieces, 0) as x0,
+         (n.cogs - n.fees) / nullif(n.pieces, 0) as u1, (o.cogs - o.fees) / nullif(o.pieces, 0) as u0,
+         (o.net - o.cogs) / nullif(o.pieces, 0) as m0,
+         n.np / nullif(n.day_time, 0) as np1, o.np / nullif(o.day_time, 0) as np0,
+         n.opex / nullif(n.day_time, 0) - o.opex / nullif(o.day_time, 0) as dopex,
+         n.diffs / nullif(n.day_time, 0) - o.diffs / nullif(o.day_time, 0) as ddiffs,
+         n.tax / nullif(n.day_time, 0) - o.tax / nullif(o.day_time, 0) as dtax
+  from d n, d o where n.k = 0 and o.k = 1
 ),
-br2 as (
+br2 as (  -- net sales a day = share of time with stock x products on the shelf then x pieces a product-day x price
   select br.*,
-         round((q1 - q0) * m0) as vol,
-         round(case when t0 > 0 then (t1 - t0) * (q0::numeric / t0) * m0 else 0 end) as days_eff,
-         round(case when pd0 > 0 then (pd1 - pd0) * (q0 / pd0) * m0 else 0 end) as shelf,
-         round(q1 * (coalesce(p1, p0) - p0)) as price
+         coalesce(sd1 / nullif(d1, 0), 0) as s1, sd0 / nullif(d0, 0) as s0,
+         coalesce(pd1 / nullif(sd1, 0), 0) as f1, pd0 / nullif(sd0, 0) as f0,
+         coalesce(q1 / nullif(pd1, 0), 0) as r1, q0 / nullif(pd0, 0) as r0,
+         coalesce(q1 / nullif(d1, 0), 0) as v1
   from br
+),
+br3 as (
+  select br2.*,
+         round((s1 - s0) * f0 * r0 * m0) as e_stock,
+         round(s1 * (f1 - f0) * r0 * m0) as e_shelf,
+         round(s1 * f1 * (r1 - r0) * m0) as e_demand,
+         round(coalesce(v1 * (g1 - g0), 0)) as e_price,
+         round(coalesce(-v1 * (x1 - x0), 0)) as e_disc,
+         round(coalesce(-v1 * (u1 - u0), 0)) as e_cost,
+         round(-dopex) as e_opex, round(ddiffs) as e_counts, round(-dtax) as e_tax,
+         round(coalesce(np1, 0) - np0) as e_total
+  from br2
+  where q0 > 0 and sd0 > 0 and pd0 > 0 and d0 > 0
 )
 select
   (select ws from w where k = 0) as period_from, (select we from w where k = 0) as period_to,
@@ -424,17 +474,15 @@ select
   (select days from w where k = 1) as prev_days, (select open_days from w where k = 1) as prev_open_days,
   c.today, c.first_day, c.tax_bp as tax_rate_bp,
   (select jsonb_object_agg(metric, jsonb_build_object('now', now, 'prev', prev, 'usual', usual, 'usual_n', usual_n)) from agg) as kpis,
-  (select case when q0 > 0 then jsonb_build_object(
-      'days_cents',     days_eff,
-      'shelf_cents',    shelf - days_eff,
-      'demand_cents',   vol - shelf,
-      'price_cents',    price,
-      'cost_cents',     dnp - (vol + price - dopex + ddiffs - dtax),
-      'expenses_cents', -dopex,
-      'counts_cents',   ddiffs,
-      'tax_cents',      -dtax,
-      'total_cents',    dnp) end
-   from br2) as bridge,
+  (select jsonb_build_object(
+      'per_day', true, 'days_now', round(d1, 2), 'days_prev', round(d0, 2),
+      'net_profit_per_day_now_cents', round(coalesce(np1, 0)), 'net_profit_per_day_prev_cents', round(np0),
+      'stock_days_cents', e_stock, 'shelf_cents', e_shelf, 'demand_cents', e_demand,
+      'price_cents', e_price, 'discounts_cents', e_disc, 'unit_cost_cents', e_cost,
+      'fees_cents', e_total - (e_stock + e_shelf + e_demand + e_price + e_disc + e_cost + e_opex + e_counts + e_tax),
+      'expenses_cents', e_opex, 'counts_cents', e_counts, 'tax_cents', e_tax,
+      'total_cents', e_total)
+   from br3) as bridge,
   (select coalesce(jsonb_object_agg(category, cents), '{}'::jsonb) from (
      select e.category, sum(e.amount_cents) as cents from public.expenses e, w
      where w.k = 0 and e.category <> 'tax' and e.spent_on between w.ws and w.we group by e.category) x) as opex_by_category,
@@ -453,27 +501,28 @@ rollback;
 | **Products on the shelf, average** (`products_on_shelf_avg`; `products_on_shelf_max`) | Product-days with stock ÷ days open. Each flavour and the device counts as a product. | `round(m.product_days / nullif(m.empty_days + m.stock_days, 0), 1)` | previous, usual | How full the shelf was. Sales fall about 4× from a full shelf to 1 to 3 flavours. |
 | **Profit missed while the shop was empty, at least** (`missed_empty_cents`) | Empty days × pieces a day on days with stock (last 90 days) × landed margin a piece (last 90 days) | `round(m.empty_days * r.pace * r.margin_pp)`; `rates`: `pace = pcs / stock_days`, `margin_pp = (net − landed) / pcs` | previous, usual | Puts a peso cost on ordering late. |
 | Pace on days with stock (`pace_on_stock_days`, supporting) | Pieces sold ÷ days with stock | `round(m.pieces / nullif(m.stock_days, 0), 2)` | previous, usual | — |
-| **Lines by speed** (`lines[].pieces_per_product_day`, `net_per_product_day_cents`) | Pieces ÷ product-days, per category (product line) | `round(sum(pieces) / nullif(sum(product_days), 0), 3)` grouped by line | against the shop's average for the period | Which line to re-order or test. |
+| **Lines: gross profit a day per product on the shelf** (`lines[].gp_per_product_day_cents`, with `pieces_per_product_day`) | Per product line (category): net sales − landed cost of the pieces sold in the period, ÷ product-days on the shelf | `round(sum(gp) / nullif(sum(product_days), 0))` grouped by line; `gp` = Σ `lines.net` − Σ `landed.cents` per product in the period | against `lines_shop_average` | Which line to re-order or test (XBLACK MAX against Black TEO). |
 | **Products that make 80% of demand** (`mix.products_80` of `mix.ranked`) | Ranked products (on the shelf in the period) whose share of value pace strictly ahead of them is under 80%. Value pace = pace × price; pace = (pieces + 7 × line rate) ÷ (product-days + 7). | `count(*) filter (where share_ahead < 0.8 and value_pace > 0)`; `share_ahead = (Σ value_pace over faster products) / Σ value_pace` | against the 80/20 benchmark | Whether a few products clearly lead (then order those first when cash is short). |
 | **Top 20%'s share of demand** (`mix.top20_share_pct`, `top20_count`) | Value pace of the fastest ceil(20% × ranked) ÷ all | `sum(value_pace) filter (where rn <= ceil(0.2 * n_ranked)) / sum(value_pace)` | against 80% (80/20) | The same. |
 | **Fastest against slowest** (`mix.fastest_pace`, `slowest_selling_pace`) | Pace in pieces a day on the shelf | `max(pace)`, `min(pace) filter (where pieces > 0)` | the ratio between them | Depth by speed when a line is re-ordered (a small effect). |
 | **Not selling** (`now_state.not_selling_count`, `not_selling_tied_up_cents`) | On the shelf now, with no sale or arrival for at least min(60, max(14, 3 ÷ pieces a day per product, last 90 days)) days; at cost | `on_hand > 0 and age(greatest(last_sold_at, last_in_at)) >= threshold`; `on_hand * cost_cents` | against ₱0 | Discount it, or stop re-ordering it. |
 | **New** (`now_state.new_count`, `new_on_order_pieces`) | Active products never on the shelf, and their pieces on order | `not stocked` | — | Watch their first week. They get a pace once on the shelf. |
-| Supporting: `daily` (products on the shelf, empty hours and pieces per day), `products` (the ranked list), `history_90d`, `now_state.empty_since` | | | | The shelf chart and the Pareto chart. |
+| Supporting: `daily` (products on the shelf, empty hours and pieces per day), `products` (the ranked list, with each product's gross profit), `history_90d`, `now_state.empty_since` | | | | The shelf chart and the Pareto chart. |
 
 <details><summary>Full SQL of Q2 (identical to spec/kpi_queries.sql)</summary>
 
 ```sql
 -- =====================================================================================================================
 -- Q2  STOCK AND PRODUCTS                        views: Stock and ordering, Products, Bottom line  placeholders: all four
--- Question: was the shelf full, what did empty shelves cost, and which products sell fastest?
+-- Question: was the shelf full, what did empty shelves cost, and which products and lines earn most on the shelf?
 -- kpis: empty_days (the whole shop had nothing to sell), stock_days, products_on_shelf_avg, products_on_shelf_max,
 --       product_days, pieces, pace_on_stock_days, missed_empty_cents (empty days x pace on days with stock, last 90
---       days x landed margin per piece, last 90 days: a floor, "at least")
+--       days x landed margin a piece, last 90 days: a floor, "at least")
 -- Also: history_90d (the rates used), now_state (pieces and products on the shelf now, empty since, Not selling
---       count and cost tied up, New products), mix (Pareto by speed), lines (speed by product line), products (ranked,
---       pace shrunk toward the line over 7 shelf-days so a few hours on the shelf cannot top the list), daily (products
---       on the shelf, empty hours and pieces sold per day of this period, for the shelf chart).
+--       count and cost tied up, New products), mix (Pareto by speed), lines (per product line: gross profit and pieces
+--       a day per product on the shelf; strategy review 9.1 #10), lines_shop_average, products (ranked; pace shrunk
+--       toward the line over 7 shelf-days so a few hours on the shelf cannot top the list), daily (products on the
+--       shelf, empty hours and pieces sold per day of this period, for the shelf chart).
 -- =====================================================================================================================
 begin read only;
 with
@@ -540,11 +589,12 @@ lines as (
   window q as (partition by i.product_id order by s.created_at, i.id)
 ),
 landed as (
-  select l.created_at, sum((least(a.hi, l.hi) - greatest(a.lo, l.lo)) * (a.uc + coalesce(f.pp, 0))) as cents
+  select l.product_id, l.created_at, l.business_date,
+         sum((least(a.hi, l.hi) - greatest(a.lo, l.lo)) * (a.uc + coalesce(f.pp, 0))) as cents
   from lines l
   join arr a on a.product_id = l.product_id and l.lo < a.hi and l.hi > a.lo
   left join fee f on f.batch_id = a.batch_id
-  group by l.created_at, l.product_id, l.lo
+  group by l.product_id, l.created_at, l.business_date, l.lo
 ),
 hist as (
   select (select coalesce(sum(quantity), 0) from lines where created_at >= c.h_at) as pcs,
@@ -611,6 +661,10 @@ prod as (
                    and x.kind in ('opening', 'restock')) as last_in_at,
          (select coalesce(sum(l.quantity), 0) from lines l, cur where l.product_id = pr.id
                    and l.business_date between cur.ws and cur.we) as pieces,
+         (select coalesce(sum(l.net), 0) from lines l, cur where l.product_id = pr.id
+                   and l.business_date between cur.ws and cur.we)
+           - (select coalesce(sum(ld.cents), 0) from landed ld, cur where ld.product_id = pr.id
+                   and ld.business_date between cur.ws and cur.we) as gp,
          (select coalesce(sum(extract(epoch from least(lv.t2, cur.we_at) - greatest(lv.t1, cur.ws_at))), 0) / 86400.0
             from lv, cur where lv.product_id = pr.id and lv.lvl > 0 and lv.t2 > cur.ws_at and lv.t1 < cur.we_at) as product_days
   from public.products pr
@@ -654,9 +708,14 @@ bylines as (
   select coalesce(line, 'No category') as line, count(*) as products, sum(pieces) as pieces,
          round(sum(product_days), 1) as product_days,
          round(sum(pieces) / nullif(sum(product_days), 0), 3) as pieces_per_product_day,
-         round(sum(pieces * price_cents) / nullif(sum(product_days), 0)) as net_per_product_day_cents
+         round(sum(gp) / nullif(sum(product_days), 0)) as gp_per_product_day_cents
   from prod2 where product_days > 0 or pieces > 0
   group by 1
+),
+shopavg as (
+  select round(sum(pieces) / nullif(sum(product_days), 0), 3) as pieces_per_product_day,
+         round(sum(gp) / nullif(sum(product_days), 0)) as gp_per_product_day_cents
+  from prod2 where product_days > 0 or pieces > 0
 )
 select
   (select ws from w where k = 0) as period_from, (select we from w where k = 0) as period_to,
@@ -676,10 +735,11 @@ select
                              'new_on_order_pieces', coalesce(sum(on_order) filter (where not stocked), 0))
      from prod2) as now_state,
   (select to_jsonb(mix) from mix) as mix,
-  (select coalesce(jsonb_agg(to_jsonb(bylines) order by pieces_per_product_day desc nulls last), '[]'::jsonb) from bylines) as lines,
+  (select coalesce(jsonb_agg(to_jsonb(bylines) order by gp_per_product_day_cents desc nulls last), '[]'::jsonb) from bylines) as lines,
+  (select to_jsonb(shopavg) from shopavg) as lines_shop_average,
   (select coalesce(jsonb_agg(jsonb_build_object(
             'brand', brand, 'name', name, 'variant', variant, 'line', line, 'price_cents', price_cents,
-            'cost_cents', cost_cents, 'pieces', pieces, 'product_days', round(product_days, 2),
+            'cost_cents', cost_cents, 'pieces', pieces, 'gp_cents', round(gp), 'product_days', round(product_days, 2),
             'pace_per_day', round(pace, 3), 'value_pace_cents_per_day', round(value_pace * 100),
             'share_ahead_pct', round(100 * share_ahead, 1),
             'abc', case when value_pace <= 0 then 'C' when share_ahead < 0.8 then 'A' when share_ahead < 0.95 then 'B' else 'C' end,
@@ -710,12 +770,12 @@ rollback;
 |---|---|---|---|---|
 | **Credit share of sales** (`credit_share_pct`) | Net sales rung as Not paid yet ÷ net sales | `round(100.0 * m.credit / nullif(m.net, 0), 1)`; `credit = sum(total) where payment_method = 'unpaid'` | previous, usual | Credit terms: ask buyers to pay at the till. Each 10 points frees about ₱540. |
 | **Collected later** (`collected_later_cents`) | Payments on Not paid yet sales, on the day collected | `sum(pay.cents) where pay.d between w.ws and w.we` (completed sales) | previous, usual | Is chasing working? |
-| **Still owed, end of period** (`owed_end_cents`) | What open sales still owed at the period end: balance + payments made after that day | `cs.bal + sum(pay.cents) where pay.d > w.e`, summed | previous end, usual | Cash tied up in credit. |
-| **Late and very late, end of period** (`late_end_cents`, `very_late_end_cents`) | Owed at the end and older than "late after" (12 days) or "very late after" (19 days); thresholds from the shop's own payments | `sum(cents) filter (where age > late_after and age <= very_late_after)`; `… age > very_late_after` | previous end, usual | Who to chase first (names in the app's Collectibles). |
+| **Still owed, end of period** (`owed_end_cents`; `days_of_sales_owed_end`) | What open sales still owed at the period end: balance + payments made after that day. Also as days of sales: ÷ net sales a day over the 30 days before the end (strategy review). | `cs.bal + sum(pay.cents) where pay.d > w.e`, summed; `owed_end / (net30 / days30)` | previous end, usual | Cash tied up in credit. |
+| **Late and very late, end of period** (`late_end_cents`, `very_late_end_cents`) | Owed at the end and older than "late after" (11 days) or "very late after" (18 days); thresholds from the shop's own payments (collections v3) | `sum(cents) filter (where age > late_after and age <= very_late_after)`; `… age > very_late_after` | previous end, usual | Who to chase first (names in the app's Collectibles). |
 | **Days to collect, median** (`days_to_collect_median`; n = `credit_sales_paid_off`) | Credit sales paid off in the period: median days from the sale to its last payment | `percentile_cont(0.5) within group (order by cs.last_paid - cs.d) where cs.credit and cs.bal = 0 and cs.last_paid between w.ws and w.we` | previous, usual | Chase threshold and credit policy. |
 | **Open credit sales, buyers owing** (`open_sales_end`, `buyers_owing_end`) | Sales still owed at the end; distinct buyers (the name never leaves the database) | `count(*)`, `count(distinct o.who)` | previous end, usual | How widely credit is spread. |
-| **Largest buyer's share of what is owed** (`largest_buyer_share_pct`) | The one buyer owing most, as % of what is owed | `max(sum(o.cents) by o.who) / owed_end` | previous end, usual | Concentration risk: a credit limit per buyer. |
-| Supporting: `dso_days`, `paid_at_till_cents`, `credit_sales_cents`, `thresholds`, `aging_end` | DSO = average daily receivables ÷ (net sales ÷ open days); buckets Usual 0 to late_after, Late to very_late_after, Very late beyond | `avg(daily.owed) / (net / open_days)` | — | — |
+| **Largest buyer's share of what is owed** (`largest_buyer_share_pct`) | The one buyer owing most, as % of what is owed | `max(sum(o.cents) by o.who) / owed_end` | previous end, usual | Concentration risk: a credit limit per buyer (the review leaves limits for later). |
+| Supporting: `dso_days`, `paid_at_till_cents`, `credit_sales_cents`, `thresholds`, `aging_end` | DSO = average daily receivables ÷ (net sales ÷ open days), the baseline's measure; buckets Usual 0 to late_after, Late to very_late_after, Very late beyond | `avg(daily.owed) / (net / open_days)` | — | — |
 
 <details><summary>Full SQL of Q3 (identical to spec/kpi_queries.sql)</summary>
 
@@ -725,9 +785,11 @@ rollback;
 -- Question: who owes us, is it getting later, and is credit tying up cash?
 -- kpis: credit_share_pct, credit_sales_cents, paid_at_till_cents, collected_later_cents, days_to_collect_median,
 --       credit_sales_paid_off, owed_end_cents, late_end_cents, very_late_end_cents, open_sales_end, buyers_owing_end,
---       largest_buyer_share_pct, dso_days
--- Also: thresholds (Usual / Late / Very late from the shop's own payments, planning design method 9; 7 / 7 / 30 days
---       until 10 Not paid yet sales are paid in full), aging_end (the three buckets at the end of this period).
+--       largest_buyer_share_pct, days_of_sales_owed_end (owed at the end / net sales a day over the 30 days before;
+--       strategy review 9.1 #6), dso_days (average owed / net sales a day; the baseline's measure)
+-- Also: thresholds (collections v3 from the strategy review: from Not paid yet sales paid in full in the last 180 days,
+--       usual = median, Late after the 80th percentile, Very late after max(95th, Late + 7); 7 / 7 / 30 days until 10
+--       are paid in full), aging_end (Usual / Late / Very late at the end of this period).
 -- =====================================================================================================================
 begin read only;
 with
@@ -769,26 +831,21 @@ pay as (
   from public.sale_payments sp join public.sales s on s.id = sp.sale_id
   where s.status = 'completed'
 ),
--- How long buyers take to pay, from Not paid yet sales paid in full in the last 180 days (planning design, method 9).
+-- How long buyers take to pay: Not paid yet sales paid in full in the last 180 days (strategy review, collections v3).
 paid as (
   select cs.last_paid - cs.d as days from cs, c
   where cs.credit and cs.bal = 0 and cs.paid is not null and cs.d >= c.today - 180
 ),
-med as (select percentile_disc(0.5) within group (order by days) as med, count(*) as n from paid),
-vals as (
-  select days from paid
-  union all
-  select c.today - cs.d from cs, c, med
-  where cs.credit and cs.bal > 0 and cs.d >= c.today - 180 and c.today - cs.d > med.med
-),
 th as (
-  select med.n as paid_count, (select count(*) from vals) as value_count, med.n < 10 as guess,
-         case when med.n >= 10 then (select percentile_disc(0.5) within group (order by days) from vals) else 7 end as usual_days,
-         case when med.n >= 10 then (select percentile_disc(0.8) within group (order by days) from vals) else 7 end as late_after,
-         case when med.n >= 10 then greatest((select percentile_disc(0.95) within group (order by days) from vals),
-                                             (select percentile_disc(0.8) within group (order by days) from vals) + 7)
-              else 30 end as very_late_after
-  from med
+  select z.n as paid_count, z.n < 10 as guess,
+         case when z.n >= 10 then z.p50 else 7 end as usual_days,
+         case when z.n >= 10 then z.p80 else 7 end as late_after,
+         case when z.n >= 10 then greatest(z.p95, z.p80 + 7) else 30 end as very_late_after
+  from (select count(*) as n,
+               percentile_disc(0.5) within group (order by days) as p50,
+               percentile_disc(0.8) within group (order by days) as p80,
+               percentile_disc(0.95) within group (order by days) as p95
+          from paid) z
 ),
 -- What each sale still owed at the end of each window (its balance plus payments made after that day).
 owed as (
@@ -820,7 +877,9 @@ m as (
          (select count(distinct o.who) from owed o where o.k = w.k and o.cents > 0) as buyers_owing_end,
          (select max(b.cents) from (select o.who, sum(o.cents) as cents from owed o where o.k = w.k and o.cents > 0
                                      group by o.who) b) as largest_buyer_cents,
-         (select avg(daily.owed) from daily where daily.d between w.ws and w.e) as owed_avg
+         (select avg(daily.owed) from daily where daily.d between w.ws and w.e) as owed_avg,
+         (select coalesce(sum(total), 0) from cs where cs.d between w.e - 29 and w.e) as net30,
+         greatest(1, least(30, w.e - (select first_day from c) + 1)) as days30
   from w
 ),
 long as (
@@ -838,6 +897,7 @@ long as (
     ('open_sales_end',          m.open_sales_end::numeric),
     ('buyers_owing_end',        m.buyers_owing_end::numeric),
     ('largest_buyer_share_pct', round(100.0 * m.largest_buyer_cents / nullif(m.owed_end, 0), 1)),
+    ('days_of_sales_owed_end',  round(m.owed_end / nullif(m.net30::numeric / m.days30, 0), 1)),
     ('dso_days',                round(m.owed_avg / nullif(m.net::numeric / nullif(m.open_days, 0), 0), 1))
   ) as v(metric, val)
 ),
@@ -1134,12 +1194,12 @@ rollback;
 
 | KPI (field) | Definition | SQL (Q5) | Comparison | Decision it informs |
 |---|---|---|---|---|
-| **Order by** (`next_order.order_by`, `order_now`, `start_on`) | The day the shop's stock position (on the shelf − reserved + on the way, each product capped at max(usual batch pieces, target ÷ products)) falls to its reorder point: start + floor((position − reorder point) ÷ pace). Start = the due day of the order on the way while the shelf is empty, else today. | `ob2.order_by = ob.start_on + floor((pos.position_shop - pl.rop) / pl.lam)::int` | against today, and the due day | Place the next order. |
-| **On the way** (`on_the_way[]`) | Batches ordered and not arrived: pieces, cost, paid, due = order day + delivery days; Late when older than max(longest delivery, ceil(L + 2σ)) days | `otw` | against the due day | Message the supplier when Late; tap Arrived the day it comes. |
-| **Next order, estimate** (`next_order.pieces`, `goods_cents`, `fees_cents`, `total_cents`) | Pieces to bring the shop up to its target on the order day; goods at the last 3 batches' cost a piece; fees = their average × max(1, pieces ÷ their average pieces) | `nq2.next_pcs`, `nc.next_goods`, `nc.next_fees` | against the last batch's cost | The order size, and what to keep in reserve. |
-| **Money for it by then** (`money.available_by_order_cents`, `likely_collected_cents`, `short_cents`) | max(0, spare cash + reserve kept) + open balances that will be older than the usual collection days on the order day | `greatest(0, mo2.spare + mo2.kept) + coll.expected`; short = `greatest(0, next_cents - available)` | against the next order | Hold payouts, collect, pay on pick-up, order what fits, or top up. |
-| **Suggested payout** (`money.suggested_payout_cents`, `hold_for_next_order_cents`) | max(0, min(safe to distribute, spare cash) − hold − running costs a month); hold = max(0, next order − reserve kept − likely collected) | see `dz` and the final select | against Safe to distribute | Pay out, or wait. |
-| Supporting: `money.running_costs_month_cents` (non-tax expenses over max(30, min(90, days open)) days × 30; a starting guess under 60 days), `pace`, `delivery`, `rhythm`, `levels`, `stock` | The "Worked out from your history" card: pace (recency-weighted, half-life = 2 × rhythm, 21 to 56 days), delivery (7 days ± 1.75 until an order has both dates), rhythm (mean gap of the last 11 order days, 7 to 60), reorder point = λL + 1.645√(Lλ·lump + λ²σL²), target with L + R | `dl`, `rh`, `hl`, `lam`, `pl`, `pos` | — | — |
+| **Order by** (`next_order.order_by`, `order_now`, `start_on`) | The day the shop's stock position falls to its reorder point: start + floor((position − reorder point) ÷ pace). Position = on the shelf − reserved + on the way, each product capped at max(usual batch pieces, target ÷ products). Start = the due day of the order on the way while the shelf is empty, else today. | `ob2.order_by = ob.start_on + floor((pos.position_shop - pl.rop) / pl.lam)::int` | against today, and the due day | Place the next order. |
+| **On the way** (`on_the_way[]`) | Batches ordered and not arrived: pieces, cost, paid, due = order day + delivery days. Late when older than max(longest delivery, ceil(L + 2σ)) days. | `otw` | against the due day | Message the supplier when Late; tap Arrived the day it comes. |
+| **Next order, estimate** (`next_order.pieces`, `goods_cents`, `fees_cents`, `total_cents`) | Pieces = round(target − reorder point) while Order by is ahead, else round(target − position). Goods at the average cost of the products in the plan that have sold. Fees = the last 3 batches' average × max(1, pieces ÷ their average pieces). | `nq2.next_pcs`, `nc.next_goods`, `nc.next_fees` | against the last batch's cost | The order size, and what to keep in reserve. |
+| **Money for it by then** (`money.available_by_order_cents`, `likely_collected_cents`, `short_cents`) | max(0, spare cash + reserve kept) + open balances that will be older than the usual collection days on the order day and are not Very late today | `greatest(0, mo2.spare + mo2.kept) + coll.expected`; short = `greatest(0, next_cents - available)` | against the next order | Hold payouts, collect, pay on pick-up, order what fits, or top up. |
+| **Suggested payout** (`money.suggested_payout_cents`, `hold_for_next_order_cents`) | max(0, min(safe to distribute, spare cash − hold − running costs a month)); hold = max(0, next order − reserve kept − likely collected) | `dz` and the final select | against Safe to distribute | Pay out, or wait. |
+| Supporting: `money.running_costs_month_cents` (non-tax expenses over max(30, min(90, days open)) days × 30; a starting guess under 60 days), `pace`, `delivery`, `rhythm`, `levels`, `stock` | The "Worked out from your history" card. Pace: recency-weighted, half-life = 2 × rhythm, kept 21 to 56 days. Delivery: (Σ gaps + 7) ÷ (orders + 1), ± spread; 7 ± 1.75 days until an order has both dates. Rhythm: mean gap of the last 11 order days (arrival day where none was recorded), kept 7 to 30. Reorder point = λL + 1.645√(Lλ·lump + λ²σL²); target uses L + R. | `dl`, `rh`, `hl`, `lam`, `pl`, `pos` | — | — |
 
 <details><summary>Full SQL of Q5 (identical to spec/kpi_queries.sql)</summary>
 
@@ -1148,14 +1208,17 @@ rollback;
 -- Q5  NEXT ORDER AND MONEY (NOW)                views: Stock and ordering, Cash and payouts, Bottom line
 --                                                                                          placeholders: none
 -- Question: when must the next order be placed, what will it cost, and will the money be there?
--- Interim, shop-level copy of the planning design v2 (methods 1, 2, 3, 5, 6 and 8); replace with plan_core() /
--- plan_params() once the planning engine is live. The next order is estimated for the whole shop, so it can differ
--- from the engine's per-product suggestion by a few pieces (26 Nov: 40 pcs here, 43 in the design's replay).
+-- Interim, shop-level copy of the planning engine as the strategy review adopts it for release 1 (design v2 methods
+-- 1, 2, 3, 5, 6, 8 with the changes in analysis/strategy-review.md 9.2: delivery blended with the 7-day guess, order
+-- rhythm from recorded order days kept 7 to 30, next order = target - reorder point, budget without Very late
+-- balances, payout hold). Replace with plan_core() / plan_params() once the engine is live, so the dashboard and
+-- Restock always agree. Goods are priced at the average cost of the products in the plan that have sold, so the
+-- total can differ from the engine's per-product sum by about 1% (27 Nov: P5,611.50 here, P5,664 in the review).
 -- Returns: pace, delivery, rhythm, levels (reorder point, target, spare), stock (position, days left),
 --          on_the_way [batches with due day and Late], next_order {order_by, order_now, on, pieces, goods, fees, total},
 --          money {cash, tax reserve, owed to suppliers, inventory reserve, spare cash, profit kept, safe to distribute,
 --          likely collected by the order day, available by then, short, hold for the next order, running costs a
---          month, suggested payout = max(0, min(safe, spare cash) - hold - a month of running costs)}.
+--          month, suggested payout = max(0, min(safe to distribute, spare cash - hold - a month of running costs))}.
 -- =====================================================================================================================
 begin read only;
 with
@@ -1186,24 +1249,24 @@ gaps as (
   where ordered_on is not null and received_on is not null and received_on >= ordered_on
   order by received_on desc, batch_no desc limit 10
 ),
-dl as (
-  select z.n, z.max_gap, z.n = 0 as guess,
-         case when z.n = 0 then 7.0 else greatest(1.0, z.a) end as l,
+dl as (  -- the 7-day starting guess counts as one pretend order (strategy review 9.2)
+  select z.n, z.max_gap, z.n = 0 as guess, z.l,
          case when z.n = 0 then 1.75
-              else greatest(0.25, sqrt(((select coalesce(sum(power(g - z.a, 2)), 0) from gaps)
-                                        + 2 * power(greatest(1.0, z.a) / 4, 2)) / (z.n + 1))) end as sd
-  from (select count(*) as n, avg(g) as a, max(g) as max_gap from gaps) z
+              else greatest(0.25, sqrt(((select coalesce(sum(power(g - z.l, 2)), 0) from gaps)
+                                        + 2 * power(z.l / 4, 2)) / (z.n + 1))) end as sd
+  from (select count(*) as n, max(g) as max_gap,
+               greatest(1.0, (coalesce(sum(g), 0) + 7.0) / (count(*) + 1)) as l from gaps) z
 ),
--- 2. Order rhythm: the last 11 order days; a batch with no order day counts back the delivery time (method 2).
+-- 2. Order rhythm: the last 11 order days; a batch with no order day uses its arrival day; kept 7 to 30 days.
 od as (
-  select coalesce(b.ordered_on, b.received_on - round(dl.l)::int) as day, bool_and(b.ordered_on is null) as est
-  from bt b cross join dl
+  select coalesce(b.ordered_on, b.received_on) as day, bool_and(b.ordered_on is null) as est
+  from bt b
   group by 1 order by 1 desc limit 11
 ),
 rh as (
   select count(*) as n, max(day) as last_day, bool_or(est) as estimated, count(*) < 2 as guess,
          case when count(*) < 2 then 14.0
-              else least(60.0, greatest(7.0, (max(day) - min(day))::float8 / (count(*) - 1))) end as r,
+              else least(30.0, greatest(7.0, (max(day) - min(day))::float8 / (count(*) - 1))) end as r,
          jsonb_agg(jsonb_build_object('on', day, 'estimated', est) order by day) as days
   from od
 ),
@@ -1284,9 +1347,11 @@ bl as (
   group by 1, 2
 ),
 uq as (select greatest(1, coalesce(percentile_disc(0.5) within group (order by q), 1)) as usual_qty from bl),
-fz as (
+fz as (  -- fees of the last 3 batches; goods a piece = average cost of the products in the plan that have sold
   select count(*) as n, avg(fees)::float8 as fee_avg, avg(pcs)::float8 as avg_pcs,
-         sum(goods)::float8 / nullif(sum(pcs), 0) as goods_pp
+         coalesce((select avg(pc.cost_cents)::float8 from plan join public.product_costs pc on pc.product_id = plan.id
+                    where plan.had_stock),
+                  sum(goods)::float8 / nullif(sum(pcs), 0)) as goods_pp
   from bt where id in (select id from last3)
 ),
 otw as (
@@ -1320,15 +1385,12 @@ nx as (
   select ob2.*, greatest(c.today, least(ob2.next_order_on, coalesce(ob2.order_by, ob2.next_order_on))) as on_day
   from ob2 cross join c
 ),
-nq as (
-  select nx.*, pos.position_shop - pl.lam * greatest(0, nx.on_day - nx.start_on) as left_shop
-  from nx cross join pos cross join pl
-),
-nq2 as (
-  select nq.*,
-         case when pl.lam > 0 and (nq.left_shop <= pl.rop or nq.left_shop - pl.lam * pl.r <= pl.rop)
-              then greatest(0, ceil(pl.target - greatest(0, nq.left_shop)))::int else 0 end as next_pcs
-  from nq cross join pl
+nq2 as (  -- sized from the reorder point, where the order will be placed (strategy review 9.2, method 8)
+  select nx.*,
+         case when pl.lam <= 0 then 0
+              when nx.order_by > (select today from c) then greatest(0, round(pl.target - pl.rop))::int
+              else greatest(0, round(pl.target - pos.position_shop))::int end as next_pcs
+  from nx cross join pl cross join pos
 ),
 nc as (
   select nq2.*, round(nq2.next_pcs * coalesce(fz.goods_pp, 0)) as next_goods,
@@ -1421,7 +1483,7 @@ mo2 as (
   select mo.*, cash - greatest(0, tax_payable) - suppliers_owed - kept as spare
   from mo
 ),
--- How long buyers take to pay (as Q3), for what is likely collected by the order day.
+-- How long buyers take to pay (as Q3, collections v3), for what is likely collected by the order day.
 cs as (
   select s.business_date as d, s.balance_cents as bal, pp.paid, pp.last_paid
   from public.sales s
@@ -1430,19 +1492,21 @@ cs as (
   where s.status = 'completed' and s.payment_method::text = 'unpaid'
 ),
 paid as (select cs.last_paid - cs.d as days from cs, c where cs.bal = 0 and cs.paid is not null and cs.d >= c.today - 180),
-med as (select percentile_disc(0.5) within group (order by days) as med, count(*) as n from paid),
-vals as (
-  select days from paid
-  union all
-  select c.today - cs.d from cs, c, med where cs.bal > 0 and cs.d >= c.today - 180 and c.today - cs.d > med.med
+ud as (
+  select case when z.n >= 10 then z.p50 else 7 end as usual_days,
+         case when z.n >= 10 then greatest(z.p95, z.p80 + 7) else 30 end as very_late_after
+  from (select count(*) as n,
+               percentile_disc(0.5) within group (order by days) as p50,
+               percentile_disc(0.8) within group (order by days) as p80,
+               percentile_disc(0.95) within group (order by days) as p95
+          from paid) z
 ),
-ud as (select case when med.n >= 10 then (select percentile_disc(0.5) within group (order by days) from vals) else 7 end as usual_days
-       from med),
 coll as (
   select greatest(c.today, coalesce(nc.order_by, nc.next_order_on)) as collect_by,
          (select coalesce(sum(s.balance_cents), 0) from public.sales s
            where s.status = 'completed' and s.balance_cents > 0
-             and greatest(c.today, coalesce(nc.order_by, nc.next_order_on)) - s.business_date > ud.usual_days) as expected
+             and greatest(c.today, coalesce(nc.order_by, nc.next_order_on)) - s.business_date > ud.usual_days
+             and c.today - s.business_date <= ud.very_late_after) as expected
   from nc cross join c cross join ud
 ),
 run as (
@@ -1490,7 +1554,7 @@ select
                              'short_cents', greatest(0, next_cents - available),
                              'hold_for_next_order_cents', hold,
                              'running_costs_month_cents', month_cents, 'running_costs_guess', (select guess from run),
-                             'suggested_payout_cents', greatest(0, least(greatest(0, least(retained, spare)), spare) - hold - month_cents))
+                             'suggested_payout_cents', greatest(0, least(greatest(0, least(retained, spare)), spare - hold - month_cents)))
      from dz) as money
 from c;
 rollback;
@@ -1531,8 +1595,10 @@ rollback;
 
 ## Live check, 26 Nov 2026
 
-Run read-only on the evening of 26 Nov 2026 (Manila), before midnight. The values that run to "now" (empty days,
-profit missed, pace) grow while the shop stays empty. Previous periods are like for like: last week = Mon 16 to Thu
+Run read-only between 19:41 on 26 Nov and 10:10 on 27 Nov 2026 (Manila), with each period ending on 26 Nov. No
+record changed after 11:16 on 26 Nov, so the period values are as of the end of 26 Nov. Q5 (now) ran on the morning
+of 27 Nov, which moves two figures by a day: Batch 3 is due in 5 days, and running costs are ₱693.75 a month
+(₱716.13 on 26 Nov). Previous periods are like for like: last week = Mon 16 to Thu
 19 Nov; last month = all of October (open 27 to 31 Oct, compared per open day); last quarter = Q3 2026 (no trading, so
 no comparison). Usual = the median of 16 to 19, 9 to 12 and 2 to 5 Nov.
 
@@ -1545,27 +1611,30 @@ no comparison). Usual = the median of 16 to 19, 9 to 12 and 2 to 5 Nov.
 - Against the app's own `finance_totals` / `finance_derive` / `finance_now` (Q9) on 31 Oct, 15, 19, 22 and 26 Nov:
   cash, receivables, inventory and net profit match to the centavo.
 - Q4's balance check is ₱0 for every window.
-- Q5 reproduces the planning design's live check: pace 2.05 a day, reorder point 23, target 64.7, position 33, Order
-  by 6 Dec, ₱2,420 available by then, late after 12 / 19 days.
+- Against `analysis/strategy-review.md`: Q5 reproduces the adopted engine (pace 2.01 a day, reorder point 22.6,
+  target 55.7, position 33, Order by Mon 7 Dec, next order 33 pieces, ₱2,420 available by then). Q3 reproduces
+  collections v3 (9 / 11 / 18 days; owed = 3.6 days of sales). Q2 reproduces the line figures (₱88 and ₱50 of gross
+  profit a day per flavour on the shelf). Q1's bridge puts 54% of the October → November drop on being out of stock
+  (the review: 53%).
 
-### Bottom line (Week view, 26 Nov)
+### Bottom line (Week view, end of 26 Nov)
 
 | Tile | Now | Comparison |
 |---|---|---|
 | Net profit, week to date | ₱233.73 | ₱1,501.80 on the same days last week (−84%); usual ₱760.17 |
 | Net sales | ₱680 (2 pieces) | ₱3,060 (−78%); usual ₱2,720 |
-| Profit missed while the shop was empty | at least ₱129 (0.37 days, empty since 11:16 today) | ₱0; usual ₱0 |
-| Order by | **Sun 6 Dec** (10 days) | Batch 3 (40 pieces) due about Wed 2 Dec; Late from Mon 7 Dec |
-| Money for the next order | ₱2,420 available by 6 Dec (₱340 spare cash + ₱0 reserve + ₱2,080 likely collected) | against about ₱6,978.80 (40 pieces: ₱6,680 goods + ₱298.80 fees): **₱4,558.80 short** |
-| Late owed | ₱380 (2 sales older than 12 days) | ₱240 at the end of 19 Nov; usual ₱0 |
-| Suggested payout | **₱0** (holds ₱4,898.80 for the next order and ₱716.13 of running costs) | Safe to distribute ₱340 (₱1,092 at the end of 19 Nov; usual ₱3,466) |
+| Profit missed while the shop was empty | at least ₱187.73 (0.53 days: empty since 11:16 on 26 Nov) | ₱0; usual ₱0 |
+| Order by | **Mon 7 Dec** | Batch 3 (40 pieces) due about Wed 2 Dec; Late from Mon 7 Dec |
+| Money for the next order | ₱2,420 available by 7 Dec (₱340 spare cash + ₱0 reserve + ₱2,080 likely collected) | against about ₱5,611.50 (33 pieces: ₱5,362.50 goods + ₱249 fees): **₱3,191.50 short** |
+| Late owed | ₱380 (2 sales older than 11 days) | ₱240 at the end of 19 Nov; usual ₱0 |
+| Suggested payout | **₱0** (keeps ₱3,531.50 for the next order and ₱693.75 for a month of running costs) | Safe to distribute ₱340 (₱1,092 at the end of 19 Nov; usual ₱3,466) |
 
-Answer lines the rules produce today:
+Answer lines the rules produce:
 
-1. "Order by Sun 6 Dec. It will cost about ₱6,980; about ₱2,420 will be there by then. ₱4,560 short: hold payouts,
+1. "Order by Mon 7 Dec. It will cost about ₱5,610; about ₱2,420 will be there by then. ₱3,190 short: hold payouts,
    collect what is owed, ask to pay on pick-up, or order what fits."
-2. "Net profit ₱234, down ₱1,268 on the same days last week, mostly the emptier shelf (−₱1,306)."
-3. "No stock since 11:16 today: at least ₱129 of profit missed. Batch 3 is due about Wed 2 Dec."
+2. "Net profit ₱234, down ₱1,268 on the same days last week, mostly the emptier shelf (−₱277 a day)."
+3. "No stock since 11:16 on 26 Nov: at least ₱188 of profit missed. Batch 3 is due about Wed 2 Dec."
 
 ### Profit (Q1)
 
@@ -1586,61 +1655,73 @@ Answer lines the rules produce today:
 The previous quarter (Q3 2026) had no trading, so there is no comparison and no bridge. Full last week (Mon 16 to
 Sun 22 Nov), for reference: net sales ₱4,080, net profit ₱2,002.40 (from `finance_totals`).
 
-Profit bridge (the parts add up to the change in net profit):
+What moved net profit, per day open (the parts add up to the change):
 
 | Part | Week vs same days last week | November vs October |
 |---|---|---|
-| Days open | ₱0 | +₱15,324.96 (26 days against 5) |
-| Shelf (products on the shelf) | −₱1,306.32 | −₱7,426.46 |
-| Demand (pieces a day per product on the shelf) | +₱138.25 | −₱6,074.10 |
-| Average price | ₱0 | +₱600.00 |
-| Landed cost a piece | ₱0 | −₱155.00 |
-| Expenses | −₱100.00 | −₱740.00 |
+| Net profit a day, now against before | ₱58.43 against ₱375.45 | ₱199.16 against ₱729.76 |
+| Days with stock | −₱49.78 | −₱48.18 |
+| Products on the shelf | −₱276.80 | −₱237.45 |
+| Demand (pieces a day per product on the shelf) | +₱34.56 | −₱233.62 |
+| Price and mix | ₱0 | +₱23.08 |
+| Discounts | ₱0 | ₱0 |
+| Unit cost | ₱0 | −₱5.77 |
+| Restocking fees | ₱0 | −₱0.20 |
+| Expenses | −₱25.00 | −₱28.46 |
 | Counts, tax | ₱0 | ₱0 |
-| **Change in net profit** | **−₱1,268.07** | **+₱1,529.40** |
+| **Change a day** | **−₱317.02** (× 4 days = −₱1,268.07) | **−₱530.60** |
 
-So what: this week's fall is the shelf (one or two flavours left), not demand. November against October: more days
-open, but a thinner shelf and slower sales per product (the launch rush ended) took away most of the gain.
+So what: this week's fall is the shelf (one or two flavours left, then none), not demand. From October to November,
+being out of stock (days with stock + products on the shelf, −₱285.63 a day) explains 54% of the drop. The rest is
+lower sales per product on the shelf, as the launch rush ended.
 
 ### Stock and ordering (Q2, Q5)
 
 | KPI | Week | Same days last week | Usual | November | October | Quarter |
 |---|---|---|---|---|---|---|
-| Days with nothing to sell | 0.37 | 0 | 0 | 3.42 | 0 | 3.44 |
+| Days with nothing to sell | 0.53 | 0 | 0 | 3.59 | 0 | 3.59 |
 | Products on the shelf, average | 0.9 | 6.7 | 6.7 | 4.5 | 7.9 | 5.0 |
 | Most products on the shelf at once | 2 | 9 | 9 | 10 | 10 | 10 |
-| Profit missed while empty (at least) | ₱129.32 | ₱0 | ₱0 | ₱1,212.40 | ₱0 | ₱1,216.01 |
+| Profit missed while empty (at least) | ₱187.73 | ₱0 | ₱0 | ₱1,270.39 | ₱0 | ₱1,270.39 |
 | Pace on days with stock (pieces a day) | 0.58 | 2.25 | 2.25 | 1.61 | 5.20 | 2.22 |
 
 Rates used for profit missed (last 90 days): 2.22 pieces a day on days with stock (60 pieces ÷ 27.03 days), landed
-margin ₱159.45 a piece. The quarter's ₱1,216 matches the baseline's floor (₱1,196 at 18:59, plus the empty hours
-since).
+margin ₱159.45 a piece. The quarter's ₱1,270 matches the baseline's floor (₱1,196 at 18:59 on 26 Nov) plus the empty
+hours to midnight.
 
-Now (Q5): nothing on the shelf, empty since 11:16 on 26 Nov. **On the way:** Batch 3, 40 pieces (30 BLXCK Signature
-+ 10 devices), ₱7,214, paid in full, ordered 25 Nov, due about Wed 2 Dec, Late after 11 days (from Mon 7 Dec).
-**Order by:** Sun 6 Dec, when the position (33) falls to the reorder point (23). **Next order:** about 40 pieces,
-₱6,680 of goods + ₱298.80 fees = **₱6,978.80**. **Money for it by then:** ₱2,420, so **₱4,558.80 short**.
+Now (Q5, run on the morning of 27 Nov): nothing on the shelf, empty since 11:16 on 26 Nov.
 
-Worked out from history: pace 2.05 a day (14.4 a week, recent weeks weighted, half-life 36 days, not rough).
-Delivery 7 days ± 1.75 (a starting guess: no order has both dates yet). Order rhythm 18 days (20 Oct* · 2 Nov* ·
-25 Nov; * estimated as arrival − delivery). Reorder point 23 (14 for the delivery days + 9 spare). Target 64.7.
-Position 33 (30 pods + 3 of the 10 devices, capped). Next rhythm day Sun 13 Dec.
+- **On the way:** Batch 3, 40 pieces (30 BLXCK Signature + 10 devices), ₱7,214, paid in full. Ordered 25 Nov, due
+  about Wed 2 Dec, Late after 11 days (from Mon 7 Dec).
+- **Order by:** Mon 7 Dec, when the position (33) falls to the reorder point (22.6).
+- **Next order:** about 33 pieces, ₱5,362.50 of goods + ₱249 fees = **₱5,611.50**.
+- **Money for it by then:** ₱2,420, so **₱3,191.50 short**.
+
+Worked out from history:
+
+- **Pace:** 2.01 a day (14.1 a week). Recent weeks are weighted (half-life 29 days); not rough.
+- **Delivery:** 7 days ± 1.75, a starting guess: no order has both dates yet.
+- **Order rhythm:** 14.5 days (27 Oct* · 9 Nov* · 25 Nov; * arrival day used, since no order day was recorded).
+- **Reorder point:** 22.6 (14.1 sell during delivery + 9 spare). **Target:** 55.7.
+- **Position:** 33 (30 pods + 3 of the 10 devices, capped).
+- **Next rhythm day:** Wed 9 Dec.
 
 ### Products (Q2)
 
 | KPI | Week | November | Quarter to date |
 |---|---|---|---|
+| Lines: gross profit a day per product on the shelf (shop average) | Black TEO ₱96.18 (₱96.18) | XBLACK MAX (TRANSPARENT V2 PODS) ₱60.97, Black TEO ₱49.65 (₱51.12) | XBLACK MAX ₱88.48, Black TEO ₱49.65 (₱62.79) |
+| Lines: pieces a day per product on the shelf | Black TEO 0.576 | XBLACK MAX 0.401, Black TEO 0.298 | XBLACK MAX 0.582, Black TEO 0.298 |
 | Ranked (on the shelf in the period) | 2: too few to rank | 14 | 20 |
 | Products that make 80% of demand | — | 11 of 14 | 14 of 20 (80/20 benchmark: 4) |
 | Top 20%'s share of demand | — | 28.2% (top 3) | 31.5% (top 4; 80/20 benchmark: 80%) |
 | Fastest against slowest (pieces a day on the shelf) | — | 0.49 against 0.22 (2.2×) | Mixed Berries 0.84 against Sparkle Squeeze 0.22 (3.9×) |
-| Lines, pieces a day per product on the shelf (shop average) | Black TEO 0.576 (0.576) | XBLACK MAX (TRANSPARENT V2 PODS) 0.401, Black TEO 0.298 (0.311) | XBLACK MAX 0.582, Black TEO 0.298 (0.394) |
 | Not selling | 0 (₱0 at cost) | 0 (₱0) | 0 (₱0) |
 | New, never on the shelf | 11 (40 pieces on the way) | 11 | 11 |
 
 The quarter's fastest four (Mixed Berries, Strawberry Ice, Gummy Bear, Mango, all XBLACK MAX) are the baseline's
-fastest four. So what: sales are spread (no Top seller yet), but XBLACK MAX sold about twice as fast per flavour on
-the shelf as Black TEO. That is the re-order test to run.
+fastest four. So what: sales are spread across flavours (no Top seller yet). But XBLACK MAX earned ₱88 a day per
+flavour on the shelf against Black TEO's ₱50, and it has not been re-ordered. That is the line test to run.
 
 ### Collections (Q3)
 
@@ -1649,14 +1730,16 @@ the shelf as Black TEO. That is the re-order test to run.
 | Credit share of sales | 100% | 66.7% | 80.0% | 75.1% | 70.8% | 73.4% |
 | Collected later | ₱1,900 | ₱3,120 | ₱2,880 | ₱12,460 | ₱0 | ₱12,460 |
 | Still owed (end) | ₱2,080 | ₱3,980 | ₱3,980 | ₱2,080 | ₱5,440 | ₱2,080 |
+| Owed, in days of sales (end) | 3.6 | 5.3 | 4.8 | 3.6 | 3.5 | 3.6 |
 | Late and very late (end) | ₱380 | ₱240 | ₱0 | ₱380 | ₱0 | ₱380 |
 | Days to collect, median (sales paid off) | 9 (5) | 8.5 (6) | 8.5 | 9 (31) | none paid off | 9 (31) |
 | Open credit sales, buyers owing (end) | 6, 6 | 12, 10 | 11, 10 | 6, 6 | 15, 14 | 6, 6 |
 | Largest buyer's share of what is owed | 32.7% | 17.1% | 21.4% | 32.7% | 11.8% | 32.7% |
-| DSO (days) | 12.6 | 6.9 | 6.9 | 8.4 | 2.8 | 6.2 |
+| DSO (days, baseline measure) | 12.6 | 6.9 | 6.9 | 8.4 | 2.8 | 6.2 |
 
-Thresholds from 31 Not paid yet sales paid in full (33 values, not a guess): usual 9 days, late after 12, very late
-after 19. Aging now: Usual ₱1,700 (4 sales), Late ₱380 (2), Very late ₱0; the oldest is 16 days.
+Thresholds (collections v3) from 31 Not paid yet sales paid in full, not a guess: usual 9 days, late after 11, very
+late after 18. Aging at the end of 26 Nov: Usual ₱1,700 (4 sales), Late ₱380 (2), Very late ₱0; the oldest is 16
+days.
 
 ### Cash and payouts (Q4, Q5)
 
@@ -1675,10 +1758,10 @@ after 19. Aging now: Usual ₱1,700 (4 sales), Late ₱380 (2), Very late ₱0; 
 | Payout ratio to date | 47.9% | 0% | 0% | 47.9% | 0% | 47.9% |
 | Balance check | ₱0 | ₱0 | ₱0 | ₱0 | ₱0 | ₱0 |
 
-October's Batch 1 (₱5,039) was paid with the owner's money, so it is owner capital, not a cash outflow. The week's
-payout ratio is cumulative to each window's end, so it equals the Month and Quarter values: 47.9% now, 0% before the
-25 Nov payout. So what: the shop made ₱4,572 of cash from operations in its first month and paid out ₱4,232 of it the
-day Batch 3 was paid. That is why the next order is ₱4,559 short.
+October's Batch 1 (₱5,039) was paid with the owner's money, so it is owner capital, not a cash outflow. The payout
+ratio is cumulative to each window's end, so the Week value equals the Month and Quarter: 47.9% now, 0% before the
+25 Nov payout. So what: the shop made ₱4,572 of cash from operations in its first month and paid out ₱4,232 of it
+the day Batch 3 was paid. That is why the next order is about ₱3,190 short.
 
 ## Validation checklist (kit)
 
@@ -1695,18 +1778,30 @@ day Batch 3 was paid. That is why the next order is ₱4,559 short.
 1. **Structure.** Does the owner accept the six views, and This / Last next to Week | Month | Quarter?
 2. **Manager access.** Should the manager see the dashboard? That needs a safe data path: a read-only database role,
    or a shared snapshot. The owner's connector has full rights and must not be shared.
-3. **Read-only connector.** Supabase's MCP server can run read-only and scoped to one project. Can the owner's
-   claude.ai Supabase connector be set that way for this artifact? It would back up the read-only transactions.
+3. **Read-only connector (D12).** Can the owner add a second Supabase connector in claude.ai for the dashboard, using
+   Supabase's `read_only=true`, `project_ref` and `features=database` URL parameters? The current connector must keep
+   write access for migrations. If a second connector isn't possible, the read-only transactions are the only guard,
+   and the dashboard should wait until it is.
 4. **Profit missed.** Show only the floor (D6), or also the "full shelf" estimate (₱5.1k to ₱7.9k to date) with its
    caveat?
 5. **Payout rule.** Keep the stricter cash-and-capital suggestion (D10), and should the hold become a hard rule in
    the app (cash-and-capital recommendation 5)?
 6. **Tax at 3%.** Show the "for your accountant" line now, or only once the accountant has confirmed the shop's
    status?
-7. **Planning engine.** The two designs disagree on parameters (rhythm 18 days with estimated order days in design
-   v2, against 14.5 with a 7 to 30 limit in stock-and-ordering), giving Order by 6 Dec against 5 Dec. Settle this in
-   the engine build. Q5 follows whatever ships.
+7. **Planning engine.** Q5 follows the strategy review's adopted parameters (Order by Mon 7 Dec). If the owner
+   approves different ones at release 1, change Q5 the same day, or switch it to `plan_core()`. The 10 devices count
+   as 3 pieces of stock and move Order by about 2 days later than a pods-only date (5 Dec).
 8. **Data gaps.** Rent, salaries and the manager's pay are not recorded, so net margin and payout suggestions are
    overstated. Batches 1 and 2 have no order day. No batch names a supplier.
 9. **Usual.** Is "usual from 3 full periods" right? It means a monthly usual from February 2027 and a quarterly
    usual from Q3 2027.
+
+**Sources.**
+
+- Shop data: the live Supabase project (read-only, rolled back), 26 to 27 Nov 2026.
+- `analysis/baseline.md`, `stock-and-ordering.md`, `cash-and-capital.md` and `strategy-review.md` (26 Nov 2026).
+- The planning design v2 (session scratchpad, 26 Nov 2026), and `docs/finance-guide.md`.
+- Supabase, "Supabase MCP Server": configuration options and security recommendations
+  (https://supabase.com/docs/guides/ai-tools/mcp, accessed 27 Nov 2026).
+- BIR Form 2551Q timing and the 3% percentage tax: as cited in `analysis/baseline.md`.
+- Tax figures here are planning estimates, not tax advice; an accountant should confirm.
