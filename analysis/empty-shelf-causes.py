@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """Why was the shelf empty? The scorecard's "opportunity cost of an empty shelf", split by cause.
 
-Every number in analysis/empty-shelf-causes.md comes from this script.
+Every number in analysis/empty-shelf-causes.md comes from this script, except the corrections of 27 Nov, which quote
+the math check (analysis/empty-shelf-causes-check.py) and say so. This script keeps the consultant's original cause
+waterfall; the scorecard's final rules are in the last section of the .md.
 
 Run:  python3 analysis/empty-shelf-causes.py                              (offline, a few seconds; numpy + pandas)
       python3 analysis/empty-shelf-causes.py --now "2026-11-28 09:00:00"  (measure the open stretch to another time)
@@ -734,16 +736,24 @@ def lr_round(parts_pesos):
     for k in sorted(parts_pesos, key=lambda k: parts_pesos[k] - fl[k], reverse=True)[:extra]:
         fl[k] += 1
     return total, fl
+# (The scorecard's final rules, last section of the .md, round each figure on its own instead; this printout keeps the
+# consultant's largest-remainder figures.)
 print("whole pesos as the scorecard should show them (largest remainder, so the parts add up to the total):")
-sens_rows = [(f"sensitivity: stretch {r['stretch']}, L {r['L']}, {r['terms']}{' (recorded)' if r['recorded'] else ''}", r["parts"])
+# Each sensitivity row has its own key: stretch, delivery days (L) and payment terms, e.g.
+# shown_sensitivity_stretch_2_L7_at_order_late_order. Fixed 27 Nov (math check): the 12 rows used to share 10 names,
+# shown_sensitivity_stretch_<n>_<cause>, so only each stretch's last row (L 10, on pick-up) survived in the JSON.
+sens_rows = [(f"sensitivity: stretch {r['stretch']}, L {r['L']}, {r['terms']}{' (recorded)' if r['recorded'] else ''}", r["parts"],
+              f"sensitivity_stretch_{r['stretch']}_L{r['L']}_{r['terms'].replace(' ', '_').replace('-', '')}")
              for r in SENS]
-for lab, parts in [("November so far", nov), ("stretch 1, 6-9 Nov", p1), ("stretch 2 so far", p2_now),
-                   ("stretch 2 to expected arrival", p2_exp), ("November to 30 Nov 24:00", nov_full)] + sens_rows:
+base_rows = [(lab, parts, lab.split(",")[0].replace(" ", "_").replace(":", "").replace("-", "_").lower())
+             for lab, parts in [("November so far", nov), ("stretch 1, 6-9 Nov", p1), ("stretch 2 so far", p2_now),
+                                ("stretch 2 to expected arrival", p2_exp), ("November to 30 Nov 24:00", nov_full)]]
+for lab, parts, key in base_rows + sens_rows:
     total, r = lr_round({c: v * COST_DAY for c, v in parts.items()})
     print(f"  {lab:30s} {ps(total):>8s} = " + " + ".join(f"{LABEL[c].split(' (')[0]} {ps(v)}" for c, v in r.items() if v))
-    key = lab.split(",")[0].replace(" ", "_").replace(":", "").replace("-", "_").lower()
     for c, v in r.items():
         put(f"shown_{key}_{c}", v, "PHP", f"{lab}: {LABEL[c]}, whole pesos by largest remainder (adds up to {total:,.0f})")
+assert len([k for k in M if k.startswith("shown_sensitivity_")]) == len(SENS) * len(BUCKETS), "one key per row and cause"
 print(f"november            {SC['empty_t']:.4f} d low {ps(SC['lost_profit_low'])} high {ps(SC['lost_profit_high'])} | plan "
       f"{ps(plan_lo)}-{ps(plan_hi)} | known cause {known:.0%}")
 

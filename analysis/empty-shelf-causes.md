@@ -1,5 +1,46 @@
 # Why was the shelf empty? Should the empty-shelf cost count only planning days?
 
+## Corrections after the math check and the review (27 Nov)
+
+The math check (`analysis/empty-shelf-causes-check.md`) reproduced every figure in this analysis. It also found two
+claims the owner would read that are wrong, and seven edge-case defects in the scorecard SQL. The review
+(`analysis/empty-shelf-causes-review.md`) found the five-part split overbuilt for a shop that has had two empty
+stretches. Where the text below changed, it says so *(corrected, superseded or updated 27 Nov)*. The rest of the
+analysis stands as written.
+
+**The decision (final): two named numbers.** The answer to the owner is **yes for judging the ordering, no for the
+shop's cost.**
+
+1. **Profit lost to empty shelves: about (₱1,449) in November so far.** Every hour with nothing on the shelf, whatever
+   the cause, at the shop's usual pace × profit a piece (₱354 a day). It is the scorecard's existing "at least"
+   figure, worked out as before, and now the headline. It is called "about", not "at least": some buyers wait for the
+   next batch, and some may be lost for good.
+2. **Ordering on time would have saved: (₱352), 1.0 day.** Only the hours an order placed on time would have saved,
+   shown with its days. Its top end, (₱1,435), adds the 3.06 days with no order day (6–9 Nov).
+
+Each empty stretch also gets one plain line saying why the shelf was empty. The thin-shelf estimate stays, worded "up
+to (₱8,275) if thin shelves lose sales too". The rules are in
+[Final rules for the scorecard](#final-rules-for-the-scorecard), at the end.
+
+| # | Correction | Why |
+|---|---|---|
+| 1 | **Pick-up terms** (§4, and recommendation 5 in §7). On pick-up terms a 13–14 Nov order was affordable only with about a 7-day delivery. On the plan's own 5 days, the fund was about ₱1,300 to ₱2,700 short on 17–18 Nov. Pick-up terms alone would not have rescued the plan's date. | The old claim used the app's 7-day guess. The plan itself said a 12–14 Nov order "arrives 17–19 Nov". |
+| 2 | **Batch 4's chance of being short** (§7 #5), at the adopted ₱5,664: 98.4% when paying at order, 7.2% on pick-up. | The old "100% to 17%" was quoted at the rejected ₱6,224. |
+| 3 | **Had Batch 2 been paid at order**, the fund held ₱2,240 to ₱3,840 five to seven days before its arrival, not ₱1,600 to ₱3,840. §3.1 already says this; the slip was only in this analysis's structured summary. | ₱1,600 was the fund on 30 Oct, ten days before the arrival. |
+| 4 | **"The supplier isn't late"** (bottom line, §3.2) now says "on the 7-day starting guess". | No delivery has been measured yet. On the owner's 5 days, a 2 Dec arrival would make (₱708) the supplier's. |
+| 5 | **"6–9 Nov: ₱1,083 either way"** (§7 #5) now says: no order day on the recorded terms, waiting for money if Batch 2 was paid at order. | Neither reading is planning, and "either way" suggested both were. |
+| 6 | **The KPI sub-line example** (§8) now lists the parts largest first. **The order of causes**, as the structured summary gave it, left out the supplier hold. The full order is: by choice, waiting for money, supplier hold, not recorded, ordered late, slow delivery (as in §2). | §8's own rule says largest first. The supplier hold is tested before Not recorded (₱0 today). |
+| 7 | **§8, the appendix and recommendation 1's five-part split are superseded** by the final rules at the end. | The two numbers replace the five-part split, and the waterfall SQL had seven edge-case defects (check §1 and §5). |
+| 8 | **The bottom line** gives the final decision. Its case for counting every cause now rests on the next order, not on November. | The flat "No" undersold the owner: for judging the ordering, the owner is right. And payouts caused ₱0 of November's empty time. |
+| 9 | **The metrics file:** the 12 sensitivity rows now have their own keys, with the delivery days and payment terms, for example `shown_sensitivity_stretch_2_L7_at_order_late_order`. | They shared 10 names, so only each stretch's last row survived. |
+| 10 | **Rounding:** the scorecard rounds each figure to whole pesos on its own. The tables below keep the largest-remainder pesos, so the open stretch's 55 minutes of waiting for money show (₱14) here and (₱13) on the scorecard. | Largest remainder moved a closed stretch's pesos as the open one grew: ₱1,083 at 12:04, ₱1,082 at 15:42. |
+
+Words: where the sections below say "at least (₱1,449)", read **about**; "at most (₱8,275)" is **up to (₱8,275) if thin
+shelves lose sales too**. "Not recorded" is the scorecard's **No order day**. Corrections 1, 2 and 4 quote the math
+check's script, `analysis/empty-shelf-causes-check.py`.
+
+---
+
 The owner asked: *"Should opportunity cost only account for days with no stock on shelf because of poor restock
 planning?"*
 
@@ -9,7 +50,8 @@ since 26 Nov 11:16: 52 sales, 36 payments, 81 stock movements, and Batch 3 is st
 The brief quoted ₱1,418 / ₱8,226 for November. That was the 10:01 reading of the same figure. The open gap adds about
 ₱15 an hour (₱354 a day) until Batch 3 arrives.
 
-Every number below comes from `analysis/empty-shelf-causes.py`:
+Every number below comes from `analysis/empty-shelf-causes.py`, except the corrections of 27 Nov that quote the math
+check's `analysis/empty-shelf-causes-check.py` (they say so):
 
 - Run `python3 analysis/empty-shelf-causes.py`. It runs offline in a few seconds and needs only numpy and pandas. Add
   `--now "YYYY-MM-DD HH:MM:SS"` to measure the open gap at another time.
@@ -23,37 +65,46 @@ minutes to the second. Amounts are pesos (₱). Lost profit is shown in brackets
 
 ## Bottom line
 
-**No. Keep counting every hour the shelf is empty.** Each one cost the shop the same ₱354 a day of profit, whatever
-the reason, and that total is what being in stock is worth.
+*(Updated 27 Nov to the final decision.)*
 
-**But you are right that the total is the wrong yardstick for the reorder plan.** Split it by cause, worked out from
-the app's own records, and judge the plan only on the part where the order went in late while the money for it was
-there.
+**Yes for judging the ordering, no for the shop's cost.** Show two numbers side by side.
 
-- **November so far: 4.09 days with nothing on the shelf, (₱1,449).** That splits into:
-  - ordered late (₱352);
-  - not recorded (₱1,083), because Batch 2 has no order day;
-  - waiting for money (₱14);
-  - the supplier ₱0, and by choice ₱0.
-
-  So the plan's share is **(₱352) at least and (₱1,435) at most**.
-- **The gap open now will cost about (₱2,070) by Batch 3's expected arrival.** That is Wed 2 Dec 07:34, on the 7-day
-  starting guess. **(₱2,056) of it is planning.** The fund could pay Batch 3's ₱7,214 from 19 Nov 12:11, and a reserve
-  had been kept for it since 13 Nov, but the order went in on 25 Nov 07:34, **5.8 days later**. The supplier isn't
-  late: a 25 Nov order is due on 2 Dec.
-- **A planning-only number would show (₱352) of (₱1,449) this month (24%).** It would hide two things:
-  - the 3.06 days in early November that nobody can explain yet;
-  - what payouts cost when the fund can't pay the next order. In the math check's trials, the fund is short of
-    Batch 4's money 98% of the time.
+- **Profit lost to empty shelves: about (₱1,449) in November so far.**
+  - That is 4.09 days with nothing on the shelf, to 27 Nov 12:04, at ₱354 a day: the usual pace while there is stock
+    (2.22 pieces a day) × ₱159.45 of profit a piece.
+  - Every empty hour counts, whatever the cause. Each one cost the shop the same profit, and the total is what being
+    in stock is worth.
+  - It is "about", not "at least": some buyers wait for the next batch, and some may be lost for good.
+  - It is up to (₱8,275) if thin shelves lose sales too.
+- **Ordering on time would have saved: (₱352), 1.0 day, in November so far.**
+  - It counts only the hours an order placed on time would have saved. This is the yardstick for the reorder plan,
+    and for whoever orders. On this you are right: count only those days.
+  - Its top end is (₱1,435). That adds the 3.06 days of 6–9 Nov, when Batch 2 has no order day. A late order is the
+    likelier story, but the records can't say.
+- **Why each stretch was empty, one line each:**
+  - **6–9 Nov, 3.06 days, (₱1,083):** Batch 2 has no order day, so a late order and a slow delivery can't be told
+    apart.
+  - **From Thu 26 Nov 11:16, still empty:** Batch 3 went in on 25 Nov, 5.8 days after the fund could pay for it
+    (19 Nov 12:11). The owners had kept a reserve for it since 13 Nov. By its expected arrival, Wed 2 Dec 07:34 on
+    the 7-day starting guess, the gap will cost about (₱2,070). Ordering on time would have saved (₱2,056) of it. The
+    other 55 minutes were waiting for money that buyers still owed.
+  - The supplier isn't late on the 7-day starting guess. On your own 5 days, a 2 Dec arrival would make 2 of those
+    days, (₱708), the supplier's.
+- **Why the shop's cost counts every cause.** The total is the price of being out of stock, and the next gap may not
+  be planning. The 25 Nov payout emptied the fund. At the adopted ₱5,664, the fund is short of Batch 4's money in
+  98.4% of the math check's trials when paying at order, against 0.1% had the payout been held (7.2% on pick-up
+  terms). A planning-only number would show that gap as ₱0. Keep the next order's money before any payout (§7 #4).
 
 **Decisions needed:**
 
-1. Approve the five-part split on the scorecard (§8).
-2. Start recording four things:
-   - an order day for every batch (and fill in Batches 1 and 2 if you remember them);
-   - the payment terms of each order;
-   - a daily copy of the plan's order-by date;
-   - dated notes for gaps you choose on purpose.
+1. Approve the scorecard preview: the two numbers, and one line per empty stretch
+   ([Final rules for the scorecard](#final-rules-for-the-scorecard)).
+2. Answer two questions:
+   - When was Batch 2 ordered? Enter it on Batch 2's page (Edit supplier, date or note). It decides whether the
+     (₱1,083) was a late order or a slow delivery.
+   - Could the supplier have taken the Batch 3 order on 19 Nov? If not, the 5.8 days were the supplier's, not the
+     plan's.
+3. From now on, record an order day and the payment terms for every order.
 
 ## Situation, complication, resolution
 
@@ -224,8 +275,9 @@ ordered. You can still enter it on Batch 2's page (Edit supplier, date or note).
 - **Why ordered late.**
   - The order went in 5.8 days after the money for it was in the fund. The owners had kept a reserve for it since
     13 Nov.
-  - The order is on its way and the supplier isn't late. Seven days is the usual time, so stock on 2 Dec is on time
-    for a 25 Nov order.
+  - The order is on its way, and the supplier isn't late on the 7-day starting guess: stock on 2 Dec is on time for a
+    25 Nov order. No delivery has been measured yet. On the owner's own 5 days, a 2 Dec arrival would make the last
+    2 days, (₱708), the supplier's, and (₱1,362) ordered late *(corrected 27 Nov, math check)*.
   - The shelf is empty because the order went in after 19 Nov.
 - **Why 55 minutes of waiting for money.** On 19 Nov at 11:16 the fund was ₱288 short while buyers owed ₱5,000. That
   is money owed by buyers, not a payout: there was no payout before 25 Nov.
@@ -266,10 +318,15 @@ ordered. You can still enter it on Batch 2's page (Edit supplier, date or note).
   - So, measured against the plan, 12 Nov to 19 Nov was waiting for money.
   - 19 Nov 12:11 to 25 Nov 07:34 (5.8 days) was the order not going in.
   - Both views agree on those 5.8 days.
-- **On pick-up terms, the plan's date would have worked.** An order on 13 or 14 Nov would have been due on arrival
-  (20 or 21 Nov), when the fund held ₱8,286 or ₱8,966. An order on 12 Nov would have been ₱288 short at noon on 19 Nov.
-  This is why the plan needs a money check on its own date, which is already on the engine build list. It is also why
-  supplier terms matter.
+- **Pick-up terms alone would not have rescued the plan's date** *(corrected 27 Nov, math check §4.1)*.
+  - On pick-up terms, a 13–14 Nov order was affordable only with about a 7-day delivery. It would have been due on
+    20 or 21 Nov, when the fund held ₱8,286 or ₱8,966. A 12 Nov order would have been due on 19 Nov, ₱288 short at
+    noon.
+  - On the plan's own 5 days (it said a 12–14 Nov order "arrives 17–19 Nov"), the fund was about ₱1,300 to ₱2,700
+    short of the ₱7,214 on 17–18 Nov (about ₱900 to ₱2,400 short of the plan's ₱6,850). It first held the money on
+    19 Nov: ₱6,850 from 08:46, ₱7,214 from 12:11.
+  - So the plan's date also needed a smaller order or more cash. This is why the plan needs a money check on its own
+    date, which is already on the engine build list. Supplier terms still matter (§7 #5).
 - **The reorder-point date above is hindsight**, using today's settings. Judging the plan fairly needs a daily copy of
   what it said at the time.
 
@@ -332,11 +389,11 @@ Ranked by peso impact × feasibility.
 
 | # | Recommendation | ₱ impact | Owner | Timing | First step | KPI |
 |---|---|---|---|---|---|---|
-| 1 | **Keep the total as the headline, and add the five-part split** to the scorecard: KPI line, opportunity-cost box, definitions | It names the current gap's (₱2,056) as the plan's and the (₱1,083) as unknown, at no data cost | Engineering | Before the next scorecard publish | Add the tested SQL (§8) to `ops.v3.sql` | Parts add up to "at least" exactly; share with a known cause |
+| 1 | **Keep the total as the headline, and add the five-part split** to the scorecard: KPI line, opportunity-cost box, definitions. *(Superseded 27 Nov: two numbers and one line per empty stretch instead, in [Final rules for the scorecard](#final-rules-for-the-scorecard).)* | It names the current gap's (₱2,056) as the plan's and the (₱1,083) as unknown, at no data cost | Engineering | Before the next scorecard publish | Add the tested SQL (§8) to `ops.v3.sql` | Parts add up to "at least" exactly; share with a known cause |
 | 2 | **Judge the reorder plan, and whoever orders, on "Ordered late"**, as a range (at most = + Not recorded), at the monthly review | The lever behind it, ordering by the reorder point, is worth +₱3.7k to ₱4.0k a month of gross profit in the base case. It could be as low as about ₱1.1k if thin shelves lose nothing (stock branch; math check) | Owner | Monthly, from the December review | Read the plan line on the scorecard | Ordered-late days a month (target 0) |
 | 3 | **Record an order day for every batch.** Fill in Batches 1 and 2 if you remember them; Receive batch should ask "When did you order it?" | Turns (₱1,083), 75% of this month's empty-shelf cost, into a known cause. It also gives the first two delivery times: each day of error in delivery time is about ₱354 a cycle | Owner or manager; engineering for Receive batch | Now (batch page, Edit); Receive batch with the planning engine | Enter Batch 2's order day | Share with a known cause 90% or more; every order has both dates |
 | 4 | **Show "Waiting for money" next to the payout**, with the next order's money check | Batch 4 at ₱5,664: the fund is short in 98% of trials, with (₱953 to ₱1,551) of profit at risk (math check). The 25 Nov payout is why | Owner decides; engineering shows it | Before the next payout | Keep the next order's money before paying out (cash branch) | Waiting-for-money days per order (target 0) |
-| 5 | **Record each order's payment terms, and ask the supplier for payment on pick-up** | The terms decide whether a gap is money or planning (6–9 Nov: ₱1,083 either way). Pick-up terms would have made the plan's 12–14 Nov date affordable. They cut Batch 4's chance of being short from 100% to 17% (cash branch, at ₱6,224) | Owner (supplier); engineering (field) | With the Batch 4 order | One message to the supplier | Days paid before arrival |
+| 5 | **Record each order's payment terms, and ask the supplier for payment on pick-up** | The terms decide whether a gap is money or planning. 6–9 Nov (₱1,083) is no order day on the recorded terms, and waiting for money if Batch 2 was paid at order; neither is planning. Pick-up terms alone would not have saved the plan's 12–14 Nov date: on its own 5-day delivery the fund was about ₱1,300 to ₱2,700 short on 17–18 Nov (§4). At the adopted ₱5,664, they cut Batch 4's chance of being short from 98.4% to 7.2% (math check) *(corrected 27 Nov)* | Owner (supplier); engineering (field) | With the Batch 4 order | One message to the supplier | Days paid before arrival |
 | 6 | **Keep a daily copy of the plan's order-by date** and that day's money check | Lets the plan be judged in days late against what it said at the time. No pesos by itself | Engineering | With the planning engine (task 23) | Add the daily snapshot | Days from the plan's date to the real order |
 | 7 | **Dated owner notes** for "by choice" (closed, paused, stopped carrying) and "supplier can't take orders", made at the time | ₱0 today. It keeps chosen gaps and supplier holds out of Ordered late without opening a door to excuses | Engineering | After 1 to 6 | Owner-only record with a date range | Notes made before the gap began |
 
@@ -346,10 +403,16 @@ these change the answer.
 
 ## 8. What the scorecard and the app need
 
+> **Superseded (27 Nov).** The scorecard part of this section is replaced by
+> [Final rules for the scorecard](#final-rules-for-the-scorecard): two named numbers and one line per empty stretch,
+> not a five-part split. The app part is still a proposal for the planning engine. The review would hold off on the
+> owner notes, and show only the next order's money check at a payout. The section is kept as written, with the
+> example below put largest first.
+
 **On the scorecard** (`ops.v3.sql`; the field list and SQL are in the appendix):
 
-- **Profit lost to empty shelves KPI.** Keep it, and add a line under it: "Ordered late ₱352 · Not recorded ₱1,083 ·
-  Waiting for money ₱14". Show only the parts above 0, largest first.
+- **Profit lost to empty shelves KPI.** Keep it, and add a line under it: "Not recorded ₱1,083 · Ordered late ₱352 ·
+  Waiting for money ₱14" *(corrected 27 Nov: largest first)*. Show only the parts above 0, largest first.
 - **Opportunity-cost box**, two new lines:
   - **"Judge the reorder plan on Ordered late: ₱352 to ₱1,435."** The higher figure counts days with no order day.
   - **"Waiting for money: ₱14."** This line belongs to the payout and reserve decisions.
@@ -438,9 +501,16 @@ these change the answer.
 - **Earlier analyses reused**
   - `baseline.md` §6 (₱354 / ₱576);
   - `stock-and-ordering.md` §4.2 (reorder point 22.6) and §4.3 (sales lost 1.42 to 0.59 a day; +₱3.7k to ₱4.0k);
-  - `cash-and-capital.md` §4.4 (pick-up: 17%);
+  - `cash-and-capital.md` §4.4 and its simulator. Its pick-up figure, 17%, was at the rejected ₱6,224; the math check
+    re-ran it at ₱5,664: 7.2% on pick-up *(corrected 27 Nov)*;
   - `math-check.md` §4.1 and §4.3 ii and iii (Batch 4 at ₱5,664: 98%, ₱953 to ₱1,551; as low as ₱1.1k);
   - the products branch (₱88 / ₱50).
+- **The math check and the review of this analysis** (27 Nov)
+  - `analysis/empty-shelf-causes-check.md` and `.py`: §4.1 (pick-up terms on the plan's 5 days), §4.2 (Batch 4 at
+    ₱5,664: 98.4% at order, 7.2% on pick-up, 0.1% had the payout been held), §5 (the seven edge-case defects) and §7
+    (the supplier's (₱708) on 5 days);
+  - `analysis/empty-shelf-causes-review.md`: two named numbers, "about" instead of "at least", and the two questions
+    for the owner.
 - **External** (generic searches, 27 Nov 2026; the source pages themselves couldn't be opened from this session, so
   only what the searches confirmed is used)
   - Opportunity cost:
@@ -466,6 +536,10 @@ these change the answer.
 - This is planning arithmetic, not accounting or legal advice.
 
 ## Appendix: for the builder (scorecard fields)
+
+> **Superseded (27 Nov)** by [Final rules for the scorecard](#final-rules-for-the-scorecard), below. These field
+> names, the five-part split and the largest-remainder rounding were not adopted. The tested SQL gave today's numbers
+> to the second, but it had the seven edge-case defects listed in the math check (§1 and §5 there).
 
 These are new fields in `ops.v3.sql`. Every existing field keeps its name and meaning.
 
@@ -503,3 +577,188 @@ Live values, 27 Nov 12:04:45, month:
 The tested SQL is in the session scratchpad, which is temporary:
 `/tmp/claude-0/-home-user-cloud-factory-pos/1266ee19-7c3f-596f-a8a9-3b4759fe376f/scratchpad/empty-shelf-causes/causes-check.sql`.
 Its new CTEs are also written out in the scorecard spec handed to the builder.
+
+## Final rules for the scorecard
+
+*(Added 27 Nov. These replace §8 and the appendix. Where they differ from the scorecard spec handed to the builder,
+these win.)*
+
+**What the page shows**
+
+- **Profit lost to empty shelves**, called "about" (`lost_profit_low`, worked out as before): every hour with nothing
+  on the shelf, whatever the cause, × the shop's usual pace × profit a piece.
+- **Ordering on time would have saved**, with its days (`plan_saved_low`), and its top end (`plan_saved_high`), which
+  adds the hours with no order day.
+- **"Up to … if thin shelves lose sales too"** (`lost_profit_high`, unchanged).
+- **One plain line per empty stretch** saying why the shelf was empty (the new `gaps` dataset). A cause under
+  0.05 day (about an hour) is left out of the sentences, but still counted in the totals.
+
+**Why the tested SQL was replaced.** The waterfall SQL tested with this analysis gave today's numbers to the second.
+But it and its spec had the seven edge-case defects listed in the math check (its §1 and §5), which future records
+would hit. Each is fixed by a rule below:
+
+1. The spec's recipe for *money enough at*, read literally, gave the latest on-time moment: 5.85 days late instead
+   of 5.81.
+2. Classifying each piece at its midpoint was not exact. The money available also changes at credit sales when the
+   tax rate is above 0%, when another batch is booked, and at owner payments on other batches.
+3. With two orders on the way, an order placed on time but delivered late was blamed on the later order that ended
+   the gap: "ordered late" instead of "supplier".
+4. With a part payment, the money paid at order was counted again when testing the payment on pick-up.
+5. An order recorded, then paid days later while the money was there: on prepaid terms that delay is the shop's, but
+   it went to the supplier.
+6. A void while the shelf was empty split the stretch in two, and the first part was judged as "nothing on order".
+7. The shelf counted only products that are active now. Making a sold-out line inactive erased its empty stretches:
+   on today's data, the 6–9 Nov (₱1,083).
+
+**The empty stretches**
+
+- **The shelf by the clock**, as in `ops.v3.sql`: stretches of time between changes in how many flavours have stock.
+  It is now built from every product's stock movements, active or not (defect 7). No product is inactive today (0 of
+  31), so no existing number changes.
+- **An empty stretch** is one with no flavour in stock.
+- **One line on the page is one group.** Empty stretches in a row form one group when only stock that didn't come
+  from a batch separates them: a void or a count that put a piece back (defect 6). A group ends at the first batch
+  restock (an opening or restock movement of a batch), or it is open: empty now.
+- **The group's batch** is the batch of that restock. For an open group it is the earliest batch on the way, by order
+  moment. If nothing is on order, there is none.
+
+**The moments the rules use**
+
+- **Usual delivery time** of a group: (the order-to-arrival days of up to the 10 most recent batches that have both
+  days and arrived by the day the group started, leaving out the group's own batch, + 7) ÷ (their number + 1).
+  - The 7 is the starting guess, counted as one pretend order. The page calls it "a guess" while no batch with both
+    days counts towards it.
+  - Today it is 7 days for every group.
+  - `lead_days` becomes the same blend over all batches as of today, and `cost_of_ordering_at_sellout` keeps using
+    it. Both are changed fields (still 7 days today), and the dataset description says so.
+- **Order moment** of a batch: when it was entered, if that was on its order day; otherwise noon of its order day.
+  None if it has no order day.
+- **Arrival**: the moment of its first restock; none if it hasn't come.
+- **Payment moment**: when the payment was entered, but no later than the end of its own day. A payment dated the
+  arrival day and entered after the arrival counts at the arrival.
+- **Payment terms**, from the payment records:
+  - *paid ahead*: the company payments made before the arrival (before now, if it hasn't come). The first of them is
+    the *first payment ahead*;
+  - *full cost*: the batch's fees (shipping, tax, MOOE, other) + its pieces at cost, as received, or as ordered if it
+    hasn't come;
+  - *company due*: the full cost − payments from the owner's money or an investment;
+  - *due on pick-up*: company due − paid ahead, never below 0.
+- **Effective order moment**:
+  - with an order day and a payment ahead, the later of the order moment and the first payment ahead, because on
+    prepaid terms the delivery clock starts at payment (defect 5);
+  - with no order day but a payment ahead, the first payment ahead, which proves the order was in by then;
+  - otherwise the order moment, or none.
+- **Money available** at any moment, exactly as in this analysis (A5):
+  - the company fund, each receipt and payment counted when it was entered but no later than the end of its own day;
+  - − tax still owed (the tax rate × completed sales so far − tax paid);
+  - − what is owed to suppliers on other batches (each other batch booked by then, at its order moment or else its
+    arrival, at full cost less its payments made by then).
+
+  The inventory reserve counts as available, because it is kept for exactly this order.
+
+**Why each empty minute was empty.** For a minute *t* with nothing on the shelf, τ = *t* − the group's usual delivery
+time: the latest moment an order could go in and still arrive by *t*. The first cause that applies wins:
+
+1. **Supplier slower than usual.** Some order, for any batch, was in by τ (by its effective order moment) and still
+   hadn't arrived at *t* (defect 3).
+2. **Waiting for money.** The fund couldn't pay what was due when it was due. One of these holds:
+   - the group's batch has company money due and was paid ahead, τ is before the first payment ahead, and the money
+     available at τ was less than the part paid ahead;
+   - the group's batch has a part due on pick-up, and at *t* the money available, less the part paid ahead if the
+     first payment ahead came after *t*, was less than the part due on pick-up (defect 4);
+   - nothing is on order, and the money available at τ was less than the full cost of the most recent batch with
+     company money due.
+
+   Known limit: the test uses the order as it was placed, so a bigger order makes waiting for money longer.
+3. **No order day.** The group's batch has no order day, so a late order and a slow delivery can't be told apart.
+4. **Ordered late.** Everything else: an order placed by τ would, on a usual delivery, have had stock on the shelf.
+
+"Ordering on time would have saved" is the Ordered late part. Its top end adds the No order day part. There are no
+dated owner or supplier notes yet, so §2's "By choice" and "Supplier: couldn't take the order" are not on the
+scorecard. If the supplier couldn't take the Batch 3 order before 25 Nov, the 5.8 days are the supplier's, not the
+plan's (open question 2 in §11).
+
+**Exact to the minute, and fast**
+
+- Cut the empty time at every moment an input can change, and classify each piece at its midpoint (defect 2). The
+  cuts:
+  - stretch starts and ends, and the period's edges;
+  - every moment the money available can change: each fund entry, each completed sale, each batch's booking, each
+    batch payment;
+  - each of those + the usual delivery time;
+  - each effective order moment + the usual delivery time;
+  - each arrival;
+  - each first payment ahead, with and without the usual delivery time added.
+- A one-minute grid is acceptable instead, if it is fast enough.
+- The live query must run in under about 3 seconds for every period.
+
+**Pesos.** Days × the usual pace × profit a piece: the same ₱354 a day as the headline. Each figure is rounded to whole
+pesos on its own, so the parts can differ from the total by a peso. Largest-remainder rounding made a closed
+stretch's pesos change as the open one grew: ₱1,083 at 12:04, ₱1,082 at 15:42.
+
+**Days late**, for each group:
+
+- *Latest on-time moment*: its start − the usual delivery time.
+- *Money enough at* (when its batch was paid ahead): take the last moment between the latest on-time moment and the
+  effective order moment when the money available was less than the part paid ahead. Money enough at is the next
+  moment the money available changed after it, and never earlier than the latest on-time moment. None if the money
+  was enough throughout.
+- *Days late*: the effective order moment − the later of the latest on-time moment and money enough at; 0 if the
+  order was in time.
+
+**The stretch open now**
+
+- *Expected arrival*: the effective order moment + the usual delivery time, or now if that has passed. None if
+  nothing is on order.
+- Its empty time from its start to the expected arrival is split by the same rules, using the money as of now for
+  moments after now.
+- `empty_since`, `empty_now_days` and `empty_now_cost` follow the open group's start. Today their values don't change.
+
+**Fields.** The `ops` dataset keeps every existing field name and value, except `lead_days` and
+`cost_of_ordering_at_sellout` (above). New, for the period:
+
+- days, 2 decimals, 0 (not empty) when none: `empty_late_days`, `empty_money_days`, `empty_unknown_days`,
+  `empty_supplier_days`;
+- whole pesos, 0 when none: `lost_profit_late`, `lost_profit_money`, `lost_profit_unknown`, `lost_profit_supplier`;
+- `plan_saved_low` (= `lost_profit_late`) and `plan_saved_high` (the late and no-order-day days together, in pesos);
+- the open group, empty when the shelf isn't empty now:
+  - `now_batch_no`, `now_ordered_on`, `now_latest_on_time`, `now_money_enough_at`;
+  - `now_days_late` and `now_lead_days` (1 decimal), and `now_lead_guess`;
+  - the cost so far: `now_late_cost`, `now_money_cost`, `now_unknown_cost`, `now_supplier_cost`;
+  - `expected_arrival`, and the cost to it: `to_arrival_cost`, with `to_arrival_late_cost`, `to_arrival_money_cost`
+    and `to_arrival_supplier_cost`.
+
+A new dataset, `gaps`, has one row per group that overlaps the period, in order of start:
+
+- `started_at`, `ended_at` (empty when open), `is_open`, `batch_no`, `ordered_on`, `latest_on_time`,
+  `money_enough_at`, `days_late`, `lead_days`, `lead_guess`;
+- the empty days in the period, 2 decimals: `days`, `late_days`, `money_days`, `unknown_days`, `supplier_days`;
+- their pesos: `cost`, `late_cost`, `money_cost`, `unknown_cost`, `supplier_cost`;
+- for the open group only: `expected_arrival` and `to_arrival_cost`, with `to_arrival_late_cost`,
+  `to_arrival_money_cost` and `to_arrival_supplier_cost`.
+
+Times are Manila time, written 2026-11-19T12:11; order days are written 2026-11-25.
+
+**On today's data** (27 Nov 12:04:45 Manila, November). These are the analysis's own numbers, reproduced by two
+independent scripts:
+
+| | Days | Pesos |
+|---|---|---|
+| **Profit lost to empty shelves** (`lost_profit_low`) | 4.09 | **about (₱1,449)** |
+| **Ordering on time would have saved** (ordered late, `plan_saved_low`) | 1.00 | **(₱352)** |
+| No order day | 3.06 | (₱1,083) |
+| Waiting for money: 25 seconds on 6 Nov, 55 minutes on 26 Nov | 0.04 | (₱14) |
+| Supplier slower than usual | 0 | ₱0 |
+| Top end of what ordering on time would have saved (`plan_saved_high`) | 4.05 | (₱1,435) |
+| Up to, if thin shelves lose sales too (`lost_profit_high`) | | (₱8,275) |
+
+- **6 Nov 18:31 to 9 Nov 19:55:** Batch 2, no order day, usual delivery 7 days (a guess). 3.06 days, (₱1,083): all
+  no order day, apart from 25 seconds of waiting for money.
+- **From 26 Nov 11:16, open:** Batch 3, ordered 25 Nov 07:34 and paid ₱7,214 at order.
+  - Latest on-time moment 19 Nov 11:16; money enough at 19 Nov 12:11; 5.81 days late.
+  - So far, (₱366): ordered late (₱352), and 55 minutes of waiting for money, (₱13) rounded on its own.
+  - Expected arrival 2 Dec 07:34, on the 7-day guess: (₱2,070) in all, of which ordered late 5.81 days (₱2,056) and
+    waiting for money (₱13).
+- At 15:42:36 the same day, the ordered-late part was 1.15 days, (₱406), and the headline about (₱1,502); the rest
+  was unchanged (`python3 analysis/empty-shelf-causes.py --now "2026-11-27 15:42:36" --no-json`). The ordered-late
+  part grows ₱14.75 an hour while the shelf stays empty.

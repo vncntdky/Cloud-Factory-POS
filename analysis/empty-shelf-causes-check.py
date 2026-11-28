@@ -920,9 +920,10 @@ for what, t_, m_, ok in CHECKS:
     if not ok:
         print(f"  DIFF  {what}: consultant {t_}, check {m_}")
 print(f"{len(CHECKS) - len(bad)} of {len(CHECKS)} figures agree" + ("" if bad else " (all)"))
-# known defects in the metrics file: the sensitivity rows share one key per stretch
+# the metrics file used to share one key per stretch for the sensitivity rows; since 27 Nov each row has its own key
 sens_keys = [k for k in CONS if k.startswith("shown_sensitivity_")]
-print(f"metrics file: {len(sens_keys)} 'shown_sensitivity_*' keys for 12 sensitivity rows -> each stretch keeps only its last "
-      f"row (L 10, the 'other terms'): e.g. shown_sensitivity_stretch_2_late_order = {cons('shown_sensitivity_stretch_2_late_order'):,.0f}")
+print(f"metrics file: {len(sens_keys)} 'shown_sensitivity_*' keys, one per sensitivity row and cause "
+      f"(fixed 27 Nov): e.g. shown_sensitivity_stretch_2_L10_on_pickup_late_order = "
+      f"{cons('shown_sensitivity_stretch_2_L10_on_pickup_late_order'):,.0f}")
 print(f"spec sentence for money_enough_at, read literally: {tm(SPEC_LITERAL_MONEY_ENOUGH)} -> order_days_late "
       f"{(O3 - max(lot, SPEC_LITERAL_MONEY_ENOUGH)) / DAY:.2f} d (section F expects 19 Nov 12:11 and 5.81 d)")

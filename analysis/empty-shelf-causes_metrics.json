@@ -1031,61 +1031,361 @@
   "formula": "November to 30 Nov 24:00: Supplier (slower than usual), whole pesos by largest remainder (adds up to 2,686)",
   "as_of": "2026-11-27 12:04"
  },
- "shown_sensitivity_stretch_1_choice": {
+ "shown_sensitivity_stretch_1_L5_at_order_choice": {
+  "value": 0.0,
+  "unit": "PHP",
+  "formula": "sensitivity: stretch 1, L 5, at order: By choice, whole pesos by largest remainder (adds up to 1,083)",
+  "as_of": "2026-11-27 12:04"
+ },
+ "shown_sensitivity_stretch_1_L5_at_order_money": {
+  "value": 1083.0,
+  "unit": "PHP",
+  "formula": "sensitivity: stretch 1, L 5, at order: Waiting for money, whole pesos by largest remainder (adds up to 1,083)",
+  "as_of": "2026-11-27 12:04"
+ },
+ "shown_sensitivity_stretch_1_L5_at_order_unrecorded": {
+  "value": 0.0,
+  "unit": "PHP",
+  "formula": "sensitivity: stretch 1, L 5, at order: Not recorded, whole pesos by largest remainder (adds up to 1,083)",
+  "as_of": "2026-11-27 12:04"
+ },
+ "shown_sensitivity_stretch_1_L5_at_order_late_order": {
+  "value": 0.0,
+  "unit": "PHP",
+  "formula": "sensitivity: stretch 1, L 5, at order: Ordered late (planning), whole pesos by largest remainder (adds up to 1,083)",
+  "as_of": "2026-11-27 12:04"
+ },
+ "shown_sensitivity_stretch_1_L5_at_order_supplier": {
+  "value": 0.0,
+  "unit": "PHP",
+  "formula": "sensitivity: stretch 1, L 5, at order: Supplier (slower than usual), whole pesos by largest remainder (adds up to 1,083)",
+  "as_of": "2026-11-27 12:04"
+ },
+ "shown_sensitivity_stretch_1_L5_on_pickup_choice": {
+  "value": 0.0,
+  "unit": "PHP",
+  "formula": "sensitivity: stretch 1, L 5, on pick-up (recorded): By choice, whole pesos by largest remainder (adds up to 1,083)",
+  "as_of": "2026-11-27 12:04"
+ },
+ "shown_sensitivity_stretch_1_L5_on_pickup_money": {
+  "value": 0.0,
+  "unit": "PHP",
+  "formula": "sensitivity: stretch 1, L 5, on pick-up (recorded): Waiting for money, whole pesos by largest remainder (adds up to 1,083)",
+  "as_of": "2026-11-27 12:04"
+ },
+ "shown_sensitivity_stretch_1_L5_on_pickup_unrecorded": {
+  "value": 1083.0,
+  "unit": "PHP",
+  "formula": "sensitivity: stretch 1, L 5, on pick-up (recorded): Not recorded, whole pesos by largest remainder (adds up to 1,083)",
+  "as_of": "2026-11-27 12:04"
+ },
+ "shown_sensitivity_stretch_1_L5_on_pickup_late_order": {
+  "value": 0.0,
+  "unit": "PHP",
+  "formula": "sensitivity: stretch 1, L 5, on pick-up (recorded): Ordered late (planning), whole pesos by largest remainder (adds up to 1,083)",
+  "as_of": "2026-11-27 12:04"
+ },
+ "shown_sensitivity_stretch_1_L5_on_pickup_supplier": {
+  "value": 0.0,
+  "unit": "PHP",
+  "formula": "sensitivity: stretch 1, L 5, on pick-up (recorded): Supplier (slower than usual), whole pesos by largest remainder (adds up to 1,083)",
+  "as_of": "2026-11-27 12:04"
+ },
+ "shown_sensitivity_stretch_1_L7_at_order_choice": {
+  "value": 0.0,
+  "unit": "PHP",
+  "formula": "sensitivity: stretch 1, L 7, at order: By choice, whole pesos by largest remainder (adds up to 1,083)",
+  "as_of": "2026-11-27 12:04"
+ },
+ "shown_sensitivity_stretch_1_L7_at_order_money": {
+  "value": 1083.0,
+  "unit": "PHP",
+  "formula": "sensitivity: stretch 1, L 7, at order: Waiting for money, whole pesos by largest remainder (adds up to 1,083)",
+  "as_of": "2026-11-27 12:04"
+ },
+ "shown_sensitivity_stretch_1_L7_at_order_unrecorded": {
+  "value": 0.0,
+  "unit": "PHP",
+  "formula": "sensitivity: stretch 1, L 7, at order: Not recorded, whole pesos by largest remainder (adds up to 1,083)",
+  "as_of": "2026-11-27 12:04"
+ },
+ "shown_sensitivity_stretch_1_L7_at_order_late_order": {
+  "value": 0.0,
+  "unit": "PHP",
+  "formula": "sensitivity: stretch 1, L 7, at order: Ordered late (planning), whole pesos by largest remainder (adds up to 1,083)",
+  "as_of": "2026-11-27 12:04"
+ },
+ "shown_sensitivity_stretch_1_L7_at_order_supplier": {
+  "value": 0.0,
+  "unit": "PHP",
+  "formula": "sensitivity: stretch 1, L 7, at order: Supplier (slower than usual), whole pesos by largest remainder (adds up to 1,083)",
+  "as_of": "2026-11-27 12:04"
+ },
+ "shown_sensitivity_stretch_1_L7_on_pickup_choice": {
+  "value": 0.0,
+  "unit": "PHP",
+  "formula": "sensitivity: stretch 1, L 7, on pick-up (recorded): By choice, whole pesos by largest remainder (adds up to 1,083)",
+  "as_of": "2026-11-27 12:04"
+ },
+ "shown_sensitivity_stretch_1_L7_on_pickup_money": {
+  "value": 0.0,
+  "unit": "PHP",
+  "formula": "sensitivity: stretch 1, L 7, on pick-up (recorded): Waiting for money, whole pesos by largest remainder (adds up to 1,083)",
+  "as_of": "2026-11-27 12:04"
+ },
+ "shown_sensitivity_stretch_1_L7_on_pickup_unrecorded": {
+  "value": 1083.0,
+  "unit": "PHP",
+  "formula": "sensitivity: stretch 1, L 7, on pick-up (recorded): Not recorded, whole pesos by largest remainder (adds up to 1,083)",
+  "as_of": "2026-11-27 12:04"
+ },
+ "shown_sensitivity_stretch_1_L7_on_pickup_late_order": {
+  "value": 0.0,
+  "unit": "PHP",
+  "formula": "sensitivity: stretch 1, L 7, on pick-up (recorded): Ordered late (planning), whole pesos by largest remainder (adds up to 1,083)",
+  "as_of": "2026-11-27 12:04"
+ },
+ "shown_sensitivity_stretch_1_L7_on_pickup_supplier": {
+  "value": 0.0,
+  "unit": "PHP",
+  "formula": "sensitivity: stretch 1, L 7, on pick-up (recorded): Supplier (slower than usual), whole pesos by largest remainder (adds up to 1,083)",
+  "as_of": "2026-11-27 12:04"
+ },
+ "shown_sensitivity_stretch_1_L10_at_order_choice": {
+  "value": 0.0,
+  "unit": "PHP",
+  "formula": "sensitivity: stretch 1, L 10, at order: By choice, whole pesos by largest remainder (adds up to 1,083)",
+  "as_of": "2026-11-27 12:04"
+ },
+ "shown_sensitivity_stretch_1_L10_at_order_money": {
+  "value": 1083.0,
+  "unit": "PHP",
+  "formula": "sensitivity: stretch 1, L 10, at order: Waiting for money, whole pesos by largest remainder (adds up to 1,083)",
+  "as_of": "2026-11-27 12:04"
+ },
+ "shown_sensitivity_stretch_1_L10_at_order_unrecorded": {
+  "value": 0.0,
+  "unit": "PHP",
+  "formula": "sensitivity: stretch 1, L 10, at order: Not recorded, whole pesos by largest remainder (adds up to 1,083)",
+  "as_of": "2026-11-27 12:04"
+ },
+ "shown_sensitivity_stretch_1_L10_at_order_late_order": {
+  "value": 0.0,
+  "unit": "PHP",
+  "formula": "sensitivity: stretch 1, L 10, at order: Ordered late (planning), whole pesos by largest remainder (adds up to 1,083)",
+  "as_of": "2026-11-27 12:04"
+ },
+ "shown_sensitivity_stretch_1_L10_at_order_supplier": {
+  "value": 0.0,
+  "unit": "PHP",
+  "formula": "sensitivity: stretch 1, L 10, at order: Supplier (slower than usual), whole pesos by largest remainder (adds up to 1,083)",
+  "as_of": "2026-11-27 12:04"
+ },
+ "shown_sensitivity_stretch_1_L10_on_pickup_choice": {
   "value": 0.0,
   "unit": "PHP",
   "formula": "sensitivity: stretch 1, L 10, on pick-up (recorded): By choice, whole pesos by largest remainder (adds up to 1,083)",
   "as_of": "2026-11-27 12:04"
  },
- "shown_sensitivity_stretch_1_money": {
+ "shown_sensitivity_stretch_1_L10_on_pickup_money": {
   "value": 0.0,
   "unit": "PHP",
   "formula": "sensitivity: stretch 1, L 10, on pick-up (recorded): Waiting for money, whole pesos by largest remainder (adds up to 1,083)",
   "as_of": "2026-11-27 12:04"
  },
- "shown_sensitivity_stretch_1_unrecorded": {
+ "shown_sensitivity_stretch_1_L10_on_pickup_unrecorded": {
   "value": 1083.0,
   "unit": "PHP",
   "formula": "sensitivity: stretch 1, L 10, on pick-up (recorded): Not recorded, whole pesos by largest remainder (adds up to 1,083)",
   "as_of": "2026-11-27 12:04"
  },
- "shown_sensitivity_stretch_1_late_order": {
+ "shown_sensitivity_stretch_1_L10_on_pickup_late_order": {
   "value": 0.0,
   "unit": "PHP",
   "formula": "sensitivity: stretch 1, L 10, on pick-up (recorded): Ordered late (planning), whole pesos by largest remainder (adds up to 1,083)",
   "as_of": "2026-11-27 12:04"
  },
- "shown_sensitivity_stretch_1_supplier": {
+ "shown_sensitivity_stretch_1_L10_on_pickup_supplier": {
   "value": 0.0,
   "unit": "PHP",
   "formula": "sensitivity: stretch 1, L 10, on pick-up (recorded): Supplier (slower than usual), whole pesos by largest remainder (adds up to 1,083)",
   "as_of": "2026-11-27 12:04"
  },
- "shown_sensitivity_stretch_2_choice": {
+ "shown_sensitivity_stretch_2_L5_at_order_choice": {
+  "value": 0.0,
+  "unit": "PHP",
+  "formula": "sensitivity: stretch 2, L 5, at order (recorded): By choice, whole pesos by largest remainder (adds up to 1,362)",
+  "as_of": "2026-11-27 12:04"
+ },
+ "shown_sensitivity_stretch_2_L5_at_order_money": {
+  "value": 0.0,
+  "unit": "PHP",
+  "formula": "sensitivity: stretch 2, L 5, at order (recorded): Waiting for money, whole pesos by largest remainder (adds up to 1,362)",
+  "as_of": "2026-11-27 12:04"
+ },
+ "shown_sensitivity_stretch_2_L5_at_order_unrecorded": {
+  "value": 0.0,
+  "unit": "PHP",
+  "formula": "sensitivity: stretch 2, L 5, at order (recorded): Not recorded, whole pesos by largest remainder (adds up to 1,362)",
+  "as_of": "2026-11-27 12:04"
+ },
+ "shown_sensitivity_stretch_2_L5_at_order_late_order": {
+  "value": 1362.0,
+  "unit": "PHP",
+  "formula": "sensitivity: stretch 2, L 5, at order (recorded): Ordered late (planning), whole pesos by largest remainder (adds up to 1,362)",
+  "as_of": "2026-11-27 12:04"
+ },
+ "shown_sensitivity_stretch_2_L5_at_order_supplier": {
+  "value": 0.0,
+  "unit": "PHP",
+  "formula": "sensitivity: stretch 2, L 5, at order (recorded): Supplier (slower than usual), whole pesos by largest remainder (adds up to 1,362)",
+  "as_of": "2026-11-27 12:04"
+ },
+ "shown_sensitivity_stretch_2_L5_on_pickup_choice": {
+  "value": 0.0,
+  "unit": "PHP",
+  "formula": "sensitivity: stretch 2, L 5, on pick-up: By choice, whole pesos by largest remainder (adds up to 1,362)",
+  "as_of": "2026-11-27 12:04"
+ },
+ "shown_sensitivity_stretch_2_L5_on_pickup_money": {
+  "value": 0.0,
+  "unit": "PHP",
+  "formula": "sensitivity: stretch 2, L 5, on pick-up: Waiting for money, whole pesos by largest remainder (adds up to 1,362)",
+  "as_of": "2026-11-27 12:04"
+ },
+ "shown_sensitivity_stretch_2_L5_on_pickup_unrecorded": {
+  "value": 0.0,
+  "unit": "PHP",
+  "formula": "sensitivity: stretch 2, L 5, on pick-up: Not recorded, whole pesos by largest remainder (adds up to 1,362)",
+  "as_of": "2026-11-27 12:04"
+ },
+ "shown_sensitivity_stretch_2_L5_on_pickup_late_order": {
+  "value": 1362.0,
+  "unit": "PHP",
+  "formula": "sensitivity: stretch 2, L 5, on pick-up: Ordered late (planning), whole pesos by largest remainder (adds up to 1,362)",
+  "as_of": "2026-11-27 12:04"
+ },
+ "shown_sensitivity_stretch_2_L5_on_pickup_supplier": {
+  "value": 0.0,
+  "unit": "PHP",
+  "formula": "sensitivity: stretch 2, L 5, on pick-up: Supplier (slower than usual), whole pesos by largest remainder (adds up to 1,362)",
+  "as_of": "2026-11-27 12:04"
+ },
+ "shown_sensitivity_stretch_2_L7_at_order_choice": {
+  "value": 0.0,
+  "unit": "PHP",
+  "formula": "sensitivity: stretch 2, L 7, at order (recorded): By choice, whole pesos by largest remainder (adds up to 2,070)",
+  "as_of": "2026-11-27 12:04"
+ },
+ "shown_sensitivity_stretch_2_L7_at_order_money": {
+  "value": 14.0,
+  "unit": "PHP",
+  "formula": "sensitivity: stretch 2, L 7, at order (recorded): Waiting for money, whole pesos by largest remainder (adds up to 2,070)",
+  "as_of": "2026-11-27 12:04"
+ },
+ "shown_sensitivity_stretch_2_L7_at_order_unrecorded": {
+  "value": 0.0,
+  "unit": "PHP",
+  "formula": "sensitivity: stretch 2, L 7, at order (recorded): Not recorded, whole pesos by largest remainder (adds up to 2,070)",
+  "as_of": "2026-11-27 12:04"
+ },
+ "shown_sensitivity_stretch_2_L7_at_order_late_order": {
+  "value": 2056.0,
+  "unit": "PHP",
+  "formula": "sensitivity: stretch 2, L 7, at order (recorded): Ordered late (planning), whole pesos by largest remainder (adds up to 2,070)",
+  "as_of": "2026-11-27 12:04"
+ },
+ "shown_sensitivity_stretch_2_L7_at_order_supplier": {
+  "value": 0.0,
+  "unit": "PHP",
+  "formula": "sensitivity: stretch 2, L 7, at order (recorded): Supplier (slower than usual), whole pesos by largest remainder (adds up to 2,070)",
+  "as_of": "2026-11-27 12:04"
+ },
+ "shown_sensitivity_stretch_2_L7_on_pickup_choice": {
+  "value": 0.0,
+  "unit": "PHP",
+  "formula": "sensitivity: stretch 2, L 7, on pick-up: By choice, whole pesos by largest remainder (adds up to 2,070)",
+  "as_of": "2026-11-27 12:04"
+ },
+ "shown_sensitivity_stretch_2_L7_on_pickup_money": {
+  "value": 0.0,
+  "unit": "PHP",
+  "formula": "sensitivity: stretch 2, L 7, on pick-up: Waiting for money, whole pesos by largest remainder (adds up to 2,070)",
+  "as_of": "2026-11-27 12:04"
+ },
+ "shown_sensitivity_stretch_2_L7_on_pickup_unrecorded": {
+  "value": 0.0,
+  "unit": "PHP",
+  "formula": "sensitivity: stretch 2, L 7, on pick-up: Not recorded, whole pesos by largest remainder (adds up to 2,070)",
+  "as_of": "2026-11-27 12:04"
+ },
+ "shown_sensitivity_stretch_2_L7_on_pickup_late_order": {
+  "value": 2070.0,
+  "unit": "PHP",
+  "formula": "sensitivity: stretch 2, L 7, on pick-up: Ordered late (planning), whole pesos by largest remainder (adds up to 2,070)",
+  "as_of": "2026-11-27 12:04"
+ },
+ "shown_sensitivity_stretch_2_L7_on_pickup_supplier": {
+  "value": 0.0,
+  "unit": "PHP",
+  "formula": "sensitivity: stretch 2, L 7, on pick-up: Supplier (slower than usual), whole pesos by largest remainder (adds up to 2,070)",
+  "as_of": "2026-11-27 12:04"
+ },
+ "shown_sensitivity_stretch_2_L10_at_order_choice": {
+  "value": 0.0,
+  "unit": "PHP",
+  "formula": "sensitivity: stretch 2, L 10, at order (recorded): By choice, whole pesos by largest remainder (adds up to 3,132)",
+  "as_of": "2026-11-27 12:04"
+ },
+ "shown_sensitivity_stretch_2_L10_at_order_money": {
+  "value": 1076.0,
+  "unit": "PHP",
+  "formula": "sensitivity: stretch 2, L 10, at order (recorded): Waiting for money, whole pesos by largest remainder (adds up to 3,132)",
+  "as_of": "2026-11-27 12:04"
+ },
+ "shown_sensitivity_stretch_2_L10_at_order_unrecorded": {
+  "value": 0.0,
+  "unit": "PHP",
+  "formula": "sensitivity: stretch 2, L 10, at order (recorded): Not recorded, whole pesos by largest remainder (adds up to 3,132)",
+  "as_of": "2026-11-27 12:04"
+ },
+ "shown_sensitivity_stretch_2_L10_at_order_late_order": {
+  "value": 2056.0,
+  "unit": "PHP",
+  "formula": "sensitivity: stretch 2, L 10, at order (recorded): Ordered late (planning), whole pesos by largest remainder (adds up to 3,132)",
+  "as_of": "2026-11-27 12:04"
+ },
+ "shown_sensitivity_stretch_2_L10_at_order_supplier": {
+  "value": 0.0,
+  "unit": "PHP",
+  "formula": "sensitivity: stretch 2, L 10, at order (recorded): Supplier (slower than usual), whole pesos by largest remainder (adds up to 3,132)",
+  "as_of": "2026-11-27 12:04"
+ },
+ "shown_sensitivity_stretch_2_L10_on_pickup_choice": {
   "value": 0.0,
   "unit": "PHP",
   "formula": "sensitivity: stretch 2, L 10, on pick-up: By choice, whole pesos by largest remainder (adds up to 3,132)",
   "as_of": "2026-11-27 12:04"
  },
- "shown_sensitivity_stretch_2_money": {
+ "shown_sensitivity_stretch_2_L10_on_pickup_money": {
   "value": 0.0,
   "unit": "PHP",
   "formula": "sensitivity: stretch 2, L 10, on pick-up: Waiting for money, whole pesos by largest remainder (adds up to 3,132)",
   "as_of": "2026-11-27 12:04"
  },
- "shown_sensitivity_stretch_2_unrecorded": {
+ "shown_sensitivity_stretch_2_L10_on_pickup_unrecorded": {
   "value": 0.0,
   "unit": "PHP",
   "formula": "sensitivity: stretch 2, L 10, on pick-up: Not recorded, whole pesos by largest remainder (adds up to 3,132)",
   "as_of": "2026-11-27 12:04"
  },
- "shown_sensitivity_stretch_2_late_order": {
+ "shown_sensitivity_stretch_2_L10_on_pickup_late_order": {
   "value": 3132.0,
   "unit": "PHP",
   "formula": "sensitivity: stretch 2, L 10, on pick-up: Ordered late (planning), whole pesos by largest remainder (adds up to 3,132)",
   "as_of": "2026-11-27 12:04"
  },
- "shown_sensitivity_stretch_2_supplier": {
+ "shown_sensitivity_stretch_2_L10_on_pickup_supplier": {
   "value": 0.0,
   "unit": "PHP",
   "formula": "sensitivity: stretch 2, L 10, on pick-up: Supplier (slower than usual), whole pesos by largest remainder (adds up to 3,132)",

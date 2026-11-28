@@ -1,7 +1,7 @@
 # Memory: Cloud Factory engagement
 
-Last updated: 26 Nov 2026 (strategy review and planning-engine build list). Keep this file short. No personal data:
-buyers and staff are never named here.
+Last updated: 27 Nov 2026 (empty-shelf cost by cause). Keep this file short. No personal data: buyers and staff are
+never named here.
 
 ## Company profile
 
@@ -44,7 +44,8 @@ buyers and staff are never named here.
    from about ₱6.7k to ₱10.7k–11.1k a month (+₱4.0k–4.5k; +₱3.2k–4.7k in every test).
 2. **The 25 Nov payout emptied the fund.** It took 100% of Safe to distribute 14 minutes after Batch 3 used up the
    reserve. Batch 4 falls short in 100% of trials (median owner top-up ₱2,598), against 2% had the payout been held and
-   17% on pick-up terms.
+   17% on pick-up terms. These are at the rejected ₱6,224; at the adopted ₱5,664 they are 98.4%, 0.1% and 7.2% (27 Nov
+   below).
 3. **Credit costs timing, not bad debt.** It costs about ₱1,588 of profit on Batch 4 when the supplier is paid at
    order, against ₱58 of expected bad debt.
 4. **Line test.** XBLACK MAX earned ₱88 a day per flavour on the shelf, against ₱50 for Black TEO. Unproven: it was
@@ -81,6 +82,37 @@ buyers and staff are never named here.
 - Tax rate set to 0% on 10 Nov, to be confirmed with an accountant.
 - Stock is recorded at order, then Arrived.
 
+## Empty-shelf cost by cause (27 Nov)
+
+- **Question** (owner): should the opportunity cost count only the days with no stock on the shelf caused by poor
+  restock planning?
+- **Decision: two named numbers.** Yes for judging the ordering, no for the shop's cost. The owner sees it in the
+  scorecard preview before anything is built in the app.
+  - **Profit lost to empty shelves:** every hour with nothing on the shelf, whatever the cause, × the usual pace ×
+    profit a piece (the scorecard's `lost_profit_low`, now the headline). Called "about", not "at least": some buyers
+    wait for the next batch, and some may be lost. Thin shelves stay as "up to … if thin shelves lose sales too".
+  - **Ordering on time would have saved:** only the hours an order placed on time would have saved, shown with its
+    days. Its top end adds the hours with no order day.
+  - One plain line per empty stretch says why. Each empty minute takes the first cause that applies: supplier slower
+    than usual, waiting for money, no order day, ordered late. The rules are the last section of
+    `empty-shelf-causes.md`.
+- **November** (to 27 Nov 12:04 Manila): 4.09 days with nothing on the shelf, about ₱1,449 at ₱354 a day.
+  - Ordering on time would have saved ₱352 (1.0 day). Up to ₱1,435 with the 3.06 days of 6–9 Nov (₱1,083), for
+    which Batch 2 has no order day.
+  - Waiting for money ₱14 (0.04 day: money buyers still owed, not a payout); supplier ₱0. Up to ₱8,275 if thin
+    shelves lose sales too.
+  - Empty again since 26 Nov 11:16. Batch 3 went in on 25 Nov, 5.8 days after the fund could pay for it (19 Nov
+    12:11): about ₱2,070 by 2 Dec on the 7-day guess, ₱2,056 of it ordering late. It grows ₱14.75 an hour.
+- **Open questions for the owner:** when was Batch 2 ordered? Could the supplier have taken the Batch 3 order on
+  19 Nov?
+- **Known limits:**
+  - the 7-day delivery is the starting guess, not measured yet (Batch 3's arrival is the first);
+  - the money test uses the order as placed, so a bigger order makes waiting for money longer;
+  - typing times set the minute boundaries (the 25 seconds and 55 minutes of waiting for money).
+- **Corrected by the math check:** pick-up terms alone wouldn't have saved the plan's 12–14 Nov date on its own
+  5-day delivery (the fund was about ₱1,300 to ₱2,700 short on 17–18 Nov). The scorecard SQL first handed over had
+  seven edge-case defects; the final rules fix them.
+
 ## Open questions
 
 1. How many days does delivery really take? Batch 3's arrival is the first real figure.
@@ -89,6 +121,7 @@ buyers and staff are never named here.
 4. Rent, pay and owner time to record; the tax status and rate (accountant).
 5. The credit rule (who, one open tab, Very late stops credit) and a write-off policy.
 6. Line strategy (rotate or re-order the fastest), and devices (do they fit the pods? plan them on their own?).
+7. Batch 2's order day, and whether the supplier could have taken the Batch 3 order on 19 Nov (empty-shelf entry).
 
 ## Files
 
@@ -97,3 +130,5 @@ buyers and staff are never named here.
   branch studies.
 - `analysis/strategy-review.md`, `strategy-review.py`, `strategy-review_metrics.json`: the synthesis, build list and
   Planning page.
+- `analysis/empty-shelf-causes.md`, `.py`, `_metrics.json`: the empty-shelf cost by cause, corrected 27 Nov, with the
+  scorecard's final rules. `empty-shelf-causes-check.*` is its math check; `empty-shelf-causes-review.md` its review.
